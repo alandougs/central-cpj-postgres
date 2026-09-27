@@ -10,6 +10,16 @@ Se a porta estiver ocupada, defina `CPJ_HOST_PORT=8766` no `.env` e abra <http:/
 
 O PostgreSQL usa o volume Docker `cpj-postgres`. Os documentos e arquivos operacionais ficam em `data/`, montado no container da aplicação; eles não entram na imagem nem no Git.
 
+## Migrar casos existentes
+
+Depois que a stack estiver ativa, sincronize os `caso.json` do workspace com o PostgreSQL:
+
+```powershell
+docker exec cpj-trabalho-app-1 python /app/ferramentas/migrar-json-postgres.py --workspace /workspace
+```
+
+O comando é idempotente, não apaga os arquivos locais e atualiza apenas a tabela `cases`. Use `--dry-run` para listar os casos sem conectar ou gravar.
+
 ## Operação
 
 ```powershell
