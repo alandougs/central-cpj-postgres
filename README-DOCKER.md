@@ -18,7 +18,7 @@ Depois que a stack estiver ativa, sincronize os `caso.json` do workspace com o P
 docker exec cpj-trabalho-app-1 python /app/ferramentas/migrar-json-postgres.py --workspace /workspace
 ```
 
-O comando é idempotente, não apaga os arquivos locais e atualiza apenas a tabela `cases`. Use `--dry-run` para listar os casos sem conectar ou gravar.
+O comando é idempotente, não apaga os arquivos locais e atualiza as tabelas `cases` e `documents` (Markdown de extração, análise e relatórios). Use `--dry-run` para listar os casos sem conectar ou gravar.
 
 ## Operação
 

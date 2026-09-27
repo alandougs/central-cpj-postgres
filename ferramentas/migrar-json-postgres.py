@@ -8,6 +8,7 @@ Uso:
     python ferramentas/migrar-json-postgres.py --dry-run
 """
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -31,6 +32,14 @@ def casos(workspace):
             raise ValueError(f"Caso invalido: {arquivo} ({exc})") from exc
 
 
+def documentos(pasta, case_id):
+    for raiz, kind in (("01-extracao", "transcricao"), ("02-analise", "analise"), ("03-relatorios", "relatorio")):
+        for arquivo in sorted((pasta / raiz).rglob("*.md")) if (pasta / raiz).is_dir() else []:
+            conteudo = arquivo.read_text(encoding="utf-8", errors="replace")
+            digest = hashlib.sha256(conteudo.encode("utf-8")).hexdigest()
+            yield case_id, str(arquivo.relative_to(pasta)).replace(os.sep, "/"), kind, digest, conteudo
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", default=os.environ.get("CPJ_WORKSPACE", str(RAIZ)))
@@ -45,9 +54,14 @@ def main():
     db = Database()
     if not db.health():
         raise RuntimeError("PostgreSQL nao respondeu")
-    for _, case in encontrados:
+    total_documentos = 0
+    for arquivo, case in encontrados:
         db.upsert_case(case)
+        for case_id, caminho, kind, digest, conteudo in documentos(arquivo.parent, case["id"]):
+            db.upsert_document(case_id, caminho, kind, digest, conteudo)
+            total_documentos += 1
     print(f"Casos sincronizados no PostgreSQL: {len(encontrados)}")
+    print(f"Documentos Markdown sincronizados: {total_documentos}")
     return 0
 
 

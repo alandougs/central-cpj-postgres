@@ -43,3 +43,18 @@ class Database:
         with self.connect() as conn:
             row = conn.execute("SELECT data FROM cases WHERE id = %s", (case_id,)).fetchone()
         return row["data"] if row else None
+
+    def upsert_document(self, case_id, path, kind, sha256, content, page=0, metadata=None):
+        with self.connect() as conn:
+            conn.execute(
+                """INSERT INTO documents
+                   (case_id, path, kind, sha256, content, page, metadata, updated_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, now())
+                   ON CONFLICT (case_id, path, page) DO UPDATE SET
+                     kind = EXCLUDED.kind, sha256 = EXCLUDED.sha256,
+                     content = EXCLUDED.content, metadata = EXCLUDED.metadata,
+                     updated_at = now()""",
+                (case_id, path, kind, sha256, content, page,
+                 json.dumps(metadata or {}, ensure_ascii=False)),
+            )
+            conn.commit()
