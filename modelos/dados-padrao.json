@@ -1,0 +1,11 @@
+{
+  "investigador": "Alan Douglas Silva",
+  "cargo": "Investigador de Polícia",
+  "unidade": "Central de Polícia Judiciária",
+  "seccional": "Delegacia Seccional de Polícia de Presidente Prudente",
+  "departamento": "DEINTER 8",
+  "cidade_uf": "Presidente Prudente, SP",
+  "delegado_padrao": null,
+  "modelo_docx": "C:\\CPJ - TRABALHO\\modelos\\MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx",
+  "observacao": "delegado_padrao: preencher com o nome do(a) Delegado(a) destinatário(a) habitual; se null, a minuta usa {Nome do Delegado}."
+}

@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cpj}
+      POSTGRES_USER: ${POSTGRES_USER:-cpj}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
+    volumes:
+      - cpj-postgres:/var/lib/postgresql/data
+      - ./deploy/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      CPJ_WORKSPACE: /workspace
+      CPJ_PORT: 8765
+      CPJ_HOST: 0.0.0.0
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cpj}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cpj}
+    ports:
+      - "${CPJ_BIND:-127.0.0.1}:${CPJ_HOST_PORT:-8765}:8765"
+    volumes:
+      - ${CPJ_DATA_DIR:-./data}:/workspace
+
+volumes:
+  cpj-postgres:

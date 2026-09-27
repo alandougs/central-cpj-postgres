@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Central CPJ</title>
+<style>
+:root{color-scheme:light;--page:#f6f6f3;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--line:#e1e0d9;--ring:rgba(11,11,11,.10);
+--acc:#2a78d6;--acc-soft:#e8f1fc;--good:#0ca30c;--warn:#b77900;--warn-soft:#fff4d6;--crit:#d03b3b;--crit-soft:#fde8e8;--mark:#fff1b8}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#fff;--ink2:#c3c2b7;
+--line:#2c2c2a;--ring:rgba(255,255,255,.10);--acc:#3987e5;--acc-soft:#13243a;--warn:#fab219;--warn-soft:#3a2d05;--crit-soft:#3d1414;--mark:#5a4a00}}
+:root[data-theme="dark"]{color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--line:#2c2c2a;--ring:rgba(255,255,255,.10);
+--acc:#3987e5;--acc-soft:#13243a;--warn:#fab219;--warn-soft:#3a2d05;--crit-soft:#3d1414;--mark:#5a4a00}
+*{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+[hidden]{display:none!important}
+header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--page) 90%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.hd{max-width:1280px;margin:0 auto;padding:10px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.logo{font-weight:700;font-size:16px;white-space:nowrap}.logo small{color:var(--muted);font-weight:500;margin-left:6px}
+nav{display:flex;gap:2px;flex:1;flex-wrap:wrap}nav button{border:0;background:transparent;color:var(--ink2);padding:7px 11px;border-radius:8px;font:inherit;cursor:pointer;position:relative}
+nav button.on{background:var(--acc-soft);color:var(--acc);font-weight:600}nav button .n{background:var(--crit);color:#fff;border-radius:999px;font-size:10.5px;padding:0 6px;margin-left:5px}
+.chip{font-size:12px;color:var(--ink2);border:1px solid var(--ring);border-radius:999px;padding:3px 10px;white-space:nowrap;cursor:pointer;background:var(--surface)}
+.user{font-size:12.5px;color:var(--ink2);white-space:nowrap}
+main{max-width:1280px;margin:0 auto;padding:20px 16px 60px}section.aba{display:none}section.aba.on{display:block}
+h2{font-size:19px;margin:0 0 2px}h3{font-size:15px;margin:0 0 10px}h4{font-size:13px;margin:0 0 8px;color:var(--ink2);font-weight:600}
+.sub{color:var(--ink2);margin:0 0 16px;font-size:13px}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:16px}
+.g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media(max-width:900px){.g2,.g3{grid-template-columns:1fr}}
+.stack>*+*{margin-top:14px}
+label{display:block;font-size:12.5px;color:var(--ink2);margin:0 0 4px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--page);border:1px solid var(--ring);border-radius:9px;padding:7px 10px}
+textarea{resize:vertical}input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:-1px}
+.campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px 12px;margin-bottom:12px}
+.btn{font:inherit;border:1px solid var(--ring);background:var(--surface);color:var(--ink);border-radius:9px;padding:7px 13px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--acc)}.btn.pri{background:var(--acc);color:#fff;border-color:transparent;font-weight:600}.btn.dan{color:var(--crit)}
+.btn:disabled{opacity:.5;cursor:default}.btn.sm{padding:3px 9px;font-size:12.5px}
+.acoes{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--ink2);cursor:pointer}
+.drop.on{border-color:var(--acc);background:var(--acc-soft);color:var(--acc)}.drop b{color:var(--ink)}
+.lista-arq{margin:8px 0 0;padding:0;list-style:none;font-size:13px}.lista-arq li{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--line)}
+.prog{height:7px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}.prog>i{display:block;height:100%;width:0;background:var(--acc);border-radius:4px;transition:width .3s}
+.prog.ind>i{width:30%!important;animation:ind 1.2s infinite ease-in-out}@keyframes ind{0%{margin-left:-30%}100%{margin-left:100%}}
+.job{padding:9px 0;border-bottom:1px solid var(--line)}.job:last-child{border:0}.job .l1{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.muted{color:var(--muted);font-size:12.5px}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--ring);white-space:nowrap}
+.badge i{width:7px;height:7px;border-radius:50%;background:var(--muted)}.b-ok i{background:var(--good)}.b-run i{background:var(--acc)}.b-err i{background:var(--crit)}.b-wait i{background:var(--warn)}
+.pz-vencido{background:var(--crit-soft);color:var(--crit);border-color:transparent;font-weight:600}.pz-hoje{background:var(--warn-soft);color:var(--warn);border-color:transparent;font-weight:600}
+.pz-proximo{color:var(--warn);border-color:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--ink2);font-weight:600;font-size:12.5px}tbody.clic tr{cursor:pointer}tbody.clic tr:hover{background:var(--acc-soft)}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.barra{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}.barra input{flex:1;min-width:220px}.barra select{width:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:14px 16px;cursor:default}.kpi.clic{cursor:pointer}.kpi.clic:hover{border-color:var(--acc)}
+.kpi .l{color:var(--ink2);font-size:12.5px}.kpi .kv{font-size:28px;font-weight:650;letter-spacing:-.02em}.kpi.alerta .kv{color:var(--crit)}.kpi.atencao .kv{color:var(--warn)}
+.lista-os div.it{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer}.lista-os div.it:hover{color:var(--acc)}
+.arqs{font-size:13px;max-height:320px;overflow:auto}.arqs a,.lk{color:var(--acc);text-decoration:none;cursor:pointer}.arqs div{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed var(--line)}
+code{background:var(--page);border:1px solid var(--ring);border-radius:6px;padding:1px 6px;font-size:12.5px}
+.res{padding:10px 0;border-bottom:1px solid var(--line)}.res .meta{font-size:12.5px;color:var(--ink2);margin-bottom:3px}.res .tx{white-space:pre-wrap}
+mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 2px}.aviso{background:var(--acc-soft);border-radius:9px;padding:8px 12px;margin-bottom:10px;font-size:13px}
+.aviso.alerta{background:var(--crit-soft)}
+iframe{width:100%;height:calc(100vh - 190px);border:0;border-radius:14px;background:var(--surface)}
+.vazio{color:var(--muted);text-align:center;padding:22px 0}
+.seg{display:inline-flex;border:1px solid var(--ring);border-radius:9px;overflow:hidden;margin-bottom:12px}.seg button{border:0;background:var(--surface);padding:6px 14px;font:inherit;color:var(--ink2);cursor:pointer}.seg button.on{background:var(--acc);color:#fff}
+.v{cursor:pointer;border-bottom:1px dotted var(--acc)}.v:hover{color:var(--acc)}
+.tela{min-height:100vh;display:grid;place-items:center;padding:16px}.tela .card{width:100%;max-width:380px}.tela h1{font-size:20px;margin:0 0 4px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}
+.modal .card{width:100%;max-width:1100px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--page);padding:9px 16px;border-radius:10px;opacity:0;transition:.2s;pointer-events:none;z-index:30;max-width:90vw}
+details summary{cursor:pointer;color:var(--ink2);font-size:13px}
+.st-conf{background:var(--crit-soft);color:var(--crit);border-color:transparent;font-weight:600}.st-ind{color:var(--warn);border-color:var(--warn)}
+.st-hist{color:var(--ink2)}.st-neg{color:var(--muted);border-style:dashed}
+</style></head><body>
+
+<!-- LOGIN -->
+<div class="tela" id="tela-login" hidden><form class="card" id="f-login"><h1>Central CPJ</h1><p class="sub">Investigação · fraudes e estelionatos</p>
+<label>Usuário, CPF, nome completo ou e-mail</label><input name="login" autocomplete="username" required><div style="height:10px"></div>
+<label>Senha</label><input name="senha" type="password" autocomplete="current-password" required>
+<div class="acoes"><button class="btn pri" style="width:100%">Entrar</button></div><div class="muted" id="msg-login" style="margin-top:8px"></div></form></div>
+
+<!-- CONFIGURAÇÃO INICIAL -->
+<div class="tela" id="tela-setup" hidden><form class="card" id="f-setup"><h1>Configuração inicial</h1>
+<p class="sub">Crie o usuário administrador. Depois, em Sistema → Usuários, cadastre delegados, escrivães e investigadores.</p>
+<label>Nome completo</label><input name="nome" required><div style="height:8px"></div>
+<label>Usuário (login)</label><input name="login" required placeholder="ex.: alan.silva"><div style="height:8px"></div>
+<label>Cargo</label><input name="cargo" placeholder="ex.: Investigador de Polícia"><div style="height:8px"></div>
+<label>CPF (para entrar também pelo CPF)</label><input name="cpf" inputmode="numeric"><div style="height:8px"></div>
+<label>E-mail institucional</label><input name="email" type="email"><div style="height:8px"></div>
+<label>Senha (mín. 8, letras e números)</label><input name="senha" type="password" required autocomplete="new-password"><div style="height:8px"></div>
+<label>Repita a senha</label><input name="senha2" type="password" required autocomplete="new-password">
+<div class="acoes"><button class="btn pri" style="width:100%">Criar administrador</button></div><div class="muted" id="msg-setup" style="margin-top:8px"></div></form></div>
+
+<!-- TROCA OBRIGATÓRIA DE SENHA -->
+<div class="tela" id="tela-trocar" hidden><form class="card" id="f-trocar"><h1>Troque sua senha</h1>
+<p class="sub">Sua senha é temporária. Por segurança dos dados sigilosos, defina uma nova senha (mínimo 8 caracteres, com letras e números).</p>
+<label>Senha atual</label><input name="atual" type="password" required autocomplete="current-password"><div style="height:8px"></div>
+<label>Nova senha</label><input name="nova" type="password" required autocomplete="new-password"><div style="height:8px"></div>
+<label>Repita a nova senha</label><input name="nova2" type="password" required autocomplete="new-password">
+<div class="acoes"><button class="btn pri" style="width:100%">Salvar nova senha</button></div><div class="acoes"><button type="button" class="btn sm" id="b-sair2">Sair</button></div><div class="muted" id="msg-trocar" style="margin-top:8px"></div></form></div>
+
+<!-- APLICAÇÃO -->
+<div id="app" hidden>
+<header><div class="hd"><div class="logo">Central CPJ<small>fraudes e estelionatos</small></div>
+<nav id="nav"></nav>
+<span class="chip" id="chip-tarefas" title="Tarefas em andamento">tarefas: —</span>
+<span class="user" id="u-nome"></span><button class="btn sm" id="b-sair">Sair</button><button class="btn sm" id="tema" title="Tema claro/escuro">◐</button></div></header>
+<main>
+
+<section class="aba" id="inicio"><h2>Início</h2><p class="sub" id="ini-sub"></p>
+<div class="kpis" id="ini-kpis"></div>
+<div class="g3" id="ini-listas"></div>
+<div class="card" style="margin-top:14px" id="ini-proc-card"><h4>Em processamento</h4><div id="ini-proc"></div></div>
+</section>
+
+<section class="aba" id="nova"><h2>Nova Ordem de Serviço</h2><p class="sub">Cadastre a O.S. e envie o PDF do IP (ou peças). O sistema organiza pela O.S. e processa automaticamente: OCR, Markdown por página, tabelas em CSV e indexação. O investigador é avisado no Início.</p>
+<div class="g2"><form class="card" id="f-os">
+<input type="hidden" name="caso_id">
+<div class="campos"><div><label>Ordem de Serviço</label><input name="os" placeholder="Detectada no IP; ou informe ex.: 123/2026"></div>
+<div><label>Boletim de Ocorrência</label><input name="bo"></div><div><label>Inquérito Policial</label><input name="inquerito"></div>
+<div><label>Processo</label><input name="processo"></div><div><label>Natureza</label><input name="natureza" placeholder="Detectada no documento"></div>
+<div><label>Requisitante (Delegado)</label><input name="requisitante"></div><div><label>Prazo</label><input name="prazo" type="date"></div>
+<div><label>Escrivão do feito</label><input name="escrivao" placeholder="Nome indicado no IP/processo"></div>
+<div><label>Prioridade</label><select name="prioridade"><option value="normal">normal</option><option value="urgente">urgente</option><option value="reu-preso">réu preso</option></select></div>
+<div><label>Recebido em</label><input name="recebido" type="date"></div></div>
+<label>Determinação da autoridade (o que a O.S. pede)</label><textarea name="determinacao" rows="3" placeholder="Ex.: identificar e qualificar os titulares das contas recebedoras; percorrer o caminho do dinheiro…"></textarea>
+<div style="height:10px"></div>
+<div class="drop" id="drop"><b>Arraste o PDF do IP aqui</b><br>ou clique para escolher · PDF, MD, CSV<input type="file" id="arqs" multiple accept=".pdf,.md,.csv" hidden></div>
+<ul class="lista-arq" id="lista-arq"></ul><div class="muted" id="dados-os-auto">Selecione o IP/processo: os dados serão detectados. O que faltar será tentado após o OCR; você pode completar manualmente.</div><div class="prog" id="prog-up" hidden><i></i></div><div class="muted" id="prog-up-tx"></div>
+<div class="acoes"><button type="button" class="btn" id="b-salvar-os">Salvar dados</button><button type="submit" class="btn pri" id="b-enviar">Processar PDF</button><button type="button" class="btn" id="b-nova-os">Novo cadastro</button></div><div class="muted" id="msg-up" role="status" aria-live="polite"></div></form>
+<div class="card"><div style="display:flex;justify-content:space-between"><h4>Fila de processamento</h4><span class="muted" id="ocr-lang"></span></div><div id="fila"></div></div></div>
+</section>
+
+<section class="aba" id="casos"><h2>Casos</h2><p class="sub">Ordenados por urgência de prazo. Pesquise por O.S., BO, IP, processo, partes ou modalidade.</p>
+<div class="barra"><input id="q-casos" placeholder="Buscar…"><select id="st-casos"><option value="">todos os status</option></select>
+<select id="pz-casos"><option value="">todos os prazos</option><option value="vencido">vencidos</option><option value="hoje">vencem hoje</option><option value="proximo">próximos 3 dias</option></select><label style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="meus-casos" style="width:auto;flex:none;min-width:0"> meus casos</label></div>
+<div class="card" style="padding:4px 10px"><table><thead><tr><th>O.S.</th><th>BO / IP</th><th>Partes</th><th>Modalidade</th><th>Status</th><th>Prazo</th><th class="n">Págs.</th></tr></thead><tbody id="t-casos" class="clic"></tbody></table><div id="casos-vazio" class="vazio" hidden>Nenhum caso</div></div>
+<div id="detalhe" style="margin-top:14px"></div></section>
+
+<section class="aba" id="pesquisa"><h2>Pesquisa</h2><p class="sub">Relacional: combine nome, mãe, pai, CPF, telefone, CNPJ, endereço… em qualificações extraídas dos autos e nas bases de consulta. Clique em um valor para cruzá-lo. Bases de consulta servem só para pesquisa — não são fonte do relatório.</p>
+<div class="seg"><button data-m="pessoas" class="on">Pessoas (relacional)</button><button data-m="texto">Texto nos documentos</button></div>
+<div id="m-pessoas"><form class="card" id="f-pessoas"><div class="campos">
+<div><label>Nome</label><input name="nome"></div><div><label>Nome da mãe</label><input name="mae"></div><div><label>Nome do pai</label><input name="pai"></div>
+<div><label>CPF</label><input name="cpf"></div><div><label>RG</label><input name="rg"></div><div><label>Telefone</label><input name="telefone"></div>
+<div><label>CNPJ</label><input name="cnpj"></div><div><label>Empresa</label><input name="empresa"></div><div><label>Endereço</label><input name="endereco"></div>
+<div><label>Processo / IP / TC</label><input name="processo"></div><div><label>BO</label><input name="bo"></div><div><label>Placa</label><input name="placa"></div>
+<div><label>Mandado de prisão</label><select name="mandado_sel"><option value="">qualquer situação</option><option value="tem">tem ou teve (exclui negados)</option><option value="confirmado">em aberto / vigente</option><option value="historico">histórico (cumprido, revogado…)</option><option value="indeterminado">mencionado sem situação</option><option value="negado">negado (“sem mandado”)</option></select></div>
+<div><label>Medida cautelar / protetiva</label><select name="cautelar_sel"><option value="">qualquer situação</option><option value="tem">tem ou teve (exclui negados)</option><option value="confirmado">vigente</option><option value="historico">histórico (revogada, encerrada…)</option><option value="indeterminado">mencionada sem situação</option><option value="negado">negada (“sem medida”)</option></select></div>
+<div><label>Qualquer campo</label><input name="texto"></div><div><label>Origem</label><select name="origem"><option value="">autos + consulta</option><option value="caso">só autos</option><option value="consulta">só bases de consulta</option></select></div></div>
+<p class="muted" style="margin:0 0 10px">A situação de mandados e cautelares é uma <b>interpretação automática do texto de origem</b>, a conferir; ela não comprova vigência. Confira sempre no sistema oficial.</p>
+<div class="acoes" style="margin:0"><button class="btn pri">Pesquisar</button><button type="button" class="btn" id="b-limpar-p">Limpar</button></div></form>
+<div id="r-pessoas" style="margin-top:12px"></div><div id="r-vinc" style="margin-top:12px"></div></div>
+<div id="m-texto" hidden><form class="barra" id="f-busca"><input id="q-busca" placeholder="Ex.: falsa central · 123.456.789-00 · chave pix aleatória"><select id="tp-busca"><option value="">todos</option><option value="transcricao">transcrição</option><option value="analise">análise</option><option value="relatorio">relatório final</option><option value="referencia">referência</option><option value="acervo">acervo</option></select><button class="btn pri">Buscar</button></form><div id="r-busca"></div></div>
+</section>
+
+<section class="aba" id="estatisticas"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px"><div><h2>Estatísticas</h2><p class="sub" style="margin:0">Produção e indicadores (KPIs).</p></div>
+<div class="acoes" style="margin:0"><a class="btn" href="/api/planilha">Baixar planilha (CSV)</a><button class="btn" id="b-ir-export" data-perm="dados">Exportar banco de dados</button></div></div>
+<iframe id="if-painel" title="Painel"></iframe></section>
+
+<section class="aba" id="sistema"><h2>Sistema</h2><p class="sub">Tarefas, dados, bases, referências, inteligência artificial, usuários e rede.</p>
+<div class="stack">
+<div class="card"><h3>Tarefas</h3><div id="lista-tarefas"></div></div>
+<div class="g2" data-perm="dados">
+ <div class="card"><h3>Exportar banco de dados</h3><p class="muted">Pacote ZIP estruturado (com verificação de integridade) para backup ou para abrir em outro computador. Contém dados sigilosos: guarde em local autorizado.</p>
+  <label><input type="radio" name="modo" value="dados" checked style="width:auto"> Só dados (leve: sem os PDFs originais)</label>
+  <label><input type="radio" name="modo" value="completo" style="width:auto"> Completo (inclui PDFs originais)</label>
+  <label><input type="checkbox" id="exp-modelo" style="width:auto"> Incluir modelo DOCX (contém timbre e assinatura)</label>
+  <div class="acoes"><button class="btn pri" id="b-exportar">Exportar</button></div><h4 style="margin-top:12px">Pacotes gerados</h4><div id="lista-exp" class="arqs"></div></div>
+ <div class="card"><h3>Importar banco de dados</h3><p class="muted">Envie um pacote exportado pela Central. Os arquivos são verificados; casos novos são acrescentados e casos existentes <b>não</b> são sobrescritos.</p>
+  <input type="file" id="imp-zip" accept=".zip"><div class="prog" id="prog-imp" hidden><i></i></div><div class="acoes"><button class="btn pri" id="b-importar">Importar</button><span class="muted" id="msg-imp"></span></div></div>
+</div>
+<div class="g2" data-perm="dados">
+ <div class="card"><h3>Bases de consulta / dados de investigados</h3><p class="muted">Excel, CSV, Word, PDF, TXT ou texto colado (ex.: Muralha Paulista, fichas de sistemas). O sistema reconhece qualificação (nome, mãe, pai, CPF, RG, telefone, endereço, empresa, placa) e antecedentes (processos/IP/TC, BOs, mandados de prisão, medidas cautelares). <b>Somente pesquisa</b> — nunca fonte do relatório.</p>
+  <div class="campos"><div><label>Nome da base</label><input id="bc-nome" placeholder="ex.: Muralha Paulista - set/2026"></div><div><label>Arquivo</label><input type="file" id="bc-arq" accept=".xlsx,.xls,.xlsm,.csv,.docx,.pdf,.txt"></div></div>
+  <div class="prog" id="prog-bc" hidden><i></i></div><div class="acoes" style="margin-top:0"><button class="btn pri" id="b-bc">Importar arquivo</button><span class="muted" id="msg-bc"></span></div>
+  <details style="margin-top:10px"><summary>Colar texto</summary><p class="muted">Cole a ficha copiada de outro sistema. Linhas no formato “Campo: valor” (Nome:, Mãe:, CPF:…) são reconhecidas; cada “Nome:” inicia um novo registro.</p>
+   <textarea id="bc-texto" rows="7" placeholder="Nome: ...&#10;Mãe: ...&#10;CPF: ...&#10;Mandado de prisão: ..."></textarea><div class="acoes"><button class="btn pri" id="b-bc-colar">Importar texto colado</button><span class="muted" id="msg-bc-colar"></span></div></details>
+  <div id="lista-bc" style="margin-top:10px"></div></div>
+ <div class="card"><h3>Relatórios de referência</h3><p class="muted">Relatórios já elaborados (seus ou de colegas) para calibrar o estilo. Peso 5 = modelo exemplar. Usados só como exemplo de estrutura e estilo.</p>
+  <div class="campos"><div><label>Autor *</label><input id="rf-autor"></div><div><label>Modalidade</label><select id="rf-mod"></select></div><div><label>Peso (qualidade)</label><select id="rf-peso"><option>5</option><option>4</option><option selected>3</option><option>2</option><option>1</option></select></div>
+  <div><label>Arquivo</label><input type="file" id="rf-arq" accept=".docx,.pdf,.md"></div></div><label>Observações</label><input id="rf-obs">
+  <div class="prog" id="prog-rf" hidden><i></i></div><div class="acoes"><button class="btn pri" id="b-rf">Importar referência</button><input id="rf-filtro" placeholder="filtrar por autor" style="width:180px"><span class="muted" id="msg-rf"></span></div><div id="lista-rf" style="margin-top:10px"></div></div>
+</div>
+<div class="card" data-perm="ia"><h3>Inteligência artificial — agentes de plantão</h3>
+ <p class="muted">Os botões de IA (na ficha do caso) criam um pedido na fila. O primeiro agente de plantão <b>ocioso e aprovado</b> executa, sem internet e usando somente os documentos do caso. Agentes: sessões de chat guiadas pelo <code>PROMPT-AGENTE-PLANTAO.md</code> (Claude, Codex, Antigravity) ou automáticos pelo <code>ferramentas\Agente de plantao.bat</code>. Agente novo só trabalha depois de aprovado pelo administrador.</p>
+ <div id="plantao-resumo" class="muted" style="margin-bottom:6px"></div><div id="plantao-agentes" style="overflow:auto"></div>
+ <h4 style="margin-top:14px">Agente embutido da Central (Claude Code neste computador)</h4><div id="ia-status" class="muted">verificando…</div>
+ <div class="acoes"><button class="btn" id="b-claude-login">Entrar no Claude</button><button class="btn sm" id="b-claude-rec">Verificar novamente</button></div></div>
+<div class="card" data-perm="usuarios"><h3>Preenchimento automático da O.S.</h3>
+ <p class="muted">Primeiro o sistema tenta extrair os dados por script, depois pelo texto reconhecido por OCR. A IA local complementa campos vazios com fonte; você confere e completa o que faltar.</p>
+ <label>Modelo local já instalado no Ollama</label><input id="os-modelo-local" placeholder="Nome do modelo instalado; vazio desativa a etapa de IA">
+ <div class="acoes"><button class="btn" id="b-os-modelo">Salvar modelo</button><span class="muted" id="os-modelo-msg"></span></div></div>
+<div class="card" data-perm="usuarios"><h3>Usuários</h3><div id="lista-usuarios"></div>
+ <form id="f-usuario" style="margin-top:12px"><div class="campos"><div><label>Login</label><input name="login" required></div><div><label>Nome</label><input name="nome" required></div>
+ <div><label>Perfil</label><select name="perfil"><option value="investigador">Investigador de Polícia</option><option value="delegado">Delegado de Polícia</option><option value="escrivao">Escrivão de Polícia</option><option value="admin">Administrador</option></select></div>
+ <div><label>Cargo</label><input name="cargo" placeholder="ex.: Investigador de Polícia"></div>
+ <div><label>CPF (em branco = manter)</label><input name="cpf" inputmode="numeric" autocomplete="off"></div><div><label>E-mail institucional</label><input name="email" type="email" autocomplete="off"></div>
+ <div><label>Senha (em branco = manter)</label><input name="senha" type="password" autocomplete="new-password"></div><div><label>Situação</label><select name="ativo"><option value="1">ativo</option><option value="0">desativado</option></select></div></div>
+ <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" name="temporaria" style="width:auto"> Senha temporária: o usuário deverá trocá-la no primeiro acesso (permite senha provisória simples)</label>
+ <div class="acoes" style="margin:0"><button class="btn pri">Salvar usuário</button><button type="button" class="btn" id="b-usr-novo">Novo (limpar)</button><span class="muted" id="msg-usr"></span></div></form></div>
+<div class="card" data-perm="usuarios"><h3>Perfis e permissões</h3><p class="muted">Marque o que cada perfil pode fazer. O Administrador sempre tem acesso total.</p><div id="matriz" style="overflow:auto"></div>
+ <div class="acoes"><button class="btn pri" id="b-perfis">Salvar permissões</button><button class="btn" id="b-perfis-padrao">Restaurar padrão</button><span class="muted" id="msg-perfis"></span></div></div>
+<div class="card" data-perm="rede"><h3>Acesso pela rede local</h3><div id="rede-info" class="muted"></div>
+ <label><input type="checkbox" id="rede-on" style="width:auto"> Permitir acesso de outros computadores da rede (delegados/escrivães)</label>
+ <label><input type="checkbox" id="rede-https" style="width:auto" checked> Usar HTTPS (recomendado)</label>
+ <div class="acoes"><button class="btn pri" id="b-rede">Salvar</button><span class="muted" id="msg-rede"></span></div>
+ <p class="muted">Ao salvar, feche e abra a Central de novo. Na primeira vez o Windows perguntará se libera o acesso no firewall: autorize apenas “Redes privadas/domínio”. Confirme a política com o setor de TI da unidade. Nos outros computadores, o navegador mostrará um aviso de certificado (autoassinado) na primeira vez.</p></div>
+<div class="card" data-perm="usuarios"><h3>Auditoria</h3><details><summary>Últimas 300 ações</summary><div id="lista-aud" class="arqs" style="max-height:360px;margin-top:8px"></div></details></div>
+<div class="card"><h3>Minha pasta</h3><p class="muted">Sua pasta pessoal na Central. Relatórios FINAL das O.S. que você cadastrou chegam aqui automaticamente; baixe-os para o seu computador.</p><div id="minha-pasta" class="arqs"></div><div class="acoes"><button class="btn sm" id="b-abrir-pasta" hidden>Abrir no Explorer</button></div></div>
+<div class="card"><h3>Minha conta</h3><div class="muted" id="conta-info" style="margin-bottom:8px"></div>
+<form id="f-conta"><div class="campos"><div><label>E-mail institucional (também serve para entrar)</label><input name="email" type="email" autocomplete="email"></div><div><label>Cargo</label><input name="cargo"></div></div>
+<div class="acoes" style="margin:0 0 14px"><button class="btn">Salvar dados</button><span class="muted" id="msg-conta"></span></div></form>
+<form id="f-senha"><div class="campos"><div><label>Senha atual</label><input name="atual" type="password" required autocomplete="current-password"></div><div><label>Nova senha</label><input name="nova" type="password" required autocomplete="new-password"></div></div><div class="acoes" style="margin:0"><button class="btn">Trocar senha</button><span class="muted" id="msg-senha"></span></div></form></div>
+</div></section>
+</main></div>
+
+<div class="modal" id="editor" hidden><div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><h3 style="margin:0" id="ed-tit">Editar minuta</h3>
+<div class="acoes" style="margin:0"><button class="btn" id="ed-cancelar">Fechar</button><button class="btn pri" id="ed-salvar">Salvar nova versão e gerar DOCX</button></div></div>
+<p class="muted">Edite o texto; o DOCX sai no seu modelo (timbre, rodapé e assinatura). Negrito: **texto**. Subtítulo: linha iniciada por ###. Lista: "- ". Tabela: linhas | a | b |.</p>
+<div class="campos" id="ed-meta"></div>
+<div class="stack" id="ed-secoes"></div><div class="muted" id="ed-msg" style="margin-top:8px"></div></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const dt=s=>s?String(s).slice(0,10).split("-").reverse().join("/"):"—", kb=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
+const enc=encodeURIComponent, hoje=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+function toast(t){const e=$("#toast");e.textContent=t;e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(()=>e.style.opacity=0,3000)}
+let S={usuario:null,perms:[]}; const pode=p=>S.perms.includes(p);
+async function api(u,o={}){o.headers=Object.assign({"X-CPJ":"1"},o.headers||{});if(o.json!==undefined){o.method=o.method||"POST";o.headers["Content-Type"]="application/json";o.body=JSON.stringify(o.json);delete o.json}
+ const r=await fetch(u,o);const j=await r.json().catch(()=>({}));if(r.status===401&&j.login){iniciar();throw new Error(j.erro)}if(r.status===428){mostrarTrocar();throw new Error(j.erro)}if(!r.ok)throw new Error(j.erro||r.statusText);return j}
+function mostrarTrocar(){["#tela-login","#tela-setup","#app"].forEach(s=>$(s).hidden=true);$("#tela-trocar").hidden=false}
+function enviar(u,fd,barra,tx){return new Promise((ok,ko)=>{const x=new XMLHttpRequest();x.open("POST",u);x.setRequestHeader("X-CPJ","1");
+ if(barra){barra.hidden=false;barra.firstElementChild.style.width="0"}
+ x.upload.onprogress=e=>{if(e.lengthComputable&&barra){barra.firstElementChild.style.width=(100*e.loaded/e.total)+"%";if(tx)tx.textContent=`enviando ${kb(e.loaded)} de ${kb(e.total)}`}};
+ x.onload=()=>{let j={};try{j=JSON.parse(x.responseText)}catch{}if(barra)barra.hidden=true;if(tx)tx.textContent="";x.status===200?ok(j):ko(new Error(j.erro||"Falha no envio"))};
+ x.onerror=()=>{if(barra)barra.hidden=true;ko(new Error("Falha de conexão"))};x.send(fd)})}
+const barraHTML=(p,ind)=>`<div class="prog${ind?" ind":""}"><i style="width:${Math.max(0,Math.min(100,p||0))}%"></i></div>`;
+function badge(st){const m={processando:["b-run","processando"],executando:["b-run","executando"],na_fila:["b-wait","na fila"],erro:["b-err","erro"],concluido:["b-ok","concluído"],concluida:["b-ok","concluída"],cancelada:["","cancelada"]}[st]||["",st||"—"];return `<span class="badge ${m[0]}"><i></i>${m[1]}</span>`}
+function prazoBadge(c){if(!c.prazo)return '<span class="muted">—</span>';const s=c.situacao_prazo,t={vencido:"⛔ vencido",hoje:"⚠ vence hoje",proximo:"⏳ "+dt(c.prazo)}[s];return t?`<span class="badge pz-${s}">${t}</span>`:`<span class="muted">${dt(c.prazo)}</span>`}
+$("#tema").onclick=()=>{const r=document.documentElement,d=r.dataset.theme==="dark"||(!r.dataset.theme&&matchMedia("(prefers-color-scheme: dark)").matches);r.dataset.theme=d?"light":"dark"};
+
+// ---------------- sessão
+async function iniciar(){const s=await api("/api/sessao");S={usuario:s.usuario,perms:s.permissoes};
+ $("#tela-login").hidden=!!s.usuario||!s.configurado;$("#tela-setup").hidden=s.configurado;$("#app").hidden=!s.usuario;
+ if(!s.configurado&&!s.local){$("#tela-setup").innerHTML='<div class="card"><h1>Central CPJ</h1><p>A configuração inicial deve ser feita no computador onde a Central está instalada.</p></div>'}
+ $("#tela-trocar").hidden=true;
+ if(s.usuario&&s.usuario.trocar_senha){mostrarTrocar();return}
+ if(s.usuario)montar()}
+$("#f-trocar").onsubmit=async e=>{e.preventDefault();const f=e.target;if(f.nova.value!==f.nova2.value){$("#msg-trocar").textContent="As senhas não conferem.";return}
+ try{await api("/api/minha-senha",{json:{atual:f.atual.value,nova:f.nova.value}});f.reset();iniciar()}catch(x){$("#msg-trocar").textContent=x.message}};
+$("#b-sair2").onclick=async()=>{await api("/api/sair",{method:"POST"});iniciar()};
+$("#f-login").onsubmit=async e=>{e.preventDefault();const f=e.target;try{await api("/api/entrar",{json:{login:f.login.value,senha:f.senha.value}});f.senha.value="";iniciar()}catch(x){$("#msg-login").textContent=x.message}};
+$("#f-setup").onsubmit=async e=>{e.preventDefault();const f=e.target;if(f.senha.value!==f.senha2.value){$("#msg-setup").textContent="As senhas não conferem.";return}
+ try{await api("/api/configurar",{json:{nome:f.nome.value,login:f.login.value,senha:f.senha.value,cargo:f.cargo.value,cpf:f.cpf.value,email:f.email.value}});iniciar()}catch(x){$("#msg-setup").textContent=x.message}};
+$("#b-sair").onclick=async()=>{await api("/api/sair",{method:"POST"});location.hash="";iniciar()};
+
+const ABAS=[["inicio","Início","casos"],["nova","Nova O.S.","os"],["casos","Casos","casos"],["pesquisa","Pesquisa","pesquisa"],["estatisticas","Estatísticas","estatisticas"],["sistema","Sistema",null]];
+const MOD=["","falso-parente","whatsapp-clonado","falsa-central","boleto-falso","falso-vendedor","falso-intermediario","falso-investimento","falso-emprego","emprestimo-falso","golpe-afetivo","falso-sequestro","maquininha","fraude-cartao","fraude-documental","outro"];
+const ST=["recebido","extraido","em_analise","analisado","minuta","entregue","devolvido","arquivado"];
+function montar(){$("#u-nome").textContent=`${S.usuario.nome} · ${S.usuario.cargo||S.usuario.perfil_nome}`;
+ $("#nav").innerHTML=ABAS.filter(a=>!a[2]||pode(a[2])).map(a=>`<button data-a="${a[0]}">${a[1]}<span class="n" id="n-${a[0]}" hidden></span></button>`).join("");
+ $$("#nav button").forEach(b=>b.onclick=()=>abrirAba(b.dataset.a));
+ $$("[data-perm]").forEach(e=>e.hidden=!pode(e.dataset.perm));
+ $("#st-casos").innerHTML='<option value="">todos os status</option>'+ST.map(s=>`<option>${s}</option>`).join("");
+ $("#rf-mod").innerHTML=MOD.map(m=>`<option value="${m}">${m||"—"}</option>`).join("");
+ $("#f-os").recebido.value=hoje();if(S.usuario.perfil==="delegado")$("#f-os").requisitante.value=S.usuario.nome;
+ const ini=location.hash.slice(1);abrirAba(ABAS.some(a=>a[0]===ini&&(!a[2]||pode(a[2])))?ini:(pode("casos")?"inicio":"nova"));ciclo()}
+function abrirAba(a){$$("#nav button").forEach(x=>x.classList.toggle("on",x.dataset.a===a));$$("section.aba").forEach(s=>s.classList.toggle("on",s.id===a));history.replaceState(null,"","#"+a);
+ if(a==="inicio")carregarInicio();if(a==="casos")carregarCasos();if(a==="nova")atualizarFila();if(a==="estatisticas")$("#if-painel").src="/painel?t="+Date.now();if(a==="sistema")carregarSistema()}
+let tc=0,nCiclo=0;async function ciclo(){clearTimeout(tc);if(!S.usuario)return;nCiclo++;try{await atualizarTarefas();if($("#nova").classList.contains("on")||$("#inicio").classList.contains("on"))await atualizarFila();if(casoAberto)await atualizarIA();
+ if(nCiclo%3===0&&$("#sistema").classList.contains("on"))await carregarAgentes()}catch(e){}tc=setTimeout(ciclo,1600)}
+
+// ---------------- início
+async function carregarInicio(){const p=await api("/api/pendencias");
+ $("#ini-sub").textContent=`${S.usuario.nome} — ${new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"})}`;
+ const k=(l,v,cls,f)=>`<div class="kpi ${cls||""} ${f?"clic":""}" ${f?`data-f="${f}"`:""}><div class="l">${l}</div><div class="kv">${v}</div></div>`;
+ const aberto=Object.values(p.em_andamento).reduce((a,b)=>a+b,0);
+ $("#ini-kpis").innerHTML=(pode("trabalho")?k("O.S. novas",p.novas.length,p.novas.length?"atencao":""):"")+k("Prazos vencidos",p.vencidos.length,p.vencidos.length?"alerta":"","vencido")+k("Vencem hoje",p.hoje.length,p.hoje.length?"atencao":"","hoje")+
+  k("Próximos 3 dias",p.proximos.length,"","proximo")+k("Em aberto",aberto)+k("Entregues hoje",p.entregues_hoje)+k("Entregues no mês",p.entregues_mes);
+ $$("#ini-kpis .kpi.clic").forEach(e=>e.onclick=()=>{abrirAba("casos");$("#pz-casos").value=e.dataset.f;carregarCasos()});
+ const lista=(t,arr,vazio)=>`<div class="card"><h4>${t}</h4><div class="lista-os">${arr.length?arr.slice(0,12).map(c=>`<div class="it" data-id="${esc(c.id)}"><span><b>${esc(c.ordem_servico||c.id)}</b> <span class="muted">${esc(c.bo||c.inquerito||"")}</span></span>${prazoBadge(c)}</div>`).join(""):`<div class="vazio">${vazio}</div>`}</div></div>`;
+ let h="";if(pode("trabalho"))h+=lista("O.S. novas (não vistas)",p.novas,"Nenhuma O.S. nova");
+ h+=lista("Prazos críticos",[...p.vencidos,...p.hoje,...p.proximos],"Nenhum prazo crítico");
+ h+=pode("trabalho")?`<div class="card"><h4>Andamento</h4><table><tbody>${Object.entries(p.em_andamento).map(([s,n])=>`<tr><td>${s}</td><td class="n">${n}</td></tr>`).join("")}</tbody></table></div>`:lista("Minhas O.S.",p.minhas,"Você ainda não cadastrou O.S.");
+ $("#ini-listas").innerHTML=h;$$("#ini-listas .it").forEach(e=>e.onclick=()=>{abrirAba("casos");abrirCaso(e.dataset.id)});
+ if(pode("trabalho")){$("#n-inicio").hidden=!(p.novas.length+p.vencidos.length+p.hoje.length);$("#n-inicio").textContent=p.novas.length+p.vencidos.length+p.hoje.length}
+ $("#ini-proc").innerHTML=p.processando.length?p.processando.map(c=>`<div class="job"><div class="l1"><b>${esc(c.ordem_servico||c.id)}</b><span class="muted">${c.progresso_proc??0}%</span></div>${barraHTML(c.progresso_proc)}</div>`).join(""):'<div class="vazio">Nada em processamento</div>'}
+
+// ---------------- nova O.S.
+let arquivos=[];const inp=$("#arqs"),drop=$("#drop");drop.onclick=()=>inp.click();inp.onchange=()=>addArqs(inp.files);
+["dragenter","dragover"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add("on")}));["dragleave","drop"].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove("on")}));
+drop.addEventListener("drop",ev=>addArqs(ev.dataTransfer.files));
+let deteccaoOS=0,autoOS={};
+async function detectarOS(){const versao=++deteccaoOS,f=$("#f-os"),tx=$("#dados-os-auto");
+ for(const [k,v] of Object.entries(autoOS))if(f.elements[k]?.value===v)f.elements[k].value="";autoOS={};
+ const fd=new FormData();const selecionados=arquivos.filter(a=>/\.(pdf|md)$/i.test(a.name)&&a.size<=64*1024*1024);
+ if(!selecionados.length){tx.textContent="Envie o documento para tentar o preenchimento após OCR, ou complete os campos manualmente.";return}
+ selecionados.forEach(a=>fd.append("arquivos",a));tx.textContent="Detectando dados no IP/processo…";
+ try{const j=await enviar("/api/os/detectar",fd);if(versao!==deteccaoOS)return;const fontes=[];
+  for(const [k,d] of Object.entries(j.campos)){const nome=k==="ordem_servico"?"os":k;const campo=f.elements[nome];if(campo&&!campo.value.trim()){campo.value=d.valor;autoOS[nome]=d.valor;campo.title=`${d.documento} · pág. ${d.pagina}: ${d.trecho}`;fontes.push(`${nome}: ${d.documento}, pág. ${d.pagina}`)}}
+  tx.textContent=(fontes.length?"Preenchidos: "+fontes.join("; ")+". ":"Nenhum campo novo detectado. ")+(Object.keys(j.conflitos).length?"Dados divergentes: "+Object.keys(j.conflitos).join(", ")+". ":"")+"Os campos restantes serão tentados após o OCR e pela IA local configurada.";
+ }catch(x){if(versao===deteccaoOS)tx.textContent="Prévia indisponível. Envie o documento para processamento e OCR."}}
+function addArqs(fl){for(const f of fl)if(/\.(pdf|md|csv)$/i.test(f.name)&&!arquivos.some(a=>a.name===f.name&&a.size===f.size))arquivos.push(f);listaArqs();detectarOS()}
+function listaArqs(){$("#lista-arq").innerHTML=arquivos.map((f,i)=>`<li><span>${esc(f.name)}</span><span class="muted">${kb(f.size)} · <a class="lk" data-i="${i}">remover</a></span></li>`).join("");$$("#lista-arq a").forEach(a=>a.onclick=()=>{arquivos.splice(+a.dataset.i,1);listaArqs();detectarOS()})}
+async function salvarRecebimento(processar){const f=$("#f-os");if(!f.reportValidity())return;
+ if(processar&&!arquivos.length){$("#msg-up").textContent="Selecione o PDF do IP/processo antes de clicar em Processar PDF.";return}
+ ++deteccaoOS;const fd=new FormData(f);if(processar)arquivos.forEach(a=>fd.append("arquivos",a));else fd.append("somente_cadastro","1");
+ const botoes=[$("#b-enviar"),$("#b-salvar-os"),$("#b-nova-os")];botoes.forEach(b=>b.disabled=true);
+ try{const j=await enviar("/api/os",fd,processar?$("#prog-up"):null,processar?$("#prog-up-tx"):null);f.elements.caso_id.value=j.caso;
+  $("#msg-up").innerHTML=`Dados ${j.criado?"salvos":"atualizados"} · <b>${esc(j.caso)}</b>${processar?" · "+j.recebidos.length+" arquivo(s) na fila":". Os arquivos selecionados serão enviados quando clicar em Processar PDF."}${j.ignorados.length?" · ignorados: "+esc(j.ignorados.join("; ")):""}`;
+  if(processar){arquivos=[];autoOS={};listaArqs();$("#dados-os-auto").textContent="Processamento iniciado. Confira os campos preenchidos e pendentes na ficha do caso.";atualizarFila().catch(x=>toast(x.message))}
+ }catch(x){$("#msg-up").textContent=x.message}finally{botoes.forEach(b=>b.disabled=false)}}
+$("#f-os").onsubmit=e=>{e.preventDefault();salvarRecebimento(true)};
+$("#b-salvar-os").onclick=()=>salvarRecebimento(false);
+$("#b-nova-os").onclick=()=>{++deteccaoOS;$("#f-os").reset();$("#f-os").elements.caso_id.value="";$("#f-os").recebido.value=hoje();arquivos=[];autoOS={};listaArqs();$("#msg-up").textContent="Novo cadastro. Selecione o IP/processo ou preencha os campos.";$("#dados-os-auto").textContent="Os dados serão detectados ao selecionar o documento."};
+async function atualizarFila(){const j=await api("/api/fila");$("#ocr-lang").textContent=j.idioma_ocr?`OCR: ${j.idioma_ocr==="por"?"português":j.idioma_ocr}`:"";
+ $("#fila").innerHTML=j.trabalhos.length?j.trabalhos.map(t=>{const run=t.status==="processando";return `<div class="job"><div class="l1"><div><b>${esc(t.caso)}</b> · ${esc(t.arquivo)}</div>${badge(t.status)}</div>
+ <div class="muted">${esc(t.etapa||"")}${run&&t.paginas?` · página ${t.pagina_atual||0} de ${t.paginas}`:(t.paginas?` · ${t.paginas} págs.`:"")}${t.erro?` · <span style="color:var(--crit)">${esc(t.erro)}</span>`:""}</div>${run||t.status==="na_fila"?barraHTML(t.progresso):""}</div>`}).join(""):'<div class="vazio">Nada na fila</div>'}
+
+// ---------------- casos
+let tq;$("#q-casos").oninput=()=>{clearTimeout(tq);tq=setTimeout(carregarCasos,250)};$("#st-casos").onchange=carregarCasos;$("#pz-casos").onchange=carregarCasos;$("#meus-casos").onchange=carregarCasos;
+async function carregarCasos(){const cs=await api(`/api/casos?q=${enc($("#q-casos").value)}&status=${$("#st-casos").value}&prazo=${$("#pz-casos").value}&meus=${$("#meus-casos").checked?1:""}`);
+ $("#casos-vazio").hidden=!!cs.length;$("#t-casos").innerHTML=cs.map(c=>`<tr data-id="${esc(c.id)}"><td><b>${esc(c.ordem_servico||c.id)}</b>${!c.visto&&pode("trabalho")?' <span class="badge b-wait"><i></i>nova</span>':""}${c.prioridade&&c.prioridade!=="normal"?` <span class="badge pz-hoje">${esc(c.prioridade)}</span>`:""}</td>
+ <td>${esc(c.bo||"—")}<br><span class="muted">${esc(c.inquerito||"")}</span></td><td>${esc([...c.vitimas,...c.investigados].slice(0,3).join("; ")||"—")}</td><td>${esc(c.modalidade||"—")}</td>
+ <td>${c.processando?badge("processando")+barraHTML(c.progresso_proc):(c.erro?badge("erro"):esc(c.status))}</td><td>${prazoBadge(c)}</td><td class="n">${c.paginas??"—"}</td></tr>`).join("");
+ $$("#t-casos tr").forEach(tr=>tr.onclick=()=>abrirCaso(tr.dataset.id))}
+let casoAberto=null;
+const NOMES_OS={ordem_servico:"O.S.",bo:"BO",inquerito:"IP",processo:"Processo",natureza:"Natureza",requisitante:"Delegado requisitante",escrivao:"Escrivão do feito",prazo:"Prazo",determinacao:"Determinação"};
+const ESTADO_IA_OS={modelo_local_nao_instalado:"modelo local não instalado; complete manualmente",modelo_remoto_bloqueado:"modelo remoto bloqueado; selecione um modelo local",aguardando_ocr:"aguardando extração/OCR",dispensada:"campos detectados por script",concluida:"IA local consultada",ia_local_nao_configurada:"modelo local ainda não configurado",ia_local_indisponivel:"IA local indisponível; complete os campos pendentes",sem_evidencia:"dados não localizados; complete manualmente",resposta_invalida:"IA sem resposta válida; complete manualmente"};
+async function abrirCaso(id){casoAberto=id;const j=await api("/api/casos/"+enc(id)),c=j.caso,r=j.resumo,T=j.trabalho;
+ const campo=(k,l,v,t="text")=>`<div><label>${l}</label><input data-k="${k}" type="${t}" value="${esc(v??"")}"></div>`;
+ const sel=(k,l,ops,v)=>`<div><label>${l}</label><select data-k="${k}">${ops.map(o=>`<option ${o===(v||"")?"selected":""}>${o}</option>`).join("")}</select></div>`;
+ const podeGestao=T||c.criado_por===S.usuario.login||S.usuario.perfil==="delegado";
+ let dados=`${campo("ordem_servico","Ordem de Serviço",c.ordem_servico)}${campo("bo","BO",c.bo)}${campo("inquerito","Inquérito Policial",c.inquerito)}${campo("processo","Processo",c.processo)}
+  ${campo("requisitante","Requisitante",c.requisitante)}${campo("escrivao","Escrivão do feito",c.escrivao)}${campo("prazo","Prazo",c.prazo,"date")}${sel("prioridade","Prioridade",["normal","urgente","reu-preso"],c.prioridade)}`;
+ if(T){const rs=await api("/api/responsaveis");dados+=`<div><label>Responsável</label><select data-k="responsavel"><option value="">— não atribuído —</option>${rs.map(u=>`<option value="${esc(u.login)}" ${u.login===c.responsavel?"selected":""}>${esc(u.nome)}</option>`).join("")}</select></div>`}
+ if(T)dados+=`${campo("natureza","Natureza",c.natureza)}${sel("modalidade","Modalidade",MOD,c.modalidade)}${sel("status","Status",ST,c.status)}${sel("resultado.autoria","Autoria",["","identificada","indicios","nao_identificada"],(c.resultado||{}).autoria)}
+  ${campo("vitimas","Vítima(s)",(c.vitimas||[]).join(", "))}${campo("investigados","Investigado(s)",(c.investigados||[]).join(", "))}${campo("financeiro.valor_rastreado","Valor rastreado (R$)",(c.financeiro||{}).valor_rastreado)}`;
+ const docs=(c.documentos||[]).map(d=>`<tr><td>${esc(d.arquivo)}</td><td class="n">${d.paginas??"—"}</td><td>${esc(Object.entries(d.metodos||{}).map(([k,v])=>k+": "+v).join(", ")||d.tipo||"—")}</td></tr>`).join("");
+ const proc=(j.processamento.trabalhos||[]).map(t=>`<div class="job"><div class="l1"><span>${esc(t.arquivo)} · <span class="muted">${esc(t.etapa||"")}</span></span><span>${badge(t.status)} ${T?`<button class="btn sm" data-rep="${esc(t.doc)}">reprocessar</button>`:""}</span></div>${["processando","na_fila"].includes(t.status)?barraHTML(t.progresso):""}${t.erro?`<div class="muted" style="color:var(--crit)">${esc(t.erro)}</div>`:""}</div>`).join("");
+ const link=a=>`/arquivo/${enc(id)}/${a.split("/").map(enc).join("/")}`;
+ const rels=j.relatorios.map(f=>{const a="03-relatorios/"+f.arquivo,dx=f.arquivo.endsWith(".docx");return `<tr><td><a class="lk" href="${link(a)}" target="_blank">${esc(f.arquivo)}</a></td><td>${esc(f.tipo)}</td><td class="muted">${esc(f.modificado.replace("T"," "))}</td>
+  <td>${T&&f.tipo==="minuta"?`<button class="btn sm" data-edit="${esc(f.arquivo)}">editar</button> <button class="btn sm" data-gdocx="${esc(f.arquivo)}">gerar DOCX</button>`:""}${T&&dx?`<button class="btn sm" data-pdf="${esc(f.arquivo)}">PDF</button> ${j.local!==false?`<button class="btn sm" data-word="${esc(a)}">abrir no Word</button>`:""} ${f.tipo!=="final"?`<button class="btn sm" data-final="${esc(f.arquivo)}">definir FINAL</button>`:""}`:""}</td></tr>`}).join("");
+ const baixa=c.status==="entregue"?`<div>${badge("concluido")} Baixa em <b>${dt((c.datas||{}).entregue)}</b> · origem: ${esc((c.baixa||{}).origem||"—")} ${T?'<button class="btn sm" id="b-desfazer">Desfazer baixa</button>':""}</div>`
+   :(T?`<div class="acoes" style="margin:0"><input type="date" id="d-baixa" style="width:auto" value="${hoje()}"><button class="btn sm" id="b-baixa">Dar baixa (entregue)</button></div>`:'<span class="muted">Em andamento</span>');
+ $("#detalhe").innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h3 style="margin:0">${esc(c.ordem_servico||id)} <span class="muted">(${esc(id)})</span> ${prazoBadge(r)}</h3>
+ <div class="acoes" style="margin:0">${T?'<button class="btn sm" id="b-pasta">Abrir pasta</button><button class="btn sm" id="b-cruzar">Cruzar com outros casos</button>':""}${podeGestao?'<button class="btn sm pri" id="b-salvar">Salvar</button>':""}</div></div>
+ <div class="campos" style="margin-top:12px">${dados}</div>${c.preenchimento_os?`<div class="muted">Preenchimento automático: ${esc(ESTADO_IA_OS[c.preenchimento_os.ia]||"aguardando processamento")}. Pendentes: ${esc((c.preenchimento_os.pendentes||[]).map(k=>NOMES_OS[k]||k).join(", ")||"nenhum")}. ${Object.keys(c.preenchimento_os.conflitos||{}).length?"Dados divergentes: "+esc(Object.keys(c.preenchimento_os.conflitos).map(k=>NOMES_OS[k]||k).join(", "))+". Confira no IP antes de preencher.":""}<details><summary>Fontes dos dados preenchidos</summary>${Object.entries(c.preenchimento_os.fontes||{}).map(([k,d])=>`<p>${esc(NOMES_OS[k]||k)}: ${esc(d.documento)}, pág. ${d.pagina} — ${esc(d.trecho)} (${esc(d.metodo)})</p>`).join("")}</details></div>`:""}<label>Determinação da autoridade</label><textarea data-k="determinacao" rows="2" ${podeGestao?"":"disabled"}>${esc(c.determinacao||"")}</textarea>
+ ${T?`<div class="card" style="margin-top:14px;background:var(--page)"><h4>Inteligência artificial</h4><div class="acoes" style="margin:0 0 8px">
+  <button class="btn" data-ia="analisar">Analisar IP</button><button class="btn pri" data-ia="relatorio">Gerar relatório</button><button class="btn" data-ia="completo">Análise + relatório</button><button class="btn" data-ia="revisar">Revisar relatório</button></div>
+  <div class="campos" style="margin:0 0 8px;grid-template-columns:minmax(0,2fr) minmax(0,1fr)"><div><input id="ia-obs" placeholder="Observações para o agente (opcional): diligências que você fez, consultas, foco pedido pelo delegado…"></div>
+  <div><select id="ia-agente" title="Quem executa"><option value="">Qualquer agente ocioso (recomendado)</option></select></div></div>
+  <div class="muted" id="ia-agentes-resumo"></div><div id="ia-painel" style="margin-top:8px"></div></div>`:""}
+ <div class="g2" style="margin-top:14px"><div>
+  <h4>Relatórios</h4>${rels?`<table><tbody>${rels}</tbody></table>`:'<div class="muted">Nenhum relatório ainda.</div>'}${T?'<div class="acoes"><button class="btn sm" id="b-nova-minuta">Escrever/editar minuta</button></div>':""}
+  <h4 style="margin-top:14px">Produção</h4>${baixa}
+  <h4 style="margin-top:14px">Documentos</h4>${docs?`<table><thead><tr><th>Arquivo</th><th class="n">Págs.</th><th>Métodos</th></tr></thead><tbody>${docs}</tbody></table>`:'<div class="muted">—</div>'}
+  <h4 style="margin-top:14px">Processamento</h4>${proc||'<div class="muted">—</div>'}<div id="cruz"></div></div>
+ <div><h4>Arquivos</h4><div class="arqs">${j.arquivos.map(a=>`<div><a href="${link(a.caminho)}" target="_blank">${esc(a.caminho)}</a><span class="muted">${kb(a.tamanho)}</span></div>`).join("")||'<span class="muted">—</span>'}</div></div></div></div>`;
+ $("#detalhe").scrollIntoView({behavior:"smooth"});
+ const post=(u,b)=>api(`/api/casos/${enc(id)}${u}`,{json:b||{}});
+ if($("#b-salvar"))$("#b-salvar").onclick=async()=>{const d={};$$("#detalhe [data-k]").forEach(e=>{if(!e.disabled)d[e.dataset.k]=e.value});try{await post("",d);toast("Salvo");carregarCasos()}catch(x){toast(x.message)}};
+ if($("#b-pasta"))$("#b-pasta").onclick=()=>post("/abrir",{}).catch(x=>toast(x.message));
+ if($("#b-cruzar"))$("#b-cruzar").onclick=async()=>{const r=await api("/api/cruzar/"+enc(id));$("#cruz").innerHTML=`<h4 style="margin-top:14px">Conexões com outros casos</h4>`+(r.length?`<table><tbody>${r.map(x=>`<tr><td>${esc(x.tipo)}</td><td>${esc(x.valor)}</td><td>também em <b>${esc(x.outro_caso)}</b> (págs. ${esc(x.paginas)})</td></tr>`).join("")}</tbody></table><div class="muted">Indícios de vinculação a verificar nos originais.</div>`:'<div class="muted">Nenhuma conexão encontrada.</div>')};
+ $$("#detalhe [data-rep]").forEach(b=>b.onclick=async()=>{await post(`/reprocessar/${enc(b.dataset.rep)}`);toast("Reenviado para a fila")});
+ if($("#b-baixa"))$("#b-baixa").onclick=async()=>{try{await post("/baixa",{data:$("#d-baixa").value});toast("Baixa registrada");abrirCaso(id);carregarCasos()}catch(x){toast(x.message)}};
+ if($("#b-desfazer"))$("#b-desfazer").onclick=async()=>{if(!confirm("Desfazer a baixa? O caso volta para 'minuta'."))return;await post("/baixa",{desfazer:true});abrirCaso(id);carregarCasos()};
+ $$("#detalhe [data-ia]").forEach(b=>b.onclick=async()=>{const acao=b.dataset.ia;if(!confirm(`Acionar o agente de IA: ${b.textContent}? Ele trabalha sozinho e pode levar vários minutos.`))return;
+  try{await post("/ia",{acao,observacoes:$("#ia-obs").value,agente:$("#ia-agente")?$("#ia-agente").value:""});toast("Pedido enviado ao plantão");atualizarIA()}catch(x){toast(x.message)}});
+ if($("#ia-agente"))carregarAgentes().then(g=>{if(!g||!$("#ia-agente"))return;
+  $("#ia-agente").innerHTML='<option value="">Qualquer agente ocioso (recomendado)</option>'+g.agentes.filter(a=>a.aprovado).map(a=>`<option value="${esc(a.nome)}">${esc(a.nome)} — ${esc(a.estado)}</option>`).join("");
+  $("#ia-agentes-resumo").innerHTML=g.ociosos?`${g.ociosos} agente(s) ocioso(s) de plantão.`:`<span style="color:var(--warn)">Nenhum agente ocioso agora: o pedido aguardará na fila até um agente ficar disponível.</span>`});
+ $$("#detalhe [data-edit]").forEach(b=>b.onclick=()=>abrirEditor(id,b.dataset.edit));if($("#b-nova-minuta"))$("#b-nova-minuta").onclick=()=>abrirEditor(id,null);
+ $$("#detalhe [data-gdocx]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{const r=await post("/docx",{minuta:b.dataset.gdocx});toast(`DOCX gerado: ${r.docx}${r.pendentes?" · pendentes: "+r.pendentes:""}`);abrirCaso(id)}catch(x){toast(x.message)}b.disabled=false});
+ $$("#detalhe [data-pdf]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{const r=await post("/pdf",{docx:b.dataset.pdf});toast("PDF gerado: "+r.pdf);abrirCaso(id)}catch(x){alert(x.message)}b.disabled=false});
+ $$("#detalhe [data-word]").forEach(b=>b.onclick=()=>post("/abrir",{sub:b.dataset.word}).catch(x=>toast(x.message)));
+ $$("#detalhe [data-final]").forEach(b=>b.onclick=async()=>{if(!confirm(`Definir ${b.dataset.final} como relatório FINAL? Isso registra a entrega (baixa na produção).`))return;try{await post("/final",{docx:b.dataset.final});toast("Relatório FINAL definido e baixa registrada");abrirCaso(id);carregarCasos()}catch(x){toast(x.message)}});
+ atualizarIA()}
+async function atualizarIA(){if(!casoAberto||!$("#ia-painel"))return;const ts=(await api("/api/tarefas")).filter(t=>t.tipo==="ia"&&t.caso===casoAberto).slice(0,3);
+ $("#ia-painel").innerHTML=ts.map(t=>{const run=["executando","na_fila"].includes(t.status);return `<div class="job"><div class="l1"><span><b>${esc(t.titulo)}</b></span><span>${badge(t.status)} ${run?`<button class="btn sm dan" data-cancel="${t.id}">cancelar</button>`:""}</span></div>
+  ${run?barraHTML(t.progresso)+`<div class="muted">${t.progresso}% · ${esc(t.etapa)} · ${esc(t.detalhe||"")}</div>`:""}${t.erro?`<div class="muted" style="color:var(--crit)">${esc(t.erro)}</div>`:""}
+  ${t.resultado&&t.resultado.resumo?`<details><summary>Resumo do agente</summary><div class="res tx">${esc(t.resultado.resumo)}</div></details>`:""}</div>`}).join("");
+ $$("#ia-painel [data-cancel]").forEach(b=>b.onclick=async()=>{if(confirm("Cancelar a tarefa de IA?")){await api(`/api/tarefas/${b.dataset.cancel}/cancelar`,{method:"POST"});atualizarIA()}});
+ if(ts[0]&&ts[0].status==="concluida"&&!ts[0]._visto&&$("#detalhe").dataset.ult!==ts[0].id){$("#detalhe").dataset.ult=ts[0].id;abrirCaso(casoAberto)}}
+
+// ---------------- editor de minuta
+const META=[["ordem_servico","Ordem de Serviço"],["referencia","Referência"],["natureza","Natureza"],["investigados","Investigado(s)"],["vitimas","Vítima(s)"],["local","Local"],["data_fatos","Data dos fatos"],["local_data","Local e data"],["data_rodape","Data do rodapé"],["delegado","Delegado(a) destinatário(a)"]];
+let edCaso=null;
+async function abrirEditor(id,arq){edCaso=id;const m=await api(`/api/casos/${enc(id)}/minuta${arq?"?arquivo="+enc(arq):""}`);
+ $("#ed-tit").textContent=`Minuta — ${id}${m.arquivo?" (base: "+m.arquivo+")":" (nova)"}`;
+ $("#ed-meta").innerHTML=META.map(([k,l])=>`<div><label>${l}</label><input data-m="${k}" value="${esc(m.meta[k]||"")}"></div>`).join("");
+ $("#ed-secoes").innerHTML=Object.entries(m.secoes).map(([s,t])=>`<div><label><b>${s}</b></label><textarea data-s="${s}" rows="${s==="DILIGÊNCIAS REALIZADAS"?16:7}">${esc(t)}</textarea></div>`).join("");
+ $("#ed-msg").textContent="";$("#editor").hidden=false}
+$("#ed-cancelar").onclick=()=>{$("#editor").hidden=true};
+$("#ed-salvar").onclick=async()=>{const meta={},secoes={};$$("#ed-meta [data-m]").forEach(e=>meta[e.dataset.m]=e.value);$$("#ed-secoes [data-s]").forEach(e=>secoes[e.dataset.s]=e.value);
+ $("#ed-salvar").disabled=true;$("#ed-msg").innerHTML=barraHTML(0,true)+"gerando…";
+ try{const r=await api(`/api/casos/${enc(edCaso)}/minuta`,{json:{meta,secoes,gerar_docx:true}});$("#editor").hidden=true;toast(`Salvo ${r.arquivo}${r.docx?" · DOCX "+r.docx:""}${r.erro_docx?" · erro DOCX: "+r.erro_docx:""}`);abrirCaso(edCaso)}
+ catch(x){$("#ed-msg").textContent=x.message}$("#ed-salvar").disabled=false};
+
+// ---------------- pesquisa
+$$(".seg button").forEach(b=>b.onclick=()=>{$$(".seg button").forEach(x=>x.classList.toggle("on",x===b));$("#m-pessoas").hidden=b.dataset.m!=="pessoas";$("#m-texto").hidden=b.dataset.m!=="texto"});
+$("#b-limpar-p").onclick=()=>{$("#f-pessoas").reset();$("#r-pessoas").innerHTML="";$("#r-vinc").innerHTML=""};
+const EST={confirmado:["st-conf","●","em aberto/vigente"],indeterminado:["st-ind","◐","sem situação"],historico:["st-hist","○","histórico"],negado:["st-neg","–","negado"]};
+const estBadge=(e,rot)=>{const x=EST[e];return x?`<span class="badge ${x[0]}" title="interpretação automática — conferir">${x[1]} ${esc(rot?rot+": ":"")}${x[2]}</span>`:""};
+let ultimasPessoas=[];
+$("#f-pessoas").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),q=new URLSearchParams();
+ for(const[k,v]of f)if(v.trim()&&!k.endsWith("_sel"))q.set(k,v.trim());
+ const sel={mandado:f.get("mandado_sel"),cautelar:f.get("cautelar_sel")};
+ for(const[k,v]of Object.entries(sel)){if(v==="tem")q.set(k,"1");else if(v)q.set(k+"_estado",v)}
+ if(![...q.keys()].filter(k=>k!=="origem").length){toast("Preencha ao menos um campo ou escolha uma situação");return}
+ $("#r-vinc").innerHTML="";$("#r-pessoas").innerHTML=barraHTML(0,true);
+ try{const j=await api("/api/pesquisa/pessoas?"+q);
+ // filtro de estado exato também no navegador (garante o resultado mesmo se o servidor ignorar o parâmetro)
+ let ps=j.pessoas.filter(p=>(!["confirmado","historico","indeterminado","negado"].includes(sel.mandado)||p.mandado_estado===sel.mandado)&&(!["confirmado","historico","indeterminado","negado"].includes(sel.cautelar)||p.cautelar_estado===sel.cautelar));
+ ultimasPessoas=ps;
+ const cel=(k,v)=>v?String(v).split(" | ").map(x=>`<span class="v" data-k="${k}" data-v="${esc(x)}">${esc(x)}</span>`).join("<br>"):"";
+ const antec=p=>{let it=[];try{it=JSON.parse(p.antecedentes_itens||"[]")}catch{}
+  const l=it.map(i=>`<div>${estBadge(i.estado,i.tipo==="mandado"?"mandado":"cautelar")}<div class="muted">${esc(i.trecho)}</div></div>`).join("");
+  return l+(p.processos?`<div><b>Processos:</b> ${cel("processo",p.processos)}</div>`:"")+(p.bos?`<div><b>BO:</b> ${cel("bo",p.bos)}</div>`:"")+(p.placas||p.veiculos?`<div><b>Veículos:</b> ${cel("placa",p.placas)} ${esc(p.veiculos||"")}</div>`:"")||'<span class="muted">—</span>'};
+ let h=j.aviso&&!ps.length?`<div class="aviso">${esc(j.aviso)}</div>`:(!ps.length?'<div class="aviso">Nenhum resultado.</div>':"");
+ if(ps.length)h+=`<div class="muted" style="margin-bottom:6px">${ps.length} registro(s). Cada linha é um <b>registro de origem</b>; homônimos não são unidos automaticamente.</div><div class="card" style="padding:4px 10px;overflow:auto"><table><thead><tr><th>Nome</th><th>Mãe / Pai</th><th>CPF / RG</th><th>Telefones</th><th>Endereços</th><th>Empresas / CNPJ</th><th>Antecedentes</th><th>Origem</th></tr></thead><tbody>${ps.map((p,i)=>`<tr>
+  <td>${cel("nome",p.nome)}${p.nascimento?`<div class="muted">nasc. ${esc(p.nascimento)}</div>`:""}${p.condicao?`<div class="muted">${esc(p.condicao)}</div>`:""}
+   <div class="acoes" style="margin-top:4px"><button class="btn sm" data-vinc="${i}">vínculos</button>${p.texto?`<button class="btn sm" data-ficha="${i}">ficha</button>`:""}</div></td>
+  <td>${cel("mae",p.mae)}${p.pai?"<br>"+cel("pai",p.pai):""}</td>
+  <td>${cel("cpf",p.cpf)}${p.rg?"<br>"+cel("rg",p.rg):""}</td><td>${cel("telefone",p.telefones)}</td><td>${cel("endereco",p.enderecos)}</td><td>${cel("empresa",p.empresas)}${p.cnpj?"<br>"+cel("cnpj",p.cnpj):""}</td>
+  <td style="min-width:200px">${antec(p)}</td>
+  <td>${p.origem==="caso"?`<a class="lk" data-caso="${esc(p.fonte)}">${esc(p.fonte)}</a>`:`<span class="badge">consulta</span> ${esc(p.fonte)}`}<div class="muted">${esc(p.localizador||"")}</div></td></tr>`).join("")}</tbody></table></div>`;
+ if(j.ocorrencias.length)h+=`<div class="card" style="margin-top:10px"><h4>Ocorrências nos autos</h4><table><tbody>${j.ocorrencias.map(o=>`<tr><td><a class="lk" data-caso="${esc(o.caso)}">${esc(o.caso)}</a></td><td>${esc(o.tipo)}</td><td>${esc(o.valor)}</td><td>pág. ${esc(o.pagina??"—")}</td></tr>`).join("")}</tbody></table></div>`;
+ $("#r-pessoas").innerHTML=h;
+ $$("#r-pessoas .v").forEach(s=>s.onclick=()=>{const f=$("#f-pessoas");f.reset();f[s.dataset.k].value=s.dataset.v;f.requestSubmit()});
+ $$("#r-pessoas [data-caso]").forEach(a=>a.onclick=()=>{abrirAba("casos");abrirCaso(a.dataset.caso)});
+ $$("#r-pessoas [data-vinc]").forEach(b=>b.onclick=()=>{const p=ultimasPessoas[+b.dataset.vinc];verVinculos("PESSOA",p.no_id,p.nome||p.cpf)});
+ $$("#r-pessoas [data-ficha]").forEach(b=>b.onclick=()=>{const p=ultimasPessoas[+b.dataset.ficha];
+  $("#r-vinc").innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between"><h4>Ficha de origem — ${esc(p.nome||"")}</h4><button class="btn sm" id="b-fecha-v">fechar</button></div><div class="muted">${esc(p.fonte)} · ${esc(p.localizador||"")}</div><pre class="res tx" style="white-space:pre-wrap;font:inherit">${esc(p.texto)}</pre></div>`;
+  $("#b-fecha-v").onclick=()=>$("#r-vinc").innerHTML="";$("#r-vinc").scrollIntoView({behavior:"smooth"})})
+ }catch(x){$("#r-pessoas").innerHTML=`<div class="aviso alerta">${esc(x.message)}</div>`}};
+const TIPO_NOME={PESSOA:"Registro de pessoa",NOME:"Nome (homônimos possíveis)",CPF:"CPF",RG:"RG",TELEFONE:"Telefone",PLACA:"Veículo (placa)",CNPJ:"CNPJ",EMPRESA:"Empresa",EMAIL:"E-mail",ENDERECO:"Endereço",PROCESSO:"Processo/IP/TC",BO:"BO",CONTA:"Conta bancária",CHAVE_PIX:"Chave Pix",CASO:"Caso (O.S.)"};
+let pilhaV=[];
+async function verVinculos(tipo,valor,rotulo,voltar){if(!valor){toast("Registro sem identificação");return}
+ if(!voltar)pilhaV.push([tipo,valor,rotulo]);$("#r-vinc").innerHTML=barraHTML(0,true);
+ try{const g=await api(`/api/vinculos?tipo=${enc(tipo)}&valor=${enc(valor)}&niveis=2`);
+  const rot=Object.fromEntries(g.nos.map(n=>[n.tipo+"|"+n.valor,n.rotulo||n.valor]));
+  const grupos={};g.nos.filter(n=>n.nivel>0).forEach(n=>(grupos[n.tipo]=grupos[n.tipo]||[]).push(n));
+  let h=`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><h4 style="margin:0">Vínculos de ${esc(TIPO_NOME[tipo]||tipo)}: ${esc(rotulo||valor)}</h4>
+   <span>${pilhaV.length>1?'<button class="btn sm" id="b-volta-v">voltar</button> ':""}<button class="btn sm" id="b-fecha-v">fechar</button></span></div>
+   <p class="muted">Até 2 níveis. Ligações por <b>nome</b> são apenas candidatas (homônimos possíveis) e não são seguidas adiante. Conexões são indícios a verificar nos originais. Clique num item para navegar.</p>`;
+  if(!g.nos.length||!Object.keys(grupos).length)h+='<div class="vazio">Nenhum vínculo encontrado.</div>';
+  h+=`<div class="g3">${Object.entries(grupos).map(([t,ns])=>`<div><h4>${esc(TIPO_NOME[t]||t)} (${ns.length})</h4>${ns.slice(0,40).map(n=>`<div><a class="lk" data-nt="${esc(n.tipo)}" data-nv="${esc(n.valor)}" data-nr="${esc(n.rotulo||n.valor)}">${esc(n.rotulo||n.valor)}</a>${n.nivel>1?' <span class="muted">(2º nível)</span>':""}</div>`).join("")}</div>`).join("")}</div>`;
+  if(g.arestas.length)h+=`<details style="margin-top:10px"><summary>Ligações e fontes (${g.arestas.length})</summary><table><tbody>${g.arestas.slice(0,300).map(a=>`<tr><td>${esc(rot[a.a_tipo+"|"+a.a_valor]||a.a_valor)}</td><td class="muted">${esc(a.relacao)}</td><td>${esc(rot[a.b_tipo+"|"+a.b_valor]||a.b_valor)}</td><td class="muted">${esc(a.origem)}: ${esc(a.fonte)} ${esc(a.localizador||"")}</td></tr>`).join("")}</tbody></table></details>`;
+  $("#r-vinc").innerHTML=h+"</div>";
+  $$("#r-vinc [data-nt]").forEach(a=>a.onclick=()=>a.dataset.nt==="CASO"?(abrirAba("casos"),abrirCaso(a.dataset.nv)):verVinculos(a.dataset.nt,a.dataset.nv,a.dataset.nr));
+  $("#b-fecha-v").onclick=()=>{$("#r-vinc").innerHTML="";pilhaV=[]};
+  if($("#b-volta-v"))$("#b-volta-v").onclick=()=>{pilhaV.pop();const a=pilhaV[pilhaV.length-1];verVinculos(a[0],a[1],a[2],true)};
+  $("#r-vinc").scrollIntoView({behavior:"smooth"})}catch(x){$("#r-vinc").innerHTML=`<div class="aviso alerta">${esc(x.message)}</div>`}}
+$("#f-busca").onsubmit=async e=>{e.preventDefault();const q=$("#q-busca").value.trim();if(!q)return;$("#r-busca").innerHTML=barraHTML(0,true);
+ try{const j=await api(`/api/busca?q=${enc(q)}&tipo=${$("#tp-busca").value}`);let h=j.aviso?`<div class="aviso">${esc(j.aviso)}</div>`:"";
+ if(j.entidades.length)h+=`<div class="card" style="margin-bottom:12px"><h4>Identificador em ${new Set(j.entidades.map(x=>x.caso)).size} caso(s)</h4><table><tbody>${j.entidades.map(x=>`<tr><td><b>${esc(x.caso)}</b></td><td>${esc(x.tipo)}</td><td>${esc(x.valor)}</td><td>pág. ${esc(x.pagina??"—")}</td></tr>`).join("")}</tbody></table></div>`;
+ h+=`<div class="card">${j.trechos.length?j.trechos.map(r=>`<div class="res"><div class="meta"><b>${esc(r.caso||"—")}</b> · ${esc(r.tipo)} · ${r.pagina?"pág. "+r.pagina:esc(r.secao||"")}${r.fls?" · fls. "+esc(r.fls):""} · ${r.caso?`<a class="lk" href="/arquivo/${enc(r.caso)}/${r.arquivo.split(/[\\/]/).slice(2).map(enc).join("/")}" target="_blank">abrir</a>`:esc(r.arquivo)}</div><div class="tx">${esc(r.trecho).replace(/\[([^\]]+)\]/g,"<mark>$1</mark>")}</div></div>`).join(""):'<div class="vazio">Nada encontrado</div>'}</div>`;$("#r-busca").innerHTML=h}catch(x){$("#r-busca").innerHTML=`<div class="aviso">${esc(x.message)}</div>`}};
+
+// ---------------- estatísticas
+$("#b-ir-export").onclick=()=>{abrirAba("sistema");$("#b-exportar").scrollIntoView({behavior:"smooth"})};
+
+// ---------------- tarefas e sistema
+async function atualizarTarefas(){const ts=await api("/api/tarefas");const run=ts.filter(t=>["executando","na_fila"].includes(t.status));
+ $("#chip-tarefas").textContent=run.length?`tarefas: ${run.length} em andamento · ${run[0].progresso}%`:"tarefas: nenhuma";
+ if($("#sistema").classList.contains("on"))$("#lista-tarefas").innerHTML=ts.length?ts.map(t=>{const r=["executando","na_fila"].includes(t.status);return `<div class="job"><div class="l1"><span><b>${esc(t.titulo)}</b> <span class="muted">${esc(t.usuario)}</span></span><span>${badge(t.status)} ${r?`<button class="btn sm dan" data-cancel="${t.id}">cancelar</button>`:""}</span></div>
+  ${r?barraHTML(t.progresso)+`<div class="muted">${t.progresso}% · ${esc(t.etapa)} ${esc(t.detalhe||"")}</div>`:""}${t.erro?`<div class="muted" style="color:var(--crit)">${esc(t.erro)}</div>`:""}
+  ${t.resultado&&t.resultado.url?`<a class="btn sm" href="${t.resultado.url}">baixar ${esc(t.resultado.arquivo)} (${t.resultado.mb} MB)</a>`:""}${t.resultado&&!t.resultado.url&&t.status==="concluida"?`<div class="muted">${esc(JSON.stringify(t.resultado).slice(0,300))}</div>`:""}</div>`}).join(""):'<div class="vazio">Nenhuma tarefa nas últimas 24 h</div>';
+ $$("#lista-tarefas [data-cancel]").forEach(b=>b.onclick=async()=>{await api(`/api/tarefas/${b.dataset.cancel}/cancelar`,{method:"POST"})});
+ if(ts.some(t=>t.status==="concluida"&&t.tipo!=="ia"&&!atualizarTarefas.vistos.has(t.id))){ts.forEach(t=>atualizarTarefas.vistos.add(t.id));if($("#sistema").classList.contains("on"))carregarSistema(true)}}
+atualizarTarefas.vistos=new Set();
+$("#chip-tarefas").onclick=()=>abrirAba("sistema");
+async function carregarSistema(leve){atualizarTarefas();preencherConta();
+ const mp=await api("/api/minha-pasta");$("#minha-pasta").innerHTML=mp.arquivos.map(a=>`<div><a href="/minha-pasta/${a.caminho.split("/").map(enc).join("/")}">${esc(a.caminho)}</a><span class="muted">${kb(a.tamanho)}</span></div>`).join("")||`<span class="muted">Vazia${mp.pasta?" — "+esc(mp.pasta):""}</span>`;
+ $("#b-abrir-pasta").hidden=!mp.pasta;
+ if(pode("usuarios")&&!leve){carregarPerfis();const cfg=await api("/api/os/ia-local");$("#os-modelo-local").value=cfg.modelo;$("#os-modelo-local").disabled=cfg.ambiente;$("#b-os-modelo").disabled=cfg.ambiente;$("#os-modelo-msg").textContent=cfg.ambiente?"Modelo definido pelo ambiente":"";}
+ if(pode("dados")){const ex=await api("/api/exportacoes");$("#lista-exp").innerHTML=ex.map(e=>`<div><a href="${e.url}">${esc(e.arquivo)}</a><span class="muted">${e.mb} MB</span></div>`).join("")||'<span class="muted">—</span>';
+  const resumoAnt=b=>{const a=b.com_antecedentes||{};const est=x=>x&&typeof x==="object"?Object.entries(x).filter(([,n])=>n).map(([e,n])=>`${n} ${e}`).join(", "):"";
+   const p=[a.processos?`${a.processos} c/ processos`:"",a.bos?`${a.bos} c/ BO`:"",est(a.mandados)?`mandados: ${est(a.mandados)}`:"",est(a.cautelares)?`cautelares: ${est(a.cautelares)}`:""].filter(Boolean);return p.length?" · "+p.join(" · "):""};
+  const bs=await api("/api/consulta/bases");$("#lista-bc").innerHTML=bs.length?`<table><tbody>${bs.map(b=>`<tr><td><b>${esc(b.nome)}</b><div class="muted">${esc(b.arquivo_original)} · ${dt(b.importado_em)}${Object.keys(b.mapeamento||{}).length?" · colunas: "+esc(Object.entries(b.mapeamento).map(([k,v])=>k+"→"+v).join(", ")):""}${esc(resumoAnt(b))}</div></td><td class="n">${b.registros}</td><td><button class="btn sm dan" data-rmbc="${esc(b.id)}">remover</button></td></tr>`).join("")}</tbody></table>`:'<span class="muted">Nenhuma base.</span>';
+  $$("[data-rmbc]").forEach(b=>b.onclick=async()=>{if(confirm("Remover esta base de consulta?")){await api(`/api/consulta/bases/${enc(b.dataset.rmbc)}/remover`,{method:"POST"});carregarSistema()}});
+  await listarRefs()}
+ if(pode("ia")&&!leve){checarClaude();carregarAgentes()}
+ if(pode("usuarios")&&!leve){const us=await api("/api/usuarios");$("#lista-usuarios").innerHTML=`<div style="overflow:auto"><table><thead><tr><th>Login</th><th>Nome / cargo</th><th>Perfil</th><th>CPF</th><th>E-mail</th><th>Situação</th><th>Último acesso</th><th></th></tr></thead><tbody>${us.map(u=>`<tr><td>${esc(u.login)}</td><td>${esc(u.nome)}<div class="muted">${esc(u.cargo||"")}</div></td><td>${esc(u.perfil_nome)}</td><td class="muted">${esc(u.cpf_mascarado||"—")}</td><td class="muted">${esc(u.email||"—")}</td>
+  <td>${u.ativo?"ativo":"desativado"}${u.trocar_senha?' <span class="badge b-wait"><i></i>senha temporária</span>':""}</td><td class="muted">${esc((u.ultimo_acesso||"").replace("T"," "))}</td><td><button class="btn sm" data-edu='${esc(JSON.stringify(u))}'>editar</button> <button class="btn sm dan" data-rmu="${esc(u.login)}">remover</button></td></tr>`).join("")}</tbody></table></div>`;
+  $$("[data-edu]").forEach(b=>b.onclick=()=>{const u=JSON.parse(b.dataset.edu),f=$("#f-usuario");f.reset();f.login.value=u.login;f.login.readOnly=true;f.nome.value=u.nome;f.perfil.value=u.perfil;f.ativo.value=u.ativo?"1":"0";f.cargo.value=u.cargo||"";f.email.value=u.email||"";f.cpf.placeholder=u.cpf_mascarado||"";f.senha.value="";f.nome.focus()});
+  $$("[data-rmu]").forEach(b=>b.onclick=async()=>{if(!confirm(`Remover o usuário ${b.dataset.rmu}?`))return;try{await api(`/api/usuarios/${enc(b.dataset.rmu)}/remover`,{method:"POST"});carregarSistema()}catch(x){toast(x.message)}});
+  const au=await api("/api/auditoria");$("#lista-aud").innerHTML=`<table><tbody>${au.map(a=>`<tr><td class="muted">${esc(a.ts.replace("T"," "))}</td><td>${esc(a.usuario)}</td><td>${esc(a.acao)}</td><td>${esc(a.alvo)}</td><td class="muted">${esc(a.ip)}</td></tr>`).join("")}</tbody></table>`;
+  const rd=await api("/api/rede");$("#rede-on").checked=rd.compartilhar;$("#rede-https").checked=rd.https;
+  $("#rede-info").innerHTML=rd.ativo_agora?`Compartilhamento <b>ativo</b>. Endereços para os outros computadores: ${rd.enderecos.map(e=>`<code>${esc(e)}</code>`).join(" ")}`:"Compartilhamento desligado: a Central atende somente este computador."}}
+async function listarRefs(){const rs=await api("/api/referencias?autor="+enc($("#rf-filtro").value||""));
+ $("#lista-rf").innerHTML=rs.length?`<table><thead><tr><th>Autor</th><th>Modalidade</th><th>Peso</th><th>Arquivo</th><th></th></tr></thead><tbody>${rs.map(r=>`<tr><td>${esc(r.autor)}</td><td>${esc(r.modalidade||"—")}</td>
+ <td><select data-peso="${esc(r.id)}" style="width:auto">${[5,4,3,2,1].map(p=>`<option ${p==r.peso?"selected":""}>${p}</option>`).join("")}</select></td><td class="muted">${esc(r.arquivo_original)}</td><td><button class="btn sm dan" data-rmrf="${esc(r.id)}">remover</button></td></tr>`).join("")}</tbody></table>`:'<span class="muted">Nenhuma referência.</span>';
+ $$("[data-peso]").forEach(s=>s.onchange=async()=>{await api(`/api/referencias/${enc(s.dataset.peso)}`,{json:{peso:+s.value}});toast("Peso atualizado")});
+ $$("[data-rmrf]").forEach(b=>b.onclick=async()=>{if(confirm("Remover esta referência?")){await api(`/api/referencias/${enc(b.dataset.rmrf)}/remover`,{method:"POST"});listarRefs()}})}
+$("#rf-filtro").oninput=()=>{clearTimeout(tq);tq=setTimeout(listarRefs,300)};
+$("#b-exportar").onclick=async()=>{const modo=document.querySelector('input[name=modo]:checked').value;try{await api("/api/exportar",{json:{modo,incluir_modelo:$("#exp-modelo").checked}});toast("Exportação iniciada — acompanhe em Tarefas");atualizarTarefas()}catch(x){toast(x.message)}};
+$("#b-importar").onclick=async()=>{const f=$("#imp-zip").files[0];if(!f){toast("Escolha o pacote .zip");return}const fd=new FormData();fd.append("arquivo",f);
+ try{await enviar("/api/importar",fd,$("#prog-imp"),$("#msg-imp"));$("#msg-imp").textContent="Enviado — verificação e importação em Tarefas";$("#imp-zip").value=""}catch(x){$("#msg-imp").textContent=x.message}};
+$("#b-bc").onclick=async()=>{const f=$("#bc-arq").files[0];if(!f){toast("Escolha o arquivo");return}const fd=new FormData();fd.append("arquivo",f);fd.append("nome",$("#bc-nome").value);
+ try{await enviar("/api/consulta/importar",fd,$("#prog-bc"),$("#msg-bc"));$("#msg-bc").textContent="Enviado — importação em Tarefas";$("#bc-arq").value="";$("#bc-nome").value=""}catch(x){$("#msg-bc").textContent=x.message}};
+$("#b-bc-colar").onclick=async()=>{const t=$("#bc-texto").value.trim();if(!t){toast("Cole o texto");return}
+ try{await api("/api/consulta/colar",{json:{texto:t,nome:$("#bc-nome").value||"Texto colado"}});$("#msg-bc-colar").textContent="Enviado — importação em Tarefas";$("#bc-texto").value="";atualizarTarefas()}catch(x){$("#msg-bc-colar").textContent=x.message}};
+$("#b-rf").onclick=async()=>{const f=$("#rf-arq").files[0];if(!f||!$("#rf-autor").value.trim()){toast("Informe autor e arquivo");return}const fd=new FormData();fd.append("arquivo",f);
+ fd.append("autor",$("#rf-autor").value);fd.append("modalidade",$("#rf-mod").value);fd.append("peso",$("#rf-peso").value);fd.append("obs",$("#rf-obs").value);
+ try{await enviar("/api/referencias/importar",fd,$("#prog-rf"),$("#msg-rf"));$("#msg-rf").textContent="Enviado — importação em Tarefas";$("#rf-arq").value=""}catch(x){$("#msg-rf").textContent=x.message}};
+const EST_AG={"ocioso":["b-ok","ocioso"],"ocupado":["b-run","ocupado"],"indisponível":["b-wait","indisponível"],"aguardando aprovação":["b-wait","aguardando aprovação"],"fora do ar":["","fora do ar"]};
+const tempoSinal=s=>s==null?"—":s<90?`${s}s`:s<5400?`${Math.round(s/60)} min`:`${Math.round(s/3600)} h`;
+async function carregarAgentes(){if(!pode("ia"))return null;let g;try{g=await api("/api/plantao/agentes")}catch(x){return null}
+ if($("#plantao-agentes")){
+  $("#plantao-resumo").textContent=`${g.ociosos} ocioso(s) · ${g.ocupados} ocupado(s) · ${g.pendentes} pedido(s) aguardando agente`;
+  $("#plantao-agentes").innerHTML=g.agentes.length?`<table><thead><tr><th>Agente</th><th>Tipo</th><th>Situação</th><th>Pedido atual</th><th>Último sinal</th><th></th></tr></thead><tbody>${g.agentes.map(a=>{const e=EST_AG[a.estado]||["",a.estado];
+   return `<tr><td><b>${esc(a.nome)}</b><div class="muted">${esc(a.host||"")}</div></td><td>${esc(a.tipo)}<div class="muted">${a.modo==="chat"?"sessão de chat":"automático"}</div></td>
+   <td><span class="badge ${e[0]}"><i></i>${esc(e[1])}</span>${a.detalhe?`<div class="muted">${esc(a.detalhe)}</div>`:""}</td><td class="muted">${esc(a.job||"—")}</td><td class="muted">${tempoSinal(a.silencio_s)}</td>
+   <td>${pode("usuarios")?(a.aprovado?`<button class="btn sm dan" data-agrev="${esc(a.nome)}">revogar</button>`:`<button class="btn sm pri" data-agapr="${esc(a.nome)}">aprovar</button>`):(a.aprovado?"aprovado":"aguarda o admin")}</td></tr>`}).join("")}</tbody></table>`
+   :'<div class="vazio">Nenhum agente registrado. Abra uma sessão com o PROMPT-AGENTE-PLANTAO.md ou rode ferramentas\\Agente de plantao.bat.</div>';
+  const muda=async(nome,aprovar)=>{if(!aprovar&&!confirm(`Revogar o agente ${nome}? Ele deixará de pegar pedidos.`))return;
+   try{await api(`/api/plantao/agentes/${enc(nome)}/aprovacao`,{json:{aprovar}});toast(aprovar?"Agente aprovado":"Aprovação revogada");carregarAgentes()}catch(x){toast(x.message)}};
+  $$("[data-agapr]").forEach(b=>b.onclick=()=>{if(confirm(`Aprovar o agente ${b.dataset.agapr}? Ele poderá processar autos. Confirme que a conta e o provedor dele são compatíveis com o sigilo.`))muda(b.dataset.agapr,true)});
+  $$("[data-agrev]").forEach(b=>b.onclick=()=>muda(b.dataset.agrev,false))}
+ return g}
+async function checarClaude(){$("#ia-status").textContent="verificando…";try{const s=await api("/api/ia/status");$("#ia-status").innerHTML=!s.instalado?"Claude Code não encontrado neste computador.":s.logado?`${badge("concluido")} Claude conectado${s.email?" ("+esc(s.email)+")":""}.`:`${badge("erro")} Claude <b>não conectado</b>: clique em “Entrar no Claude” e conclua o login no navegador.`}catch(x){$("#ia-status").textContent=x.message}}
+$("#b-abrir-pasta").onclick=()=>api("/api/minha-pasta/abrir",{method:"POST"}).catch(x=>toast(x.message));
+let PADRAO=null;
+async function carregarPerfis(){const p=await api("/api/perfis");if(!PADRAO)PADRAO=null;const ps=Object.keys(p.matriz);
+ $("#matriz").innerHTML=`<table><thead><tr><th>Permissão</th><th class="n">Administrador</th>${ps.map(x=>`<th class="n">${esc(p.perfis[x])}</th>`).join("")}</tr></thead><tbody>${p.editaveis.map(perm=>`<tr><td>${esc(p.descricao[perm]||perm)}</td><td class="n">✔</td>${ps.map(x=>`<td class="n"><input type="checkbox" style="width:auto" data-pf="${x}" data-pm="${perm}" ${p.matriz[x].includes(perm)?"checked":""}></td>`).join("")}</tr>`).join("")}</tbody></table>`}
+$("#b-perfis").onclick=async()=>{const m={};$$("[data-pf]").forEach(c=>{m[c.dataset.pf]=m[c.dataset.pf]||[];if(c.checked)m[c.dataset.pf].push(c.dataset.pm)});
+ try{await api("/api/perfis",{json:{matriz:m}});$("#msg-perfis").textContent="Permissões salvas (valem no próximo acesso de cada usuário)"}catch(x){$("#msg-perfis").textContent=x.message}};
+$("#b-perfis-padrao").onclick=async()=>{if(!confirm("Restaurar as permissões padrão?"))return;const pad={investigador:["os","casos","trabalho","ia","pesquisa","estatisticas","dados","relatorio_final"],delegado:["os","casos","pesquisa","estatisticas","relatorio_final"],escrivao:["os","casos","relatorio_final"]};
+ await api("/api/perfis",{json:{matriz:pad}});carregarPerfis();$("#msg-perfis").textContent="Padrão restaurado"};
+$("#b-os-modelo").onclick=async()=>{try{await api("/api/os/ia-local",{json:{modelo:$("#os-modelo-local").value.trim()}});$("#os-modelo-msg").textContent="Salvo. Vale para os próximos documentos ou ao reprocessar um caso."}catch(x){$("#os-modelo-msg").textContent=x.message}};
+$("#b-claude-login").onclick=async()=>{try{await api("/api/ia/login",{method:"POST"});toast("Janela de login aberta neste computador")}catch(x){toast(x.message)}};$("#b-claude-rec").onclick=checarClaude;
+$("#f-usuario").onsubmit=async e=>{e.preventDefault();const f=e.target;
+ // CPF só é enviado quando preenchido (em branco = manter o atual); e-mail e cargo sempre refletem o formulário
+ const d={login:f.login.value,nome:f.nome.value,perfil:f.perfil.value,senha:f.senha.value,ativo:f.ativo.value==="1",cargo:f.cargo.value,email:f.email.value,temporaria:f.temporaria.checked};
+ if(f.cpf.value.trim())d.cpf=f.cpf.value.trim();
+ if(d.temporaria&&!d.senha){$("#msg-usr").textContent="Informe a senha provisória.";return}
+ try{await api("/api/usuarios",{json:d});$("#msg-usr").textContent="Salvo";f.reset();f.login.readOnly=false;f.cpf.placeholder="";carregarSistema()}catch(x){$("#msg-usr").textContent=x.message}};
+$("#b-usr-novo").onclick=()=>{const f=$("#f-usuario");f.reset();f.login.readOnly=false;f.cpf.placeholder="";$("#msg-usr").textContent="";f.login.focus()};
+function preencherConta(){const u=S.usuario;if(!u)return;$("#conta-info").textContent=`${u.nome} · ${u.cargo||u.perfil_nome} · login ${u.login}${u.cpf_mascarado?" · CPF "+u.cpf_mascarado:""}`;
+ const f=$("#f-conta");f.email.value=u.email||"";f.cargo.value=u.cargo||""}
+$("#f-conta").onsubmit=async e=>{e.preventDefault();const f=e.target;try{const u=await api("/api/minha-conta",{json:{email:f.email.value,cargo:f.cargo.value}});S.usuario=Object.assign(S.usuario,u);preencherConta();$("#msg-conta").textContent="Dados salvos"}catch(x){$("#msg-conta").textContent=x.message}};
+$("#b-rede").onclick=async()=>{try{await api("/api/rede",{json:{compartilhar:$("#rede-on").checked,https:$("#rede-https").checked}});$("#msg-rede").textContent="Salvo. Feche e abra a Central para aplicar."}catch(x){$("#msg-rede").textContent=x.message}};
+$("#f-senha").onsubmit=async e=>{e.preventDefault();const f=e.target;try{await api("/api/minha-senha",{json:{atual:f.atual.value,nova:f.nova.value}});$("#msg-senha").textContent="Senha alterada";f.reset()}catch(x){$("#msg-senha").textContent=x.message}};
+iniciar();
+</script></body></html>

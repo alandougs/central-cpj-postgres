@@ -1,0 +1,163 @@
+# PRD — Central CPJ e plugin `investigacao-cpj`
+
+> Documento de continuidade. Qualquer agente (Claude Code, Codex, Gemini, modelo local) deve ler **este arquivo + `AGENTS.md`** antes de alterar o sistema. Atualize a seção **9 (Estado atual)** e o **Registro de mudanças** a cada entrega.
+> Dono do produto: Alan Douglas Silva — Investigador de Polícia, Central de Polícia Judiciária (CPJ), Seccional de Presidente Prudente, DEINTER 8, PCSP.
+> Última atualização: 2026-09-27.
+
+---
+
+## 1. Visão
+
+Sistema local, simples e seguro para a **produção de relatórios de investigação em inquéritos de fraude e estelionato**: a O.S. chega (cadastrada pelo delegado/escrivão ou pelo investigador) com o PDF do IP → o sistema extrai **Markdown por página + tabelas em CSV** (OCR em português quando necessário) → **agentes de IA** analisam somente o material do caso e redigem a **minuta no modelo oficial** (DOCX com timbre e assinatura) → o investigador revisa/edita, define a versão FINAL e a **produção** é contabilizada (dia/mês/ano, prazos, KPIs). Tudo vira base pesquisável (RAG local), com calibração contínua a partir das correções do investigador e de relatórios de referência.
+
+Volume de referência: **30–50 relatórios/mês**, IPs de **100–300 páginas**.
+
+## 2. Usuários e perfis
+
+| Perfil | Pode |
+|---|---|
+| **Admin** | Tudo, inclusive usuários, auditoria e rede |
+| **Investigador** | O.S., casos (completo), processamento, IA, minuta/DOCX/PDF/FINAL, baixa, pesquisa, estatísticas, exportar/importar, bases de consulta, referências |
+| **Delegado** | Cadastrar O.S. (com prazo, determinação), enviar arquivos, ver lista/status/prazos de todas as O.S., baixar relatório FINAL e originais, pesquisa, estatísticas |
+| **Escrivão** | Cadastrar O.S., enviar arquivos, ver lista/status/prazos, baixar relatório FINAL e originais |
+
+Permissões codificadas em `plugin/investigacao-cpj/app/auth.py` (`PERMISSOES`): `os, casos, trabalho, ia, pesquisa, estatisticas, dados, relatorio_final, usuarios, rede`.
+
+## 3. Premissas e regras inegociáveis
+
+1. **Fonte do relatório = somente o IP/peças do próprio caso.** Bases de consulta (Muralha Paulista etc., pasta `consulta\`) e relatórios de referência (pasta `referencias\`) **nunca** são fonte de fatos; referências servem apenas como exemplo de estrutura/estilo.
+2. PDF ≤ 100 págs. pode ser lido diretamente por IA em consulta pontual, mas **o correto é extrair Markdown + CSV** e analisar sobre a extração (rastreabilidade por página).
+3. Separar fato documentado × relato × indício × inferência × lacuna; citar `(pág. N; fls. X)`; nunca completar CPF/conta/chave Pix/valor por dedução; nunca atribuir autoria sem base.
+4. **Sigilo (art. 20 CPP):** processamento local; nada de conteúdo de caso para serviços externos; agentes automáticos rodam **sem internet e sem conectores (MCP)**; dados de casos nunca vão ao GitHub.
+5. Originais (`00-originais`) somente leitura; hash SHA-256 registrado.
+6. Toda saída de IA é **minuta**: decisão e assinatura são humanas.
+7. Relatório segue o **modelo DOCX CPJ 2026** (`modelos\`), com cabeçalho (O.S., Referência, Natureza, Investigado(s), Vítima(s), Local, Data dos Fatos) e seções RESUMO DOS FATOS / DILIGÊNCIAS REALIZADAS / CONCLUSÃO; conclusão preferencialmente **sem sugestões de providências** (discricionariedade do delegado).
+8. Simplicidade: Windows + Python + arquivos; sem banco de dados servidor; tudo regenerável a partir de `caso.json` + arquivos.
+
+## 4. Requisitos funcionais (Central CPJ — `http://127.0.0.1:8765`)
+
+| # | Requisito | Estado |
+|---|---|---|
+| RF01 | Login com senha (PBKDF2), sessão 12 h, bloqueio após 5 falhas, configuração inicial do admin só no próprio PC | implementado (backend) |
+| RF02 | Perfis admin/investigador/delegado/escrivão com permissões por rota | implementado (backend) |
+| RF03 | Auditoria de ações (login, O.S., uploads, downloads, IA, exportações, pesquisas) em `config\auditoria.log` | implementado |
+| RF04 | **Nova O.S.**: nº O.S., BO, IP, processo, natureza, requisitante, prazo, prioridade, determinação + upload PDF/MD/CSV (progresso real de envio) | implementado (backend) |
+| RF05 | Fila de processamento: diagnóstico → texto/OCR (progresso por página) → tabelas CSV → dados críticos → indexação | implementado |
+| RF06 | **Início**: O.S. novas não vistas, prazos vencidos/hoje/≤3 dias, sem prazo, andamento por etapa, minhas O.S., produção do dia/mês | implementado (backend) |
+| RF07 | **Casos**: lista ordenada por urgência de prazo; busca por O.S./BO/IP/processo/partes/modalidade; ficha com edição, documentos, processamento, arquivos, conexões | implementado |
+| RF08 | **Botões de IA** na ficha: Analisar, Gerar relatório, Análise+relatório, Revisar — executa Claude Code em modo automático com progresso por marcos + atividade ao vivo, fila única, cancelar | implementado (backend); requer login do Claude CLI |
+| RF09 | **Editor leve da minuta** (campos do cabeçalho + 3 seções) → nova versão + DOCX no modelo; PDF (LibreOffice, se instalado); Abrir no Word (só no PC da Central); **Definir FINAL** (gera FINAL.md e dá baixa) | implementado (backend) |
+| RF10 | **Baixa na produção** por 3 vias com origem registrada: arquivo `*FINAL*` na pasta (automática), botão, agente | implementado |
+| RF11 | **Pesquisa relacional** de pessoas: nome, mãe, pai, CPF, RG, telefone, CNPJ/empresa, endereço (combináveis, sem acento, por palavras) em qualificações extraídas dos autos (`02-analise\pessoas.csv`) e bases de consulta; + ocorrências nos autos | implementado (backend) |
+| RF12 | **Pesquisa textual (RAG)** em transcrições, análises, relatórios, referências, acervo; cruzamento de CPF/Pix/conta/telefone entre casos | implementado |
+| RF13 | **Bases de consulta** (Muralha Paulista e similares): importar .xlsx/.xls/.csv/.docx com mapeamento automático de colunas; listar/remover | implementado (backend) |
+| RF14 | **Relatórios de referência** por autor, modalidade e peso (1–5) para calibração/exemplos; importar DOCX/PDF/MD; editar peso; remover | implementado (backend) |
+| RF15 | **Exportar banco de dados**: pacote ZIP (`manifest.json` com SHA-256 por arquivo), modo completo (com PDFs) ou só dados, opcional modelo DOCX; baixar planilha CSV | implementado (backend) |
+| RF16 | **Importar pacote** em outro PC: verifica integridade, acrescenta casos novos, nunca sobrescreve | implementado (backend) |
+| RF17 | **Estatísticas/KPIs**: entregues dia/mês/ano × meta, páginas, prazo mediano, em aberto por etapa, modalidades, autoria indicada, valor rastreado | implementado; **pendente**: KPIs de prazo (% no prazo, vencidos) e retrabalho no painel |
+| RF18 | **Rede local**: admin habilita acesso de outros PCs com HTTPS (certificado autoassinado); padrão desligado | implementado (backend); exige autorização do firewall pelo usuário e aval da TI |
+| RF19 | Usuários (admin): criar/editar/desativar/remover, trocar a própria senha, ver auditoria | implementado (backend) |
+| RF20 | Interface única, limpa, responsiva, claro/escuro, barras de progresso reais em upload, OCR, exportação, importação e IA | **em construção** (`app/static/index.html` precisa ser reescrito para as APIs novas) |
+
+## 5. Arquitetura
+
+```
+C:\CPJ - TRABALHO\
+├─ PRD.md · AGENTS.md · CLAUDE.md · GEMINI.md · LEIA-ME.md · Central CPJ.bat
+├─ casos\OS-<nº>-<ano>\        00-originais · 01-extracao\<doc>\ · 02-analise · 03-relatorios · caso.json · processamento.json
+│                               · registro-tratamento.md · ia-progresso.json · ia-logs\
+├─ consulta\<base>\             original · registros.jsonl · base.json      (somente pesquisa)
+├─ referencias\<ref>\           original · texto.md · meta.json             (estilo/calibração)
+├─ calibracao\                  licoes-aprendidas.md · historico-calibracao.md
+├─ modelos\                     MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx · dados-padrao.json
+├─ producao\                    base.json · base.csv · painel.html · config.json (meta)
+├─ rag\cpj.sqlite               trechos(+FTS5) · entidades · pessoas · docs     (derivado; regenerável)
+├─ config\                      usuarios.json · segredo.key · auditoria.log · rede.json · central.crt/key  (NUNCA versionar)
+├─ exportacoes\                 pacotes ZIP exportados · _recebidos\
+├─ portatil\                    procedimentos autocontidos para qualquer IA (gerado)
+├─ ferramentas\                 scripts .ps1/.bat/.py de manutenção · tessdata\por.traineddata
+├─ acervo\repo-ia-alandougs\    clone Git do GitHub alandougs/repo-ia-alandougs
+└─ plugin\                      marketplace local "cpj-local"
+   └─ investigacao-cpj\
+      ├─ .claude-plugin\plugin.json          versão atual 0.2.0 (→ 0.3.0 nesta entrega)
+      ├─ app\servidor.py · auth.py · tarefas.py · static\index.html      (Central CPJ, Flask)
+      ├─ commands\*.md (10)  agents\*.md (3)
+      └─ skills\ pdf-autos-policiais (diagnostico/extrair/tabelas/entidades/dividir.py)
+                analise-documental · analise-ip-fraude (references: normativas, tipologia)
+                relatorio-ip-fraude (gerar_docx.py, references/modelo-cpj.md)
+                base-cpj (caso.py, indexar.py, rag.py, consulta.py, referencias.py, progresso.py, gerar_painel.py)
+```
+
+- **Stack:** Python 3.12, Flask 3.1, SQLite FTS5, pypdf, pypdfium2, pdfplumber, pytesseract + Tesseract 5.4 (`por` tessdata_best), python-docx, openpyxl, xlrd, cryptography. Sem Node. PowerShell 5.1 (scripts `.ps1` ASCII).
+- **IA automática:** `tarefas.py` executa `claude.exe -p <prompt> --output-format stream-json --permission-mode acceptEdits --allowedTools Read Write Edit Glob Grep Skill Task TodoWrite "Bash(python *)" "PowerShell(python *)" --disallowedTools WebFetch WebSearch --strict-mcp-config` com `cwd` = workspace. O agente registra marcos com `progresso.py <ID> <pct> "<etapa>"`. Após o agente, o servidor garante o DOCX da minuta mais recente e reindexa. **Requer `claude auth login` no CLI** (Sistema → Entrar no Claude).
+- **Segurança web:** cookie HttpOnly/SameSite=Strict (Secure com HTTPS), cabeçalho `X-CPJ: 1` obrigatório em POST (anti-CSRF), permissões por rota, bind 127.0.0.1 por padrão, `abrir` arquivos só no PC da Central.
+
+## 6. Modelo de dados
+
+`caso.json` (schema `cpj-caso/1`): `id, ordem_servico, bo, inquerito, processo, referencia, natureza, modalidade, status, datas{recebido, extraido, em_analise, analisado, minuta, entregue}, prazo, requisitante, prioridade, determinacao, criado_por, responsavel, visto, documentos[], ip{paginas, sha256, metodos, pendentes, conferir}, vitimas[], investigados[], financeiro{prejuizo_declarado, prejuizo_documentado, valor_rastreado, transacoes, contas_destino, camadas}, resultado{autoria, sugestoes_providencias}, relatorios[], baixa{data, origem, arquivo}, baixa_ignorar, horas_trabalho, observacoes`.
+
+Status: `recebido → extraido → em_analise → analisado → minuta → entregue` (+ `devolvido`, `arquivado`). Modalidades: `skills/analise-ip-fraude/references/tipologia-golpes.md`.
+
+Arquivos de análise: `ficha-caso.md, cronologia.md, pessoas-vinculos.md, pessoas.csv (nome;mae;pai;cpf;rg;nascimento;telefones;enderecos;empresas;cnpj;emails;placas;condicao;paginas;documento), fluxo-financeiro.csv/.md, elementos-tipo.md, matriz-achados.md, lacunas-diligencias.md, conexoes.md`. Relatório: `minuta-vNN.md` (frontmatter lido por `gerar_docx.py`), `rastreabilidade-vNN.md`, `revisao-vNN.md`, `RELATORIO-<ID>-vNN.docx`, `RELATORIO-<ID>-FINAL.docx/.md`.
+
+Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`, `casos`, `arquivos[{caminho, tamanho, sha256}]`) e `dados/<caminho relativo ao workspace>`.
+
+## 7. Requisitos não funcionais
+
+- Tempo: OCR ~1–3 s/página (300 págs. ≈ 5–15 min), sem travar a interface; exportação/importação com progresso por bytes.
+- Robustez: tarefas interrompidas retomam na reinicialização (processamento); escrita atômica de JSON; índice regenerável (`indexar.py --tudo`).
+- Portabilidade: tudo funciona sem Claude (scripts + Central); procedimentos em `portatil\` para outros agentes.
+- Privacidade: painel/planilha não exibem nomes além do necessário; `config\`, casos, bases e referências nunca vão ao Git (`ferramentas\publicar-github.ps1` faz varredura e bloqueia).
+
+## 8. Como executar e manter
+
+- Abrir: `Central CPJ.bat` (ou atalho na Área de Trabalho). Primeiro acesso: criar o admin (no próprio PC). Depois, Sistema → Usuários.
+- Saúde: `ferramentas\Verificar ambiente.bat`. Backup: `ferramentas\Backup.bat` ou Sistema → Exportar.
+- Após editar o plugin: `ferramentas\Atualizar plugin.bat` (sobe versão, valida, reinstala, regera `portatil\`).
+- Publicar melhorias genéricas: `ferramentas\Publicar no GitHub.bat`.
+- Teste isolado: `python plugin\investigacao-cpj\app\servidor.py --workspace <pasta-teste> --porta 8766 --somente-local --sem-navegador` (use `CPJ_WORKSPACE` nos scripts). PDF fictício: `skills\pdf-autos-policiais\teste\gerar_pdf_ficticio.py`.
+
+## 9. Estado atual e próximos passos (atualizar sempre)
+
+**Fila aberta a todos os agentes — 2026-09-27:** `TAREFAS-COMPARTILHADAS.md` permite assumir tarefas livres por Codex, Claude, Gemini ou outro agente. L01/L02 já em andamento permanecem com Claude; as demais frentes não iniciadas ficam sem responsável até reserva. O script `ferramentas/fila-tarefas.py` lista, reserva, conclui e libera tarefas com trava exclusiva, gravação atômica, conferência de responsável, sobreposição de arquivos e dependências da integração. Ensaios em fila fictícia aprovaram reserva/devolução/conclusão, recusa de conflito e responsável incorreto, bloqueio de dependências e disputa simultânea com exatamente um vencedor. `AGENTS.md`, `CLAUDE.md` e `GEMINI.md` apontam para o mesmo procedimento.
+
+**Melhorias coordenadas Codex/Claude — 2026-09-27:** o quadro `TAREFAS-COMPARTILHADAS.md` registra responsáveis, reservas de arquivos e contratos para evitar edições simultâneas. **C01/C02 concluídas pelo Codex:** mesma autorização na edição e no cadastro repetido de O.S. (incluindo uploads), revogação de sessões após redefinição de senha/desativação/reativação/recriação, preservação da sessão atual na troca própria e proteção do último administrador ativo. Validação: **11 testes de segurança novos aprovados + 52 verificações da suíte API existente aprovadas**, somente com workspace temporário e dados fictícios; IA externa desligada. Cookies da versão anterior exigem novo login. Nenhuma conta real foi alterada. C03–C05 e as frentes disponíveis para Claude permanecem pendentes no quadro; a integração de melhorias ao sistema completo ainda não está concluída.
+
+**Revisão técnica do fluxo funcional — 2026-09-27:** ver `REVISAO-TECNICA-2026-09-27.md`. A suíte atual de API passou com **52 verificações** em workspace fictício, com IA externa desativada. Testes adicionais reproduziram contorno de permissão pela rota de cadastro de O.S., fusão de homônimos, filtros positivos para negações de mandado/cautelar, importação após cancelamento e fora das raízes de dados esperadas, sessões anteriores válidas após redefinição de senha e erro de indexação ignorado. O relatório prioriza correções, interfaces restantes, desempenho e recuperação. Esta revisão não corrigiu o código funcional e não valida IA real, carga, OCR extenso ou interface visual. As listas históricas abaixo precisam de consolidação; prevalecem as evidências datadas e o código atual.
+
+**Pronto e testado (dados fictícios):** extração (230 págs.), OCR `por`, tabelas CSV, entidades, DOCX no modelo, baixa (3 vias), RAG/cruzamento, painel, Central v1 (upload, casos, busca, produção), plugin 0.2.0 instalado, `portatil\`, scripts de manutenção.
+
+**Integração Codex (2026-09-27):** onze skills locais em `.agents/skills/` para as dez tarefas portáteis e manutenção do sistema; entrada pessoal `cpj-projeto` em `~/.agents/skills/`. Gerador/instalador local `ferramentas/configurar-codex.py` e atalho `Configurar Codex.bat`, com modo de conferência sem escrita. Adaptadores apontam para procedimentos vivos e não duplicam scripts, modelo ou dados de casos. Regras de sigilo explicitam a diferença entre scripts locais e inferência externa. Esta integração não altera o executor Claude da Central nem conclui as RF pendentes.
+
+**Validação da integração:** as doze skills passaram em `quick_validate.py`; metadados YAML e links locais conferidos. Reinstalação sem alterações e modo `--verificar` aprovados. Workspace fictício confirmou bloqueio de arquivo não gerenciado antes de qualquer escrita e detecção de procedimento ausente. Descoberta visual no seletor do aplicativo ainda não verificada; se não aparecer, reinicie o Codex.
+
+**Implementado nesta entrega, falta testar/integrar:** `app/auth.py`, `app/tarefas.py`, `app/servidor.py` v2 (todas as rotas das RF01–RF19), `consulta.py`, `referencias.py`, `progresso.py`, pessoas/referências no `indexar.py`, `rag.pesquisa_relacional`/`exemplos` com peso/autor.
+
+**Atualização 2026-09-27 (fim da sessão, limite de uso atingido):**
+- Central v2 (`app/servidor.py`, `auth.py`, `tarefas.py`, `static/index.html`) implementada e **54/54 testes OK** em `app/testes/teste_central.py` (rodar com servidor de teste: `servidor.py --workspace <pasta-teste> --porta 8767 --somente-local`; a pasta de teste precisa de `config\credenciais-teste.json`, `ip_ficticio.pdf`, `muralha_ficticio.xlsx`, `referencia_ficticia.docx` — ver o cabeçalho do teste). Perfis editáveis (matriz), pasta pessoal `usuarios\<login>\`, responsável por caso, KPIs de prazo e retrabalho feitos.
+- **Feito após os testes, falta testar:** (a) `auth.py` com login por usuário, CPF, nome completo ou e-mail, `cargo`/`cpf`/`email` no usuário, **senha temporária com troca obrigatória** (HTTP 428 até trocar) e rede bloqueada enquanto houver senha temporária; (b) `consulta.py` com ingestão de PDF (OCR se necessário), TXT e **texto colado** (`/api/consulta/colar`), extraindo antecedentes: processos/IP/TC/CNJ, BOs, **mandados de prisão**, **medidas cautelares**, placas e veículos; (c) `indexar.py` com colunas novas em `pessoas` e a tabela **`arestas`** (grafo de vínculos: pessoa, CPF, telefone, placa, endereço, empresa, CNPJ, processo, BO, conta, chave Pix, caso); (d) `rag.vinculos()` + `/api/vinculos` e filtros `processo`, `bo`, `placa`, `mandado`, `cautelar` em `/api/pesquisa/pessoas`.
+- **Interface pendente para (a)–(d):** a tela de troca de senha e os campos da configuração inicial já estão no `index.html`. Faltam: no formulário de usuários, os campos CPF, e-mail, cargo e a caixa "senha temporária" (enviar `cpf`, `email`, `cargo`, `temporaria` em `/api/usuarios`); em Minha conta, editar e-mail e cargo (`/api/minha-conta`); nas bases de consulta, aceitar .pdf/.txt e um `<textarea>` "colar texto" → `/api/consulta/colar`; na pesquisa, os campos Processo/IP/TC, BO, Placa e as caixas "com mandado de prisão" e "com medida cautelar", uma coluna Antecedentes nos resultados, um botão **vínculos** por pessoa (`/api/vinculos?tipo=PESSOA&valor=<nome>`) exibido em lista e "ver ficha" (campo `texto`).
+- **Usuário real a criar** (pedido do investigador): login `admin`, nome Alan Douglas Silva, cargo Investigador de Polícia, perfil admin, CPF informado por ele no chat, e a senha que ele informou como **temporária** (`temporaria=True`, troca obrigatória no 1º acesso). Criar via `Auth(WS).salvar_usuario(...)` no workspace real **somente após testar (a)**. A senha não deve ser registrada em arquivos.
+- Depois: acrescentar ao `teste_central.py` os casos de (a)–(d), rodar tudo, `ferramentas\Atualizar plugin.bat` (→ 0.3.0), atualizar skills (`analise-ip-fraude` gerar `pessoas.csv`; regra das bases de consulta; `relatorio-ip-fraude` usar `rag.py exemplos --autor`), `LEIA-ME.md`, e publicar quando o usuário fizer o login no GitHub.
+- Visual do grafo (próxima etapa): biblioteca JS **local** (sem CDN, ex. cytoscape.js copiado para `app/static/`) consumindo `/api/vinculos`.
+
+**Próximos passos (em ordem):**
+1. Reescrever `app/static/index.html` para a v2: tela de login e de configuração inicial; abas por perfil — Início (pendências/prazos), Nova O.S., Casos (ficha com IA, editor de minuta, relatórios), Pesquisa (relacional + textual), Estatísticas (iframe `/painel` + botões Exportar/Planilha), Sistema (exportar/importar, bases de consulta, referências, IA/login Claude, usuários, auditoria, rede, tarefas). Toda chamada POST com cabeçalho `X-CPJ: 1`. Barras de progresso a partir de `/api/tarefas` e `/api/fila` (polling 1,5–2 s).
+2. Testar tudo em workspace isolado (perfis, permissões 403, prazos, exportar→importar, base de consulta Excel/Word fictícia, referência, pesquisa relacional, editor→DOCX→FINAL→baixa).
+3. KPIs de prazo e retrabalho no `gerar_painel.py` (incluir `prazo` e `situacao_prazo` em `producao\base.json`).
+4. Atualizar skills: `analise-ip-fraude` (gerar `pessoas.csv`; registrar progresso quando em modo automático), `relatorio-ip-fraude` (exemplos via `rag.py exemplos <modalidade> --autor`; regra das bases de consulta), `calibrar` (usar referências por autor/peso), `AGENTS.md` (regra 9: bases de consulta), `LEIA-ME.md`.
+5. Validar IA automática após `claude auth login` (teste com caso fictício; confirmar que `Bash/PowerShell(python *)` permite os scripts).
+6. Versão 0.3.0: `ferramentas\Atualizar plugin.bat`; publicar no GitHub (login do usuário no Git Credential Manager pendente).
+7. Opcional: LibreOffice para PDF automático; busca semântica (embeddings locais) na coluna `trechos.embedding`; notificações (e-mail/Teams) de novas O.S. — só com aprovação.
+
+## Registro de mudanças
+
+| Data | Versão | Mudança |
+|---|---|---|
+| 2026-09-27 | 0.1.0 | Plugin inicial (skills, agentes, comandos), workspace, OCR `por`, DOCX no modelo, RAG, painel |
+| 2026-09-27 | 0.2.0 | Central CPJ v1, pasta por O.S., baixa automática/agente/central, scripts de manutenção, `portatil\`, publicação GitHub |
+| 2026-09-27 | 0.3.0 (em construção) | Login/perfis/auditoria, O.S. com prazos e pendências, IA por botão, editor de minuta, exportar/importar, bases de consulta (Muralha Paulista), pesquisa relacional, relatórios de referência por autor/peso, rede local HTTPS |
+| 2026-09-27 | Integração Codex | Onze skills do projeto, entrada pessoal CPJ, gerador/instalador verificável, instruções e guia de uso; preservados procedimentos e executor existentes |
+| 2026-09-27 | Revisão técnica | Inventário do que existe e falta; suíte API com 52 verificações aprovadas em dados fictícios, reproduções de falhas e prioridades de confiabilidade, desempenho e usabilidade; sem alteração do código funcional |
+| 2026-09-27 | Melhorias C01/C02 | Quadro Codex/Claude e reservas de arquivos; autorização uniforme de O.S., revogação de sessões e proteção do último admin ativo; 11 testes novos e 52 verificações existentes aprovados em dados fictícios |
+| 2026-09-27 | Fila multiagente | Tarefas livres para qualquer agente, preservando as já em andamento; CLI de reserva/conclusão/liberação com trava e verificações de conflitos, responsável e dependências; instruções Gemini atualizadas |

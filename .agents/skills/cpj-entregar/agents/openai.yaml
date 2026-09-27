@@ -1,0 +1,4 @@
+# <!-- Gerado por ferramentas/configurar-codex.py; edite o gerador. -->
+interface:
+  display_name: "CPJ: registrar entrega"
+  short_description: "Versão final, baixa e registro de produção"
