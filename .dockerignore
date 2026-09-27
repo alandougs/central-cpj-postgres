@@ -3,6 +3,9 @@
 __pycache__
 *.pyc
 casos
+!casos/
+!casos/_MODELO-CASO/
+!casos/_MODELO-CASO/**
 config
 consulta
 referencias

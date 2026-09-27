@@ -20,6 +20,7 @@ COPY plugin/investigacao-cpj/commands ./plugin/investigacao-cpj/commands
 COPY ferramentas ./ferramentas
 COPY portatil ./portatil
 COPY modelos/dados-padrao.json ./modelos/dados-padrao.json
+COPY casos/_MODELO-CASO ./casos/_MODELO-CASO
 COPY deploy/entrypoint.sh ./deploy/entrypoint.sh
 RUN chmod +x ./deploy/entrypoint.sh \
     && mkdir -p /workspace/casos /workspace/config /workspace/consulta /workspace/referencias /workspace/producao /workspace/rag /workspace/modelos /workspace/exportacoes
