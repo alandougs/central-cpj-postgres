@@ -79,7 +79,18 @@ def ips_locais():
     return sorted(i for i in ips if not i.startswith("127."))
 
 
-def eh_local(): return (request.remote_addr or "") in ("127.0.0.1", "::1")
+def eh_local():
+    remoto = request.remote_addr or ""
+    if remoto in ("127.0.0.1", "::1"):
+        return True
+    # No Compose, o navegador local chega pelo gateway privado da rede Docker.
+    # O Compose publica a porta em loopback por padrão; fora dele, a regra continua estrita.
+    if os.environ.get("CPJ_DOCKER") == "1":
+        try:
+            return ipaddress.ip_address(remoto).is_private
+        except ValueError:
+            return False
+    return False
 
 
 def pasta_usuario(login):

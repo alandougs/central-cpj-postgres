@@ -26,6 +26,7 @@ services:
       CPJ_WORKSPACE: /workspace
       CPJ_PORT: 8765
       CPJ_HOST: 0.0.0.0
+      CPJ_DOCKER: "1"
       DATABASE_URL: postgresql://${POSTGRES_USER:-cpj}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cpj}
     ports:
       - "${CPJ_BIND:-127.0.0.1}:${CPJ_HOST_PORT:-8765}:8765"
