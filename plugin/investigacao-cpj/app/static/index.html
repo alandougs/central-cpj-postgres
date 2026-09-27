@@ -72,7 +72,7 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px}
 <div class="tela" id="tela-login" hidden><form class="card" id="f-login"><h1>Central CPJ</h1><p class="sub">Investigação · fraudes e estelionatos</p>
 <label>Usuário, CPF, nome completo ou e-mail</label><input name="login" autocomplete="username" required><div style="height:10px"></div>
 <label>Senha</label><input name="senha" type="password" autocomplete="current-password" required>
-<div class="acoes"><button class="btn pri" style="width:100%">Entrar</button></div><div class="muted" id="msg-login" style="margin-top:8px"></div></form></div>
+<div class="acoes"><button class="btn pri" style="width:100%">Entrar</button></div><div class="muted" id="msg-login" style="margin-top:8px"></div><button type="button" class="btn sm" id="b-ir-setup" hidden>Configurar primeiro administrador</button></form></div>
 
 <!-- CONFIGURAÇÃO INICIAL -->
 <div class="tela" id="tela-setup" hidden><form class="card" id="f-setup"><h1>Configuração inicial</h1>
@@ -84,7 +84,7 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px}
 <label>E-mail institucional</label><input name="email" type="email"><div style="height:8px"></div>
 <label>Senha (mín. 8, letras e números)</label><input name="senha" type="password" required autocomplete="new-password"><div style="height:8px"></div>
 <label>Repita a senha</label><input name="senha2" type="password" required autocomplete="new-password">
-<div class="acoes"><button class="btn pri" style="width:100%">Criar administrador</button></div><div class="muted" id="msg-setup" style="margin-top:8px"></div></form></div>
+<div class="acoes"><button class="btn pri" style="width:100%">Criar administrador</button><button type="button" class="btn sm" id="b-voltar-login">Voltar para login</button></div><div class="muted" id="msg-setup" style="margin-top:8px"></div></form></div>
 
 <!-- TROCA OBRIGATÓRIA DE SENHA -->
 <div class="tela" id="tela-trocar" hidden><form class="card" id="f-trocar"><h1>Troque sua senha</h1>
@@ -238,7 +238,7 @@ $("#tema").onclick=()=>{const r=document.documentElement,d=r.dataset.theme==="da
 
 // ---------------- sessão
 async function iniciar(){const s=await api("/api/sessao");S={usuario:s.usuario,perms:s.permissoes};
- $("#tela-login").hidden=!!s.usuario||!s.configurado;$("#tela-setup").hidden=s.configurado;$("#app").hidden=!s.usuario;
+ $("#tela-login").hidden=!!s.usuario;$("#tela-setup").hidden=s.configurado||s.usuario||!s.local;$("#b-ir-setup").hidden=s.configurado||!s.local;$("#app").hidden=!s.usuario;
  if(!s.configurado&&!s.local){$("#tela-setup").innerHTML='<div class="card"><h1>Central CPJ</h1><p>A configuração inicial deve ser feita no computador onde a Central está instalada.</p></div>'}
  $("#tela-trocar").hidden=true;
  if(s.usuario&&s.usuario.trocar_senha){mostrarTrocar();return}
@@ -247,6 +247,8 @@ $("#f-trocar").onsubmit=async e=>{e.preventDefault();const f=e.target;if(f.nova.
  try{await api("/api/minha-senha",{json:{atual:f.atual.value,nova:f.nova.value}});f.reset();iniciar()}catch(x){$("#msg-trocar").textContent=x.message}};
 $("#b-sair2").onclick=async()=>{await api("/api/sair",{method:"POST"});iniciar()};
 $("#f-login").onsubmit=async e=>{e.preventDefault();const f=e.target;try{await api("/api/entrar",{json:{login:f.login.value,senha:f.senha.value}});f.senha.value="";iniciar()}catch(x){$("#msg-login").textContent=x.message}};
+$("#b-ir-setup").onclick=()=>{$("#tela-login").hidden=true;$("#tela-setup").hidden=false;$("#msg-login").textContent=""};
+$("#b-voltar-login").onclick=()=>{$("#tela-setup").hidden=true;$("#tela-login").hidden=false;$("#msg-setup").textContent=""};
 $("#f-setup").onsubmit=async e=>{e.preventDefault();const f=e.target;if(f.senha.value!==f.senha2.value){$("#msg-setup").textContent="As senhas não conferem.";return}
  try{await api("/api/configurar",{json:{nome:f.nome.value,login:f.login.value,senha:f.senha.value,cargo:f.cargo.value,cpf:f.cpf.value,email:f.email.value}});iniciar()}catch(x){$("#msg-setup").textContent=x.message}};
 $("#b-sair").onclick=async()=>{await api("/api/sair",{method:"POST"});location.hash="";iniciar()};
