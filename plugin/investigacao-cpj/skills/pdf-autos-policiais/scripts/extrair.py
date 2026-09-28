@@ -47,7 +47,9 @@ if a.ocr in ("auto","tesseract"):
 pdf=pdfium.PdfDocument(a.pdf); paginas=[None]*len(pdf); pend=[]; conferir=[]; retomadas=0; pendentes_ocr=[]; concluidas=0
 for i in range(len(pdf)):
  n=i+1; chave=str(n); tv=os.path.join(tvd,f"p{n:04d}.md"); reg=estado["paginas"].get(chave)
- if reg and not(reg.get("metodo")=="pendente-transcricao-visual" and os.path.exists(tv)):
+ # transcrição visual (pendência ou OCR a conferir, inclusive editada depois) substitui o cache se ainda não é o texto dele
+ tvt=open(tv,encoding="utf-8").read().strip() if os.path.exists(tv) else None
+ if reg and not(tvt is not None and reg.get("metodo")!="texto-nativo" and not(reg.get("metodo")=="transcricao-visual-llm" and reg.get("texto")==tvt)):
   retomadas+=1; paginas[i]=reg
  else:
   native=pdf[i].get_textpage().get_text_range().strip(); reg={"pagina":n}

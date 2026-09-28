@@ -167,7 +167,8 @@ def salvar(c, revisao_esperada=None):
                 raise ConcorrenciaErro(
                     f"Conflito de versão no caso {c['id']}: revisão no disco é {rev_atual}, esperava {revisao_esperada}."
                 )
-        c["revisao"] = c.get("revisao", 0) + 1
+        # sem "revisao" (caso antigo) = revisão 1, como na validação acima e em /api/casos; o 1º salvamento vai a 2
+        c["revisao"] = c.get("revisao", 1) + 1
         c["atualizado_em"] = datetime.datetime.now().isoformat(timespec="seconds")
         tmp = os.path.join(caminho(c["id"]), f".caso.{os.getpid()}_{uuid.uuid4().hex}.tmp")
         with open(tmp, "w", encoding="utf-8") as f: json.dump(c, f, ensure_ascii=False, indent=2)

@@ -210,6 +210,7 @@ class Plantao:
         if acao not in ACOES: raise ValueError("Ação de IA inválida.")
         with self._c() as c:
             c.execute("BEGIN IMMEDIATE")
+            self._encerrar_orfaos(c)
             if c.execute("SELECT 1 FROM pedidos WHERE caso=? AND estado IN ('pendente','executando')", (caso,)).fetchone():
                 c.execute("ROLLBACK"); raise ValueError("Já existe uma tarefa de IA em andamento para este caso.")
             etapas = ("analisar", "financeiro", "relatorio", "revisar") if acao == "completo" else (acao,)
@@ -223,6 +224,14 @@ class Plantao:
             c.execute("COMMIT")
         return pid
 
+    def _encerrar_orfaos(self, c):
+        """Etapas pendentes de um fluxo cuja etapa anterior terminou em erro ou foi cancelada nunca rodariam
+        (e bloqueariam novo pedido para o caso): são canceladas, em cascata até o fim do fluxo."""
+        while c.execute("UPDATE pedidos SET cancelar=1, estado='cancelada', etapa='cancelada: etapa anterior não concluída', "
+                        "fim=? WHERE estado='pendente' AND depende_de IS NOT NULL AND EXISTS (SELECT 1 FROM pedidos d "
+                        "WHERE d.id=pedidos.depende_de AND d.estado IN ('erro','cancelada'))", (agora(),)).rowcount:
+            pass
+
     def _recolher_abandonados(self, c):
         """Pedidos em execução cujo agente parou de responder voltam à fila (ou falham após TENTATIVAS_MAX)."""
         for p in c.execute("SELECT p.id, p.tentativas, a.modo, a.visto_em FROM pedidos p LEFT JOIN agentes a ON a.nome=p.agente "
@@ -235,6 +244,7 @@ class Plantao:
                 # volta à fila liberado para qualquer agente (inclusive se estava direcionado ao que parou)
                 c.execute("UPDATE pedidos SET estado='pendente', agente=NULL, preferido=NULL, "
                           "etapa='devolvido à fila: agente parou de responder' WHERE id=?", (p["id"],))
+        self._encerrar_orfaos(c)
 
     def reivindicar(self, nome):
         """O agente ocioso e aprovado reserva o pedido pendente mais antigo (ou o que foi direcionado a ele)."""
@@ -290,6 +300,7 @@ class Plantao:
         with self._c() as c:
             c.execute("UPDATE pedidos SET estado=CASE WHEN cancelar=1 THEN 'cancelada' ELSE 'erro' END, erro=?, fim=? WHERE id=?",
                       (str(erro)[:1000], agora(), pid))
+            self._encerrar_orfaos(c)
             c.execute("UPDATE agentes SET estado='ocioso', job=NULL, visto_em=? WHERE nome=?", (agora(), nome))
 
     def cancelar(self, pid):

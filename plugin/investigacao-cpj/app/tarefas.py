@@ -42,7 +42,8 @@ def _caminho_importavel(caminho):
     if not isinstance(caminho, str) or not caminho or "\\" in caminho:
         return False
     partes = caminho.split("/")
-    if any(not p or p in (".", "..") for p in partes): return False
+    # ":" bloqueia unidade de disco ("D:") e fluxo alternativo NTFS ("a.txt:x") em qualquer componente
+    if any(not p or p in (".", "..") or ":" in p for p in partes): return False
     raiz = partes[0]
     if raiz == "casos": return len(partes) >= 3 and partes[1] != "_MODELO-CASO"
     if raiz in ("calibracao", "consulta", "referencias"): return len(partes) >= 2
@@ -224,6 +225,9 @@ class Tarefas:
                     cancelar(); r = a["caminho"]; partes = r.split("/")
                     if partes[0] == "casos" and partes[1] in pulados: continue
                     destino = os.path.join(temporaria, *partes)
+                    base = os.path.normcase(os.path.abspath(temporaria))
+                    if os.path.commonpath([base, os.path.normcase(os.path.abspath(destino))]) != base:
+                        raise ValueError(f"Caminho fora da pasta de importação: {r}")
                     os.makedirs(os.path.dirname(destino), exist_ok=True)
                     with z.open("dados/" + r) as f, open(destino, "wb") as w:
                         for b in iter(lambda: f.read(1 << 20), b""):
