@@ -4,7 +4,9 @@
 python ferramentas/fila-tarefas.py listar
 python ferramentas/fila-tarefas.py assumir L04 --agente Gemini-1
 python ferramentas/fila-tarefas.py concluir L04 --agente Gemini-1 --resultado "Arquivos e testes"
+python ferramentas/fila-tarefas.py proxima [--prefixo E]   # loop: 0 = ID livre; 3 = fila concluída; 4 = só bloqueadas
 """
+import sys
 import argparse
 from contextlib import contextmanager
 import datetime
@@ -21,6 +23,7 @@ DEPENDENCIAS = {
     "S01": ["C03"],          # tarefas.py: executor de IA depois da correção de importação
     "P01": ["I01"],          # piloto com o sistema integrado
     "D02": ["N01", "D01"],   # painel do plantão: servidor/interface livres e núcleo pronto
+    "E06": ["E01", "E02", "E03", "E04", "E05"],  # rodada enxuta: fechamento depois das entregas
 }
 
 
@@ -62,6 +65,32 @@ def trava(arquivo, agente):
         lock.unlink()
 
 
+def impedimento(tarefas, id_):
+    """Motivo que impede assumir a tarefa agora (None = pode assumir)."""
+    campos = tarefas[id_][1]
+    if campos[2] not in ("disponível", "aguardando dependências"):
+        return f"{id_}: {campos[2]}, responsável {campos[1]}; reserva recusada."
+    pendentes = [d for d in DEPENDENCIAS.get(id_, [])
+                 if d not in tarefas or tarefas[d][1][2] != "concluída"]
+    if pendentes: return "Dependências não concluídas: " + ", ".join(pendentes)
+    for outro, (_, ativos) in tarefas.items():
+        if outro == id_ or ativos[2] != "em andamento": continue
+        comuns = sorted({p for p in caminhos(campos) for q in caminhos(ativos) if sobrepostos(p, q)})
+        if comuns:
+            return f"Conflito com {outro} ({ativos[1]}): {', '.join(comuns)}. Reserva recusada."
+    return None
+
+
+def proxima(tarefas, prefixo):
+    """Primeira tarefa livre do prefixo, na ordem do quadro."""
+    ids = [i for i in tarefas if i.startswith(prefixo)]
+    abertas = [i for i in ids if tarefas[i][1][2] != "concluída"]
+    if not abertas: return 3, f"FILA {prefixo} CONCLUÍDA ({len(ids)} tarefas)."
+    for i in sorted(abertas, key=lambda i: tarefas[i][0]):
+        if impedimento(tarefas, i) is None: return 0, i
+    return 4, "AGUARDANDO: " + "; ".join(f"{i} ({tarefas[i][1][2]}, {tarefas[i][1][1]})" for i in abertas)
+
+
 def atualizar(arquivo, acao, id_, agente, resultado):
     with trava(arquivo, agente):
         original = arquivo.read_bytes()
@@ -70,16 +99,8 @@ def atualizar(arquivo, acao, id_, agente, resultado):
         if id_ not in tarefas: raise ValueError(f"Tarefa desconhecida: {id_}")
         numero, campos = tarefas[id_]
         if acao == "assumir":
-            if campos[2] not in ("disponível", "aguardando dependências"):
-                raise ValueError(f"{id_}: {campos[2]}, responsável {campos[1]}; reserva recusada.")
-            pendentes = [d for d in DEPENDENCIAS.get(id_, [])
-                         if d not in tarefas or tarefas[d][1][2] != "concluída"]
-            if pendentes: raise ValueError("Dependências não concluídas: " + ", ".join(pendentes))
-            for outro, (_, ativos) in tarefas.items():
-                if outro == id_ or ativos[2] != "em andamento": continue
-                comuns = sorted({p for p in caminhos(campos) for q in caminhos(ativos) if sobrepostos(p, q)})
-                if comuns:
-                    raise ValueError(f"Conflito com {outro} ({ativos[1]}): {', '.join(comuns)}. Reserva recusada.")
+            erro = impedimento(tarefas, id_)
+            if erro: raise ValueError(erro)
             campos[1:3] = [agente, "em andamento"]
         else:
             if campos[2] != "em andamento" or campos[1] != agente:
@@ -109,17 +130,23 @@ def main():
     parser.add_argument("--arquivo", type=Path, default=RAIZ / "TAREFAS-COMPARTILHADAS.md")
     sub = parser.add_subparsers(dest="acao", required=True)
     sub.add_parser("listar")
+    sub.add_parser("proxima").add_argument("--prefixo", default="E")
     for acao in ("assumir", "concluir", "liberar"):
         p = sub.add_parser(acao)
         p.add_argument("id")
         p.add_argument("--agente", required=True)
         p.add_argument("--resultado", required=acao != "assumir")
     args = parser.parse_args()
+    if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     try:
         arquivo = args.arquivo.resolve(strict=True)
         if args.acao == "listar":
             for _, campos in linhas_tarefas(arquivo.read_text(encoding="utf-8")).values():
                 print(f"{campos[0]} | {campos[2]} | {campos[1]} | {campos[3]}")
+        elif args.acao == "proxima":
+            codigo, texto = proxima(linhas_tarefas(arquivo.read_text(encoding="utf-8")), args.prefixo)
+            print(texto)
+            return codigo
         else:
             if not re.fullmatch(r"[\w.\- ]{1,60}", args.agente) or not args.agente.strip():
                 raise ValueError("Use um nome de sessão com letras, números, espaço, ponto ou hífen.")

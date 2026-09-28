@@ -20,6 +20,42 @@ dir_t = os.path.join(saida, "tabelas"); os.makedirs(dir_t, exist_ok=True)
 tabelas = []  # (pagina, origem, linhas)
 
 
+def normalizar_linhas(linhas):
+    normalizadas = [
+        [re.sub(r"\s+", " ", (celula or "").replace("\n", " ")).strip() for celula in linha]
+        for linha in linhas
+    ]
+    normalizadas = [linha for linha in normalizadas if any(linha)]
+    if not normalizadas:
+        return []
+
+    cabecalho = normalizadas[0]
+    coluna_descricao = next(
+        (i for i, valor in enumerate(cabecalho)
+         if re.search(r"hist[oó]rico|descri[cç][aã]o|lan[cç]amento|detalhe", valor, re.I)),
+        None,
+    )
+    if coluna_descricao is None:
+        return normalizadas
+
+    resultado = [cabecalho]
+    for linha in normalizadas[1:]:
+        continuacao = (
+            resultado
+            and coluna_descricao < len(linha)
+            and linha[coluna_descricao]
+            and all(not valor for i, valor in enumerate(linha) if i != coluna_descricao)
+        )
+        if continuacao:
+            anterior = resultado[-1]
+            while len(anterior) < len(linha):
+                anterior.append("")
+            anterior[coluna_descricao] = f"{anterior[coluna_descricao]} {linha[coluna_descricao]}".strip()
+        else:
+            resultado.append(linha)
+    return resultado
+
+
 def de_pdf(caminho):
     try:
         import pdfplumber
@@ -27,10 +63,21 @@ def de_pdf(caminho):
         raise SystemExit("pdfplumber ausente: python -m pip install pdfplumber")
     with pdfplumber.open(caminho) as pdf:
         for i, pg in enumerate(pdf.pages, 1):
-            for t in pg.extract_tables() or []:
-                linhas = [[(c or "").replace("\n", " ").strip() for c in ln] for ln in t]
+            extraidas = pg.extract_tables() or []
+            origem = "pdfplumber (camada de texto)"
+            if not extraidas:
+                extraidas = pg.extract_tables(table_settings={
+                    "vertical_strategy": "text",
+                    "horizontal_strategy": "text",
+                    "min_words_vertical": 2,
+                    "text_x_tolerance": 1,
+                    "text_y_tolerance": 5,
+                }) or []
+                origem = "pdfplumber (colunas alinhadas, sem bordas)"
+            for t in extraidas:
+                linhas = normalizar_linhas(t)
                 if len(linhas) >= 2 and any(any(c for c in ln) for ln in linhas):
-                    tabelas.append((i, "pdfplumber (camada de texto)", linhas))
+                    tabelas.append((i, origem, linhas))
 
 
 def de_markdown(caminho):

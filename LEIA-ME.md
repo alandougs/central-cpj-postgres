@@ -1,5 +1,21 @@
 # Ambiente de Investigação CPJ — guia rápido
 
+## Guia de uso de amanhã (29/09/2026)
+
+1. Duplo clique em `Central CPJ.bat` — abre `http://127.0.0.1:8765` direto na Central (sem senha, modo solo).
+2. **Nova O.S.** → preencha O.S./BO/IP/processo (o que faltar é detectado no PDF) → arraste o PDF do IP → *Processar PDF*. Acompanhe o OCR em *Tarefas* e na ficha do caso.
+3. Caso pronto (extraído): na ficha do caso, clique no botão de IA (*Analisar*, *Gerar relatório* ou *Análise + relatório*) — ou, no Claude Code, `/fluxo-ip OS-<número>`.
+4. Edite a minuta gerada (*Casos* → abra o caso → *Editar minuta*) e gere o DOCX no modelo CPJ 2026 (timbre e assinatura).
+5. Confira o DOCX e clique em **Definir FINAL** — isso registra a entrega (baixa) e atualiza o painel de *Estatísticas*.
+
+**Modo solo:** ativo quando existe `config\solo.json` com `{"ativo": true}` — a Central abre direto como o único administrador, sem tela de login, só em `127.0.0.1`/`localhost`. Para desligar, apague o arquivo ou troque `ativo` para `false` e reabra a Central.
+
+**Onde ficam os arquivos:** cada O.S. vira `casos\OS-<número>\` — `00-originais` (PDF enviado, nunca alterado), `01-extracao\` (transcrição em Markdown por página e tabelas em CSV), `02-analise\` (cronologia, pessoas, financeiro), `03-relatorios\` (minutas, DOCX e o FINAL). O relatório FINAL também chega na sua pasta pessoal (Central → Sistema → *Minha pasta*).
+
+**Se o OCR falhar ou travar:** reabra a ficha do caso e use *reprocessar* no documento com erro (em *Casos* → detalhe → Processamento); confira em `Sistema → Tarefas` a mensagem de erro. Persistindo, rode `ferramentas\Verificar ambiente.bat` para checar se o Tesseract e o idioma português estão instalados.
+
+**Se o botão de IA não sair do lugar:** confira em Sistema → *Inteligência artificial* se há algum agente **ocioso e aprovado**; fora do expediente (seg-sex 9h-18h) o pedido só fica na fila — peça pelo chat do Claude Code para atender na hora, ou aguarde o próximo expediente.
+
 ## Dia a dia
 
 1. **Abra a Central CPJ:** duplo clique em `Central CPJ.bat` (abre `http://127.0.0.1:8765` no navegador) e entre com seu usuário (login, CPF, nome completo ou e-mail). Senha temporária exige troca no primeiro acesso.

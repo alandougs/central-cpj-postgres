@@ -4,6 +4,12 @@
 
 > **Desenvolvimento em paralelo:** antes de editar, leia `TAREFAS-COMPARTILHADAS.md`. A fila está aberta a Codex, Claude, Gemini e outros agentes. Assuma uma tarefa disponível com `python ferramentas\fila-tarefas.py assumir <ID> --agente <nome-da-sessao>`; respeite as reservas das tarefas em andamento e registre testes/conclusão pelo mesmo script. Não edite arquivo reservado ao outro agente.
 
+> **ESCOPO RATIFICADO (28/09/2026 — decisão do investigador):** usuário único, **Alan Douglas Silva, Investigador de Polícia**, no próprio computador. Todo esforço vai para o core: `PDF dos autos → OCR local → Markdown por página + CSV → análise investigativa → relatório DOCX CPJ 2026`.
+> - **Modo solo** (implementado): com `config\solo.json` = `{"ativo": true}`, a Central aberta em `127.0.0.1`/`localhost` entra direto como o único administrador ativo, sem senha. Pela rede, com outro Host ou com mais de um admin, volta a exigir login. POST continua exigindo `X-CPJ: 1`. Quem ativa é o investigador; agente não cria nem altera esse arquivo no workspace real.
+> - **Congelado:** PostgreSQL e Docker (`db.py`, `compose.yaml`, `deploy\` e `README-DOCKER.md` ficam fora do caminho de execução; a Central usa arquivos + SQLite, premissa 8 do PRD), perfis delegado/escrivão, rede local e novos papéis de IA. O código existente permanece, mas não recebe melhorias nesta fase.
+> - **Vedado agora:** frameworks de frontend, banco servidor, novos serviços, telas novas que não sirvam ao core.
+> - Rodada em curso: seção **"Rodada enxuta"** de `TAREFAS-COMPARTILHADAS.md`. Para saber a próxima tarefa, use `python ferramentas\fila-tarefas.py proxima`.
+
 Vale para **qualquer agente** (Claude Code, Codex, Gemini/Antigravity, Copilot, modelos locais). Workspace do Investigador de Polícia Alan Douglas Silva (Central de Polícia Judiciária — Seccional de Presidente Prudente, DEINTER 8). Foco: **relatórios de investigação em IPs de fraude e estelionato**.
 
 Tudo aqui é Markdown + scripts Python locais: nada depende do Claude. No Claude Code, os mesmos procedimentos aparecem como plugin `investigacao-cpj` (comandos `/…`).
@@ -58,7 +64,7 @@ Sempre que concluir uma etapa, atualize o caso com `caso.py` (status e campos) e
 - **Sem execução de comandos:** peça ao usuário para rodar os scripts indicados (PowerShell, `python`) e colar a saída; ou use a Central CPJ para a extração.
 - **IA de chat sem acesso a arquivos:** cole o arquivo portátil da tarefa como instrução e anexe apenas os trechos necessários da transcrição (minimize dados pessoais). A minuta produzida deve seguir o formato Markdown descrito em `04-relatorio-ip.md` para depois virar DOCX com `gerar_docx.py`.
 - **Modelo local (Ollama etc.):** preferível para dados sigilosos; use os mesmos arquivos portáteis.
-- Ambiente: Windows, PowerShell, `python` (não `python3`). Tesseract em `C:\Program Files\Tesseract-OCR`; idioma português em `ferramentas\tessdata` (`$env:TESSDATA_PREFIX`).
+- Ambiente: Windows, PowerShell, `python` (não `python3`). Tesseract em `C:\Program Files\Tesseract-OCR` ou, neste PC, o do PDF24 (`C:\Program Files\PDF24\tesseract`, 5.4.1, sem idiomas próprios); a Central detecta sozinha (ou `CPJ_TESSERACT=<pasta>`). Idioma português sempre em `ferramentas\tessdata` (`$env:TESSDATA_PREFIX`).
 
 ## 5. Codex — skills e instruções deste projeto
 
@@ -68,3 +74,17 @@ Sempre que concluir uma etapa, atualize o caso com `caso.py` (status e campos) e
 - Regerar adaptadores: `python ferramentas\configurar-codex.py`. Instalar também a entrada pessoal: acrescente `--instalar-usuario` ou use `ferramentas\Configurar Codex.bat`. Conferir sem alterar: `python ferramentas\configurar-codex.py --instalar-usuario --verificar`.
 - Não se instala um conector nem se troca o executor automático da Central. Os procedimentos continuam compatíveis com os outros agentes.
 - **Sigilo no Codex:** scripts locais não tornam a inferência do modelo local. A instalação destas skills não comprova compatibilidade da conta com a regra 6. Não carregue autos reais, imagens, transcrições ou resultados identificáveis no contexto de um modelo externo; use o fluxo local autorizado pelo órgão. Para manutenção, use código, procedimentos e dados fictícios.
+
+## 6. Ferramentas de desenvolvimento (skills e MCPs de terceiros)
+
+Só para **manter a Central/plugin**; não usar em análise de casos. Instaladas no escopo do projeto em 28/09/2026.
+
+| Agente | Skills | MCPs |
+|---|---|---|
+| Claude Code | plugins `frontend-design` e `code-review` (`.claude\settings.json`) + `.claude\skills\` | `.mcp.json` |
+| Codex / Gemini CLI | `.agents\skills\` (ao lado das `cpj-*`) | `.codex\config.toml` / `.gemini\settings.json` |
+
+- **Skills:** `frontend-design` (visual), `theme-factory` (temas), `web-design-guidelines` (auditoria de UI/acessibilidade; baixa as regras do GitHub), `webapp-testing` (Playwright em Python), `systematic-debugging`, `test-driven-development`, `verification-before-completion`. Versões registradas em `skills-lock.json`; atualizar com `npx skills update -p`.
+- **MCPs:** `playwright` (usa o Edge instalado), `chrome-devtools` (desempenho, console, rede), `context7` (documentação de bibliotecas).
+- **Regras:** Playwright/DevTools só em `http://127.0.0.1:<porta>` de uma Central de teste (`--workspace` isolado, porta 8766) com dados fictícios, nunca na Central com casos reais. Context7 recebe só nome de biblioteca e pergunta técnica, nunca trecho de autos. Manter a Central sem framework/CDN: HTML/CSS/JS puros e servidor Python atual.
+- As `cpj-*` são geradas por `configurar-codex.py`; as demais pastas de `.agents\skills\` vêm do `npx skills` e não devem ser editadas à mão.

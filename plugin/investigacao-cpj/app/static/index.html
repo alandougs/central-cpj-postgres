@@ -1,39 +1,43 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Central CPJ</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http%3A//www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f2745'/%3E%3Ctext x='16' y='21' font-family='Segoe UI,Arial' font-size='11' font-weight='700' fill='%23fff' text-anchor='middle'%3ECPJ%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#0f2745" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
 <style>
-:root{color-scheme:light;--page:#f6f6f3;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--line:#e1e0d9;--ring:rgba(11,11,11,.10);
---acc:#2a78d6;--acc-soft:#e8f1fc;--good:#0ca30c;--warn:#b77900;--warn-soft:#fff4d6;--crit:#d03b3b;--crit-soft:#fde8e8;--mark:#fff1b8}
-@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#fff;--ink2:#c3c2b7;
---line:#2c2c2a;--ring:rgba(255,255,255,.10);--acc:#3987e5;--acc-soft:#13243a;--warn:#fab219;--warn-soft:#3a2d05;--crit-soft:#3d1414;--mark:#5a4a00}}
-:root[data-theme="dark"]{color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--line:#2c2c2a;--ring:rgba(255,255,255,.10);
---acc:#3987e5;--acc-soft:#13243a;--warn:#fab219;--warn-soft:#3a2d05;--crit-soft:#3d1414;--mark:#5a4a00}
+:root{color-scheme:light;--page:#f4f5f7;--surface:#ffffff;--ink:#101828;--ink2:#3f4759;--muted:#6b7180;--line:#d7dbe3;--ring:rgba(16,24,40,.14);
+--acc:#1c3f6e;--acc-2:#2a5a9e;--acc-soft:#e6ecf5;--good:#0c7a3d;--warn:#8a5a00;--warn-soft:#fdf0d5;--crit:#a3242f;--crit-soft:#faeaea;--mark:#fbe89b}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){color-scheme:dark;--page:#0b1320;--surface:#111c2e;--ink:#eef1f6;--ink2:#b7c0d1;
+--muted:#8994a8;--line:#28374f;--ring:rgba(238,241,246,.14);--acc:#2f5f9e;--acc-2:#8fb2de;--acc-soft:#182b45;--warn:#e0ab3d;--warn-soft:#332708;--crit:#e0707a;--crit-soft:#3a1a1e;--mark:#4a3c10}}
+:root[data-theme="dark"]{color-scheme:dark;--page:#0b1320;--surface:#111c2e;--ink:#eef1f6;--ink2:#b7c0d1;--muted:#8994a8;--line:#28374f;--ring:rgba(238,241,246,.14);
+--acc:#2f5f9e;--acc-2:#8fb2de;--acc-soft:#182b45;--warn:#e0ab3d;--warn-soft:#332708;--crit:#e0707a;--crit-soft:#3a1a1e;--mark:#4a3c10}
 *{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
 [hidden]{display:none!important}
-header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--page) 90%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+:focus-visible{outline:2px solid var(--acc-2);outline-offset:2px}
+header{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:2px solid var(--acc)}
 .hd{max-width:1280px;margin:0 auto;padding:10px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-.logo{font-weight:700;font-size:16px;white-space:nowrap}.logo small{color:var(--muted);font-weight:500;margin-left:6px}
-nav{display:flex;gap:2px;flex:1;flex-wrap:wrap}nav button{border:0;background:transparent;color:var(--ink2);padding:7px 11px;border-radius:8px;font:inherit;cursor:pointer;position:relative}
-nav button.on{background:var(--acc-soft);color:var(--acc);font-weight:600}nav button .n{background:var(--crit);color:#fff;border-radius:999px;font-size:10.5px;padding:0 6px;margin-left:5px}
+.logo{font-weight:700;font-size:16px;white-space:nowrap;letter-spacing:-.01em}.logo small{color:var(--muted);font-weight:500;margin-left:6px}
+nav{display:flex;gap:2px;flex:1;flex-wrap:wrap}nav button{border:0;background:transparent;color:var(--ink2);padding:7px 11px;border-radius:6px;font:inherit;cursor:pointer;position:relative}
+nav button.on{background:var(--acc-soft);color:var(--acc-2);font-weight:600}nav button .n{background:var(--crit);color:#fff;border-radius:999px;font-size:10.5px;padding:0 6px;margin-left:5px}
 .chip{font-size:12px;color:var(--ink2);border:1px solid var(--ring);border-radius:999px;padding:3px 10px;white-space:nowrap;cursor:pointer;background:var(--surface)}
 .user{font-size:12.5px;color:var(--ink2);white-space:nowrap}
 main{max-width:1280px;margin:0 auto;padding:20px 16px 60px}section.aba{display:none}section.aba.on{display:block}
 h2{font-size:19px;margin:0 0 2px}h3{font-size:15px;margin:0 0 10px}h4{font-size:13px;margin:0 0 8px;color:var(--ink2);font-weight:600}
 .sub{color:var(--ink2);margin:0 0 16px;font-size:13px}
-.card{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:16px}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:8px;padding:16px}
 .g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 @media(max-width:900px){.g2,.g3{grid-template-columns:1fr}}
 .stack>*+*{margin-top:14px}
 label{display:block;font-size:12.5px;color:var(--ink2);margin:0 0 4px}
-input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--page);border:1px solid var(--ring);border-radius:9px;padding:7px 10px}
-textarea{resize:vertical}input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:-1px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--page);border:1px solid var(--ring);border-radius:6px;padding:7px 10px}
+textarea{resize:vertical}input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc-2);outline-offset:-1px}
 .campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px 12px;margin-bottom:12px}
-.btn{font:inherit;border:1px solid var(--ring);background:var(--surface);color:var(--ink);border-radius:9px;padding:7px 13px;cursor:pointer;white-space:nowrap}
+.btn{font:inherit;border:1px solid var(--ring);background:var(--surface);color:var(--ink);border-radius:6px;padding:7px 13px;cursor:pointer;white-space:nowrap}
 .btn:hover{border-color:var(--acc)}.btn.pri{background:var(--acc);color:#fff;border-color:transparent;font-weight:600}.btn.dan{color:var(--crit)}
 .btn:disabled{opacity:.5;cursor:default}.btn.sm{padding:3px 9px;font-size:12.5px}
 .acoes{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
-.drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--ink2);cursor:pointer}
-.drop.on{border-color:var(--acc);background:var(--acc-soft);color:var(--acc)}.drop b{color:var(--ink)}
+.drop{border:2px dashed var(--line);border-radius:8px;padding:22px;text-align:center;color:var(--ink2);cursor:pointer}
+.drop.on{border-color:var(--acc);background:var(--acc-soft);color:var(--acc-2)}.drop b{color:var(--ink)}
 .lista-arq{margin:8px 0 0;padding:0;list-style:none;font-size:13px}.lista-arq li{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--line)}
 .prog{height:7px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}.prog>i{display:block;height:100%;width:0;background:var(--acc);border-radius:4px;transition:width .3s}
 .prog.ind>i{width:30%!important;animation:ind 1.2s infinite ease-in-out}@keyframes ind{0%{margin-left:-30%}100%{margin-left:100%}}
@@ -47,22 +51,22 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 th{color:var(--ink2);font-weight:600;font-size:12.5px}tbody.clic tr{cursor:pointer}tbody.clic tr:hover{background:var(--acc-soft)}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .barra{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}.barra input{flex:1;min-width:220px}.barra select{width:auto}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
-.kpi{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:14px 16px;cursor:default}.kpi.clic{cursor:pointer}.kpi.clic:hover{border-color:var(--acc)}
-.kpi .l{color:var(--ink2);font-size:12.5px}.kpi .kv{font-size:28px;font-weight:650;letter-spacing:-.02em}.kpi.alerta .kv{color:var(--crit)}.kpi.atencao .kv{color:var(--warn)}
-.lista-os div.it{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer}.lista-os div.it:hover{color:var(--acc)}
-.arqs{font-size:13px;max-height:320px;overflow:auto}.arqs a,.lk{color:var(--acc);text-decoration:none;cursor:pointer}.arqs div{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed var(--line)}
+.kpi{background:var(--surface);border:1px solid var(--ring);border-radius:8px;padding:14px 16px;cursor:default}.kpi.clic{cursor:pointer}.kpi.clic:hover{border-color:var(--acc)}
+.kpi .l{color:var(--ink2);font-size:12.5px}.kpi .kv{font-size:28px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.kpi.alerta .kv{color:var(--crit)}.kpi.atencao .kv{color:var(--warn)}
+.lista-os div.it{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer}.lista-os div.it:hover{color:var(--acc-2)}
+.arqs{font-size:13px;max-height:320px;overflow:auto}.arqs a,.lk{color:var(--acc-2);text-decoration:none;cursor:pointer}.arqs div{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed var(--line)}
 code{background:var(--page);border:1px solid var(--ring);border-radius:6px;padding:1px 6px;font-size:12.5px}
 .res{padding:10px 0;border-bottom:1px solid var(--line)}.res .meta{font-size:12.5px;color:var(--ink2);margin-bottom:3px}.res .tx{white-space:pre-wrap}
-mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 2px}.aviso{background:var(--acc-soft);border-radius:9px;padding:8px 12px;margin-bottom:10px;font-size:13px}
+mark{background:var(--mark);color:inherit;border-radius:3px;padding:0 2px}.aviso{background:var(--acc-soft);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:13px}
 .aviso.alerta{background:var(--crit-soft)}
-iframe{width:100%;height:calc(100vh - 190px);border:0;border-radius:14px;background:var(--surface)}
+iframe{width:100%;height:calc(100vh - 190px);border:0;border-radius:8px;background:var(--surface)}
 .vazio{color:var(--muted);text-align:center;padding:22px 0}
-.seg{display:inline-flex;border:1px solid var(--ring);border-radius:9px;overflow:hidden;margin-bottom:12px}.seg button{border:0;background:var(--surface);padding:6px 14px;font:inherit;color:var(--ink2);cursor:pointer}.seg button.on{background:var(--acc);color:#fff}
-.v{cursor:pointer;border-bottom:1px dotted var(--acc)}.v:hover{color:var(--acc)}
+.seg{display:inline-flex;border:1px solid var(--ring);border-radius:6px;overflow:hidden;margin-bottom:12px}.seg button{border:0;background:var(--surface);padding:6px 14px;font:inherit;color:var(--ink2);cursor:pointer}.seg button.on{background:var(--acc);color:#fff}
+.v{cursor:pointer;border-bottom:1px dotted var(--acc-2)}.v:hover{color:var(--acc-2)}
 .tela{min-height:100vh;display:grid;place-items:center;padding:16px}.tela .card{width:100%;max-width:380px}.tela h1{font-size:20px;margin:0 0 4px}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20;display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}
 .modal .card{width:100%;max-width:1100px}
-.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--page);padding:9px 16px;border-radius:10px;opacity:0;transition:.2s;pointer-events:none;z-index:30;max-width:90vw}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--page);padding:9px 16px;border-radius:6px;opacity:0;transition:.2s;pointer-events:none;z-index:30;max-width:90vw}
 details summary{cursor:pointer;color:var(--ink2);font-size:13px}
 .st-conf{background:var(--crit-soft);color:var(--crit);border-color:transparent;font-weight:600}.st-ind{color:var(--warn);border-color:var(--warn)}
 .st-hist{color:var(--ink2)}.st-neg{color:var(--muted);border-style:dashed}
@@ -99,7 +103,7 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px}
 <header><div class="hd"><div class="logo">Central CPJ<small>fraudes e estelionatos</small></div>
 <nav id="nav"></nav>
 <span class="chip" id="chip-tarefas" title="Tarefas em andamento">tarefas: —</span>
-<span class="user" id="u-nome"></span><button class="btn sm" id="b-sair">Sair</button><button class="btn sm" id="tema" title="Tema claro/escuro">◐</button></div></header>
+<span class="user" id="u-nome"></span><button class="btn sm" id="b-sair">Sair</button><button class="btn sm" id="tema" title="Tema claro/escuro" aria-label="Alternar tema claro/escuro"><span aria-hidden="true">◐</span></button></div></header>
 <main>
 
 <section class="aba" id="inicio"><h2>Início</h2><p class="sub" id="ini-sub"></p>
@@ -121,7 +125,7 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px}
 <label>Determinação da autoridade (o que a O.S. pede)</label><textarea name="determinacao" rows="3" placeholder="Ex.: identificar e qualificar os titulares das contas recebedoras; percorrer o caminho do dinheiro…"></textarea>
 <div style="height:10px"></div>
 <div class="drop" id="drop"><b>Arraste o PDF do IP aqui</b><br>ou clique para escolher · PDF, MD, CSV<input type="file" id="arqs" multiple accept=".pdf,.md,.csv" hidden></div>
-<ul class="lista-arq" id="lista-arq"></ul><div class="muted" id="dados-os-auto">Selecione o IP/processo: os dados serão detectados. O que faltar será tentado após o OCR; você pode completar manualmente.</div><div class="prog" id="prog-up" hidden><i></i></div><div class="muted" id="prog-up-tx"></div>
+<ul class="lista-arq" id="lista-arq"></ul><div class="muted" id="dados-os-auto">Selecione o IP/processo: os dados serão detectados. O que faltar será tentado após o OCR; você pode completar manualmente.</div><div class="prog" id="prog-up" hidden><i aria-hidden="true"></i></div><div class="muted" id="prog-up-tx"></div>
 <div class="acoes"><button type="button" class="btn" id="b-salvar-os">Salvar dados</button><button type="submit" class="btn pri" id="b-enviar">Processar PDF</button><button type="button" class="btn" id="b-nova-os">Novo cadastro</button></div><div class="muted" id="msg-up" role="status" aria-live="polite"></div></form>
 <div class="card"><div style="display:flex;justify-content:space-between"><h4>Fila de processamento</h4><span class="muted" id="ocr-lang"></span></div><div id="fila"></div></div></div>
 </section>
@@ -162,19 +166,19 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px}
   <label><input type="checkbox" id="exp-modelo" style="width:auto"> Incluir modelo DOCX (contém timbre e assinatura)</label>
   <div class="acoes"><button class="btn pri" id="b-exportar">Exportar</button></div><h4 style="margin-top:12px">Pacotes gerados</h4><div id="lista-exp" class="arqs"></div></div>
  <div class="card"><h3>Importar banco de dados</h3><p class="muted">Envie um pacote exportado pela Central. Os arquivos são verificados; casos novos são acrescentados e casos existentes <b>não</b> são sobrescritos.</p>
-  <input type="file" id="imp-zip" accept=".zip"><div class="prog" id="prog-imp" hidden><i></i></div><div class="acoes"><button class="btn pri" id="b-importar">Importar</button><span class="muted" id="msg-imp"></span></div></div>
+  <input type="file" id="imp-zip" accept=".zip"><div class="prog" id="prog-imp" hidden><i aria-hidden="true"></i></div><div class="acoes"><button class="btn pri" id="b-importar">Importar</button><span class="muted" id="msg-imp"></span></div></div>
 </div>
 <div class="g2" data-perm="dados">
  <div class="card"><h3>Bases de consulta / dados de investigados</h3><p class="muted">Excel, CSV, Word, PDF, TXT ou texto colado (ex.: Muralha Paulista, fichas de sistemas). O sistema reconhece qualificação (nome, mãe, pai, CPF, RG, telefone, endereço, empresa, placa) e antecedentes (processos/IP/TC, BOs, mandados de prisão, medidas cautelares). <b>Somente pesquisa</b> — nunca fonte do relatório.</p>
   <div class="campos"><div><label>Nome da base</label><input id="bc-nome" placeholder="ex.: Muralha Paulista - set/2026"></div><div><label>Arquivo</label><input type="file" id="bc-arq" accept=".xlsx,.xls,.xlsm,.csv,.docx,.pdf,.txt"></div></div>
-  <div class="prog" id="prog-bc" hidden><i></i></div><div class="acoes" style="margin-top:0"><button class="btn pri" id="b-bc">Importar arquivo</button><span class="muted" id="msg-bc"></span></div>
+  <div class="prog" id="prog-bc" hidden><i aria-hidden="true"></i></div><div class="acoes" style="margin-top:0"><button class="btn pri" id="b-bc">Importar arquivo</button><span class="muted" id="msg-bc"></span></div>
   <details style="margin-top:10px"><summary>Colar texto</summary><p class="muted">Cole a ficha copiada de outro sistema. Linhas no formato “Campo: valor” (Nome:, Mãe:, CPF:…) são reconhecidas; cada “Nome:” inicia um novo registro.</p>
    <textarea id="bc-texto" rows="7" placeholder="Nome: ...&#10;Mãe: ...&#10;CPF: ...&#10;Mandado de prisão: ..."></textarea><div class="acoes"><button class="btn pri" id="b-bc-colar">Importar texto colado</button><span class="muted" id="msg-bc-colar"></span></div></details>
   <div id="lista-bc" style="margin-top:10px"></div></div>
  <div class="card"><h3>Relatórios de referência</h3><p class="muted">Relatórios já elaborados (seus ou de colegas) para calibrar o estilo. Peso 5 = modelo exemplar. Usados só como exemplo de estrutura e estilo.</p>
   <div class="campos"><div><label>Autor *</label><input id="rf-autor"></div><div><label>Modalidade</label><select id="rf-mod"></select></div><div><label>Peso (qualidade)</label><select id="rf-peso"><option>5</option><option>4</option><option selected>3</option><option>2</option><option>1</option></select></div>
   <div><label>Arquivo</label><input type="file" id="rf-arq" accept=".docx,.pdf,.md"></div></div><label>Observações</label><input id="rf-obs">
-  <div class="prog" id="prog-rf" hidden><i></i></div><div class="acoes"><button class="btn pri" id="b-rf">Importar referência</button><input id="rf-filtro" placeholder="filtrar por autor" style="width:180px"><span class="muted" id="msg-rf"></span></div><div id="lista-rf" style="margin-top:10px"></div></div>
+  <div class="prog" id="prog-rf" hidden><i aria-hidden="true"></i></div><div class="acoes"><button class="btn pri" id="b-rf">Importar referência</button><input id="rf-filtro" placeholder="filtrar por autor" style="width:180px"><span class="muted" id="msg-rf"></span></div><div id="lista-rf" style="margin-top:10px"></div></div>
 </div>
 <div class="card" data-perm="ia"><h3>Inteligência artificial — agentes de plantão</h3>
  <p class="muted">Os botões de IA (na ficha do caso) criam um pedido na fila. O primeiro agente de plantão <b>ocioso e aprovado</b> executa, sem internet e usando somente os documentos do caso. Agentes: sessões de chat guiadas pelo <code>PROMPT-AGENTE-PLANTAO.md</code> (Claude, Codex, Antigravity) ou automáticos pelo <code>ferramentas\Agente de plantao.bat</code>. Agente novo só trabalha depois de aprovado pelo administrador.</p>
@@ -185,7 +189,7 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px}
  <p class="muted">Primeiro o sistema tenta extrair os dados por script, depois pelo texto reconhecido por OCR. A IA local complementa campos vazios com fonte; você confere e completa o que faltar.</p>
  <label>Modelo local já instalado no Ollama</label><input id="os-modelo-local" placeholder="Nome do modelo instalado; vazio desativa a etapa de IA">
  <div class="acoes"><button class="btn" id="b-os-modelo">Salvar modelo</button><span class="muted" id="os-modelo-msg"></span></div></div>
-<div class="card" data-perm="usuarios"><h3>Usuários</h3><div id="lista-usuarios"></div>
+<div class="card" id="card-usuarios" data-perm="usuarios"><h3>Usuários</h3><div id="lista-usuarios"></div>
  <form id="f-usuario" style="margin-top:12px"><div class="campos"><div><label>Login</label><input name="login" required></div><div><label>Nome</label><input name="nome" required></div>
  <div><label>Perfil</label><select name="perfil"><option value="investigador">Investigador de Polícia</option><option value="delegado">Delegado de Polícia</option><option value="escrivao">Escrivão de Polícia</option><option value="admin">Administrador</option></select></div>
  <div><label>Cargo</label><input name="cargo" placeholder="ex.: Investigador de Polícia"></div>
@@ -193,9 +197,9 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px}
  <div><label>Senha (em branco = manter)</label><input name="senha" type="password" autocomplete="new-password"></div><div><label>Situação</label><select name="ativo"><option value="1">ativo</option><option value="0">desativado</option></select></div></div>
  <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" name="temporaria" style="width:auto"> Senha temporária: o usuário deverá trocá-la no primeiro acesso (permite senha provisória simples)</label>
  <div class="acoes" style="margin:0"><button class="btn pri">Salvar usuário</button><button type="button" class="btn" id="b-usr-novo">Novo (limpar)</button><span class="muted" id="msg-usr"></span></div></form></div>
-<div class="card" data-perm="usuarios"><h3>Perfis e permissões</h3><p class="muted">Marque o que cada perfil pode fazer. O Administrador sempre tem acesso total.</p><div id="matriz" style="overflow:auto"></div>
+<div class="card" id="card-perfis" data-perm="usuarios"><h3>Perfis e permissões</h3><p class="muted">Marque o que cada perfil pode fazer. O Administrador sempre tem acesso total.</p><div id="matriz" style="overflow:auto"></div>
  <div class="acoes"><button class="btn pri" id="b-perfis">Salvar permissões</button><button class="btn" id="b-perfis-padrao">Restaurar padrão</button><span class="muted" id="msg-perfis"></span></div></div>
-<div class="card" data-perm="rede"><h3>Acesso pela rede local</h3><div id="rede-info" class="muted"></div>
+<div class="card" id="card-rede" data-perm="rede"><h3>Acesso pela rede local</h3><div id="rede-info" class="muted"></div>
  <label><input type="checkbox" id="rede-on" style="width:auto"> Permitir acesso de outros computadores da rede (delegados/escrivães)</label>
  <label><input type="checkbox" id="rede-https" style="width:auto" checked> Usar HTTPS (recomendado)</label>
  <div class="acoes"><button class="btn pri" id="b-rede">Salvar</button><span class="muted" id="msg-rede"></span></div>
@@ -232,12 +236,12 @@ function enviar(u,fd,barra,tx){return new Promise((ok,ko)=>{const x=new XMLHttpR
  x.onload=()=>{let j={};try{j=JSON.parse(x.responseText)}catch{}if(barra)barra.hidden=true;if(tx)tx.textContent="";x.status===200?ok(j):ko(new Error(j.erro||"Falha no envio"))};
  x.onerror=()=>{if(barra)barra.hidden=true;ko(new Error("Falha de conexão"))};x.send(fd)})}
 const barraHTML=(p,ind)=>`<div class="prog${ind?" ind":""}"><i style="width:${Math.max(0,Math.min(100,p||0))}%"></i></div>`;
-function badge(st){const m={processando:["b-run","processando"],executando:["b-run","executando"],na_fila:["b-wait","na fila"],erro:["b-err","erro"],concluido:["b-ok","concluído"],concluida:["b-ok","concluída"],cancelada:["","cancelada"]}[st]||["",st||"—"];return `<span class="badge ${m[0]}"><i></i>${m[1]}</span>`}
+function badge(st){const m={processando:["b-run","processando"],executando:["b-run","executando"],na_fila:["b-wait","na fila"],erro:["b-err","erro"],concluido:["b-ok","concluído"],concluida:["b-ok","concluída"],cancelada:["","cancelada"]}[st]||["",st||"—"];return `<span class="badge ${m[0]}"><i aria-hidden="true"></i>${m[1]}</span>`}
 function prazoBadge(c){if(!c.prazo)return '<span class="muted">—</span>';const s=c.situacao_prazo,t={vencido:"⛔ vencido",hoje:"⚠ vence hoje",proximo:"⏳ "+dt(c.prazo)}[s];return t?`<span class="badge pz-${s}">${t}</span>`:`<span class="muted">${dt(c.prazo)}</span>`}
 $("#tema").onclick=()=>{const r=document.documentElement,d=r.dataset.theme==="dark"||(!r.dataset.theme&&matchMedia("(prefers-color-scheme: dark)").matches);r.dataset.theme=d?"light":"dark"};
 
 // ---------------- sessão
-async function iniciar(){const s=await api("/api/sessao");S={usuario:s.usuario,perms:s.permissoes};
+async function iniciar(){const s=await api("/api/sessao");S={usuario:s.usuario,perms:s.permissoes,solo:!!s.solo};
  $("#tela-login").hidden=!!s.usuario;$("#tela-setup").hidden=s.configurado||s.usuario||!s.local;$("#b-ir-setup").hidden=s.configurado||!s.local;$("#app").hidden=!s.usuario;
  if(!s.configurado&&!s.local){$("#tela-setup").innerHTML='<div class="card"><h1>Central CPJ</h1><p>A configuração inicial deve ser feita no computador onde a Central está instalada.</p></div>'}
  $("#tela-trocar").hidden=true;
@@ -256,10 +260,13 @@ $("#b-sair").onclick=async()=>{await api("/api/sair",{method:"POST"});location.h
 const ABAS=[["inicio","Início","casos"],["nova","Nova O.S.","os"],["casos","Casos","casos"],["pesquisa","Pesquisa","pesquisa"],["estatisticas","Estatísticas","estatisticas"],["sistema","Sistema",null]];
 const MOD=["","falso-parente","whatsapp-clonado","falsa-central","boleto-falso","falso-vendedor","falso-intermediario","falso-investimento","falso-emprego","emprestimo-falso","golpe-afetivo","falso-sequestro","maquininha","fraude-cartao","fraude-documental","outro"];
 const ST=["recebido","extraido","em_analise","analisado","minuta","entregue","devolvido","arquivado"];
-function montar(){$("#u-nome").textContent=`${S.usuario.nome} · ${S.usuario.cargo||S.usuario.perfil_nome}`;
+function montar(){$("#u-nome").textContent=S.usuario.cargo?`${S.usuario.nome} · ${S.usuario.cargo}`:`${S.usuario.nome} · ${S.usuario.perfil_nome}`;
+ $("#b-sair").hidden=!!S.solo;
+ if(S.solo){const u=$("#card-usuarios"),p=$("#card-perfis"),r=$("#card-rede");if(u)u.hidden=true;if(p)p.hidden=true;if(r)r.hidden=true}
  $("#nav").innerHTML=ABAS.filter(a=>!a[2]||pode(a[2])).map(a=>`<button data-a="${a[0]}">${a[1]}<span class="n" id="n-${a[0]}" hidden></span></button>`).join("");
  $$("#nav button").forEach(b=>b.onclick=()=>abrirAba(b.dataset.a));
  $$("[data-perm]").forEach(e=>e.hidden=!pode(e.dataset.perm));
+ if(S.solo){const u=$("#card-usuarios"),p=$("#card-perfis"),r=$("#card-rede");if(u)u.hidden=true;if(p)p.hidden=true;if(r)r.hidden=true}
  $("#st-casos").innerHTML='<option value="">todos os status</option>'+ST.map(s=>`<option>${s}</option>`).join("");
  $("#rf-mod").innerHTML=MOD.map(m=>`<option value="${m}">${m||"—"}</option>`).join("");
  $("#f-os").recebido.value=hoje();if(S.usuario.perfil==="delegado")$("#f-os").requisitante.value=S.usuario.nome;
@@ -319,7 +326,7 @@ async function atualizarFila(){const j=await api("/api/fila");$("#ocr-lang").tex
 // ---------------- casos
 let tq;$("#q-casos").oninput=()=>{clearTimeout(tq);tq=setTimeout(carregarCasos,250)};$("#st-casos").onchange=carregarCasos;$("#pz-casos").onchange=carregarCasos;$("#meus-casos").onchange=carregarCasos;
 async function carregarCasos(){const cs=await api(`/api/casos?q=${enc($("#q-casos").value)}&status=${$("#st-casos").value}&prazo=${$("#pz-casos").value}&meus=${$("#meus-casos").checked?1:""}`);
- $("#casos-vazio").hidden=!!cs.length;$("#t-casos").innerHTML=cs.map(c=>`<tr data-id="${esc(c.id)}"><td><b>${esc(c.ordem_servico||c.id)}</b>${!c.visto&&pode("trabalho")?' <span class="badge b-wait"><i></i>nova</span>':""}${c.prioridade&&c.prioridade!=="normal"?` <span class="badge pz-hoje">${esc(c.prioridade)}</span>`:""}</td>
+ $("#casos-vazio").hidden=!!cs.length;$("#t-casos").innerHTML=cs.map(c=>`<tr data-id="${esc(c.id)}"><td><b>${esc(c.ordem_servico||c.id)}</b>${!c.visto&&pode("trabalho")?' <span class="badge b-wait"><i aria-hidden="true"></i>nova</span>':""}${c.prioridade&&c.prioridade!=="normal"?` <span class="badge pz-hoje">${esc(c.prioridade)}</span>`:""}</td>
  <td>${esc(c.bo||"—")}<br><span class="muted">${esc(c.inquerito||"")}</span></td><td>${esc([...c.vitimas,...c.investigados].slice(0,3).join("; ")||"—")}</td><td>${esc(c.modalidade||"—")}</td>
  <td>${c.processando?badge("processando")+barraHTML(c.progresso_proc):(c.erro?badge("erro"):esc(c.status))}</td><td>${prazoBadge(c)}</td><td class="n">${c.paginas??"—"}</td></tr>`).join("");
  $$("#t-casos tr").forEach(tr=>tr.onclick=()=>abrirCaso(tr.dataset.id))}
@@ -481,12 +488,13 @@ async function carregarSistema(leve){atualizarTarefas();preencherConta();
   await listarRefs()}
  if(pode("ia")&&!leve){checarClaude();carregarAgentes()}
  if(pode("usuarios")&&!leve){const us=await api("/api/usuarios");$("#lista-usuarios").innerHTML=`<div style="overflow:auto"><table><thead><tr><th>Login</th><th>Nome / cargo</th><th>Perfil</th><th>CPF</th><th>E-mail</th><th>Situação</th><th>Último acesso</th><th></th></tr></thead><tbody>${us.map(u=>`<tr><td>${esc(u.login)}</td><td>${esc(u.nome)}<div class="muted">${esc(u.cargo||"")}</div></td><td>${esc(u.perfil_nome)}</td><td class="muted">${esc(u.cpf_mascarado||"—")}</td><td class="muted">${esc(u.email||"—")}</td>
-  <td>${u.ativo?"ativo":"desativado"}${u.trocar_senha?' <span class="badge b-wait"><i></i>senha temporária</span>':""}</td><td class="muted">${esc((u.ultimo_acesso||"").replace("T"," "))}</td><td><button class="btn sm" data-edu='${esc(JSON.stringify(u))}'>editar</button> <button class="btn sm dan" data-rmu="${esc(u.login)}">remover</button></td></tr>`).join("")}</tbody></table></div>`;
+  <td>${u.ativo?"ativo":"desativado"}${u.trocar_senha?' <span class="badge b-wait"><i aria-hidden="true"></i>senha temporária</span>':""}</td><td class="muted">${esc((u.ultimo_acesso||"").replace("T"," "))}</td><td><button class="btn sm" data-edu='${esc(JSON.stringify(u))}'>editar</button> <button class="btn sm dan" data-rmu="${esc(u.login)}">remover</button></td></tr>`).join("")}</tbody></table></div>`;
   $$("[data-edu]").forEach(b=>b.onclick=()=>{const u=JSON.parse(b.dataset.edu),f=$("#f-usuario");f.reset();f.login.value=u.login;f.login.readOnly=true;f.nome.value=u.nome;f.perfil.value=u.perfil;f.ativo.value=u.ativo?"1":"0";f.cargo.value=u.cargo||"";f.email.value=u.email||"";f.cpf.placeholder=u.cpf_mascarado||"";f.senha.value="";f.nome.focus()});
   $$("[data-rmu]").forEach(b=>b.onclick=async()=>{if(!confirm(`Remover o usuário ${b.dataset.rmu}?`))return;try{await api(`/api/usuarios/${enc(b.dataset.rmu)}/remover`,{method:"POST"});carregarSistema()}catch(x){toast(x.message)}});
-  const au=await api("/api/auditoria");$("#lista-aud").innerHTML=`<table><tbody>${au.map(a=>`<tr><td class="muted">${esc(a.ts.replace("T"," "))}</td><td>${esc(a.usuario)}</td><td>${esc(a.acao)}</td><td>${esc(a.alvo)}</td><td class="muted">${esc(a.ip)}</td></tr>`).join("")}</tbody></table>`;
-  const rd=await api("/api/rede");$("#rede-on").checked=rd.compartilhar;$("#rede-https").checked=rd.https;
-  $("#rede-info").innerHTML=rd.ativo_agora?`Compartilhamento <b>ativo</b>. Endereços para os outros computadores: ${rd.enderecos.map(e=>`<code>${esc(e)}</code>`).join(" ")}`:"Compartilhamento desligado: a Central atende somente este computador."}}
+   const au=await api("/api/auditoria");$("#lista-aud").innerHTML=`<table><tbody>${au.map(a=>`<tr><td class="muted">${esc(a.ts.replace("T"," "))}</td><td>${esc(a.usuario)}</td><td>${esc(a.acao)}</td><td>${esc(a.alvo)}</td><td class="muted">${esc(a.ip)}</td></tr>`).join("")}</tbody></table>`;
+   const rd=await api("/api/rede");$("#rede-on").checked=rd.compartilhar;$("#rede-https").checked=rd.https;
+   $("#rede-info").innerHTML=rd.ativo_agora?`Compartilhamento <b>ativo</b>. Endereços para os outros computadores: ${rd.enderecos.map(e=>`<code>${esc(e)}</code>`).join(" ")}`:"Compartilhamento desligado: a Central atende somente este computador."}
+  if(S.solo){const u=$("#card-usuarios"),p=$("#card-perfis"),r=$("#card-rede");if(u)u.hidden=true;if(p)p.hidden=true;if(r)r.hidden=true}}
 async function listarRefs(){const rs=await api("/api/referencias?autor="+enc($("#rf-filtro").value||""));
  $("#lista-rf").innerHTML=rs.length?`<table><thead><tr><th>Autor</th><th>Modalidade</th><th>Peso</th><th>Arquivo</th><th></th></tr></thead><tbody>${rs.map(r=>`<tr><td>${esc(r.autor)}</td><td>${esc(r.modalidade||"—")}</td>
  <td><select data-peso="${esc(r.id)}" style="width:auto">${[5,4,3,2,1].map(p=>`<option ${p==r.peso?"selected":""}>${p}</option>`).join("")}</select></td><td class="muted">${esc(r.arquivo_original)}</td><td><button class="btn sm dan" data-rmrf="${esc(r.id)}">remover</button></td></tr>`).join("")}</tbody></table>`:'<span class="muted">Nenhuma referência.</span>';
@@ -510,13 +518,14 @@ async function carregarAgentes(){if(!pode("ia"))return null;let g;try{g=await ap
   $("#plantao-resumo").textContent=`${g.ociosos} ocioso(s) · ${g.ocupados} ocupado(s) · ${g.pendentes} pedido(s) aguardando agente`;
   $("#plantao-agentes").innerHTML=g.agentes.length?`<table><thead><tr><th>Agente</th><th>Tipo</th><th>Situação</th><th>Pedido atual</th><th>Último sinal</th><th></th></tr></thead><tbody>${g.agentes.map(a=>{const e=EST_AG[a.estado]||["",a.estado];
    return `<tr><td><b>${esc(a.nome)}</b><div class="muted">${esc(a.host||"")}</div></td><td>${esc(a.tipo)}<div class="muted">${a.modo==="chat"?"sessão de chat":"automático"}</div></td>
-   <td><span class="badge ${e[0]}"><i></i>${esc(e[1])}</span>${a.detalhe?`<div class="muted">${esc(a.detalhe)}</div>`:""}</td><td class="muted">${esc(a.job||"—")}</td><td class="muted">${tempoSinal(a.silencio_s)}</td>
-   <td>${pode("usuarios")?(a.aprovado?`<button class="btn sm dan" data-agrev="${esc(a.nome)}">revogar</button>`:`<button class="btn sm pri" data-agapr="${esc(a.nome)}">aprovar</button>`):(a.aprovado?"aprovado":"aguarda o admin")}</td></tr>`}).join("")}</tbody></table>`
+   <td><span class="badge ${e[0]}"><i aria-hidden="true"></i>${esc(e[1])}</span>${a.detalhe?`<div class="muted">${esc(a.detalhe)}</div>`:""}</td><td class="muted">${esc(a.job||"—")}</td><td class="muted">${tempoSinal(a.silencio_s)}</td>
+   <td>${S.solo ? "" : (pode("usuarios")?(a.aprovado?`<button class="btn sm dan" data-agrev="${esc(a.nome)}">revogar</button>`:`<button class="btn sm pri" data-agapr="${esc(a.nome)}">aprovar</button>`):(a.aprovado?"aprovado":"aguarda o admin"))}</td></tr>`}).join("")}</tbody></table>`
    :'<div class="vazio">Nenhum agente registrado. Abra uma sessão com o PROMPT-AGENTE-PLANTAO.md ou rode ferramentas\\Agente de plantao.bat.</div>';
   const muda=async(nome,aprovar)=>{if(!aprovar&&!confirm(`Revogar o agente ${nome}? Ele deixará de pegar pedidos.`))return;
    try{await api(`/api/plantao/agentes/${enc(nome)}/aprovacao`,{json:{aprovar}});toast(aprovar?"Agente aprovado":"Aprovação revogada");carregarAgentes()}catch(x){toast(x.message)}};
-  $$("[data-agapr]").forEach(b=>b.onclick=()=>{if(confirm(`Aprovar o agente ${b.dataset.agapr}? Ele poderá processar autos. Confirme que a conta e o provedor dele são compatíveis com o sigilo.`))muda(b.dataset.agapr,true)});
-  $$("[data-agrev]").forEach(b=>b.onclick=()=>muda(b.dataset.agrev,false))}
+  if(!S.solo){
+   $$("[data-agapr]").forEach(b=>b.onclick=()=>{if(confirm(`Aprovar o agente ${b.dataset.agapr}? Ele poderá processar autos. Confirme que a conta e o provedor dele são compatíveis com o sigilo.`))muda(b.dataset.agapr,true)});
+   $$("[data-agrev]").forEach(b=>b.onclick=()=>muda(b.dataset.agrev,false))}}
  return g}
 async function checarClaude(){$("#ia-status").textContent="verificando…";try{const s=await api("/api/ia/status");$("#ia-status").innerHTML=!s.instalado?"Claude Code não encontrado neste computador.":s.logado?`${badge("concluido")} Claude conectado${s.email?" ("+esc(s.email)+")":""}.`:`${badge("erro")} Claude <b>não conectado</b>: clique em “Entrar no Claude” e conclua o login no navegador.`}catch(x){$("#ia-status").textContent=x.message}}
 $("#b-abrir-pasta").onclick=()=>api("/api/minha-pasta/abrir",{method:"POST"}).catch(x=>toast(x.message));

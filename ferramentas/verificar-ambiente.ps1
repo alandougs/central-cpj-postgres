@@ -8,12 +8,35 @@ function Item($nome, [scriptblock]$teste, $dica) {
 }
 Item 'Python' { (python --version) 2>&1 } 'instale Python 3.12'
 Item 'Bibliotecas' { python -c "import pypdf, pypdfium2, pdfplumber, pytesseract, PIL, docx, flask; print('pypdf pypdfium2 pdfplumber pytesseract pillow python-docx flask')" } 'python -m pip install pypdf pypdfium2 pdfplumber pytesseract pillow python-docx flask'
-Item 'Tesseract' { if (Test-Path 'C:\Program Files\Tesseract-OCR\tesseract.exe') { 'C:\Program Files\Tesseract-OCR' } } 'instale Tesseract (UB-Mannheim.TesseractOCR via winget)'
+Item 'Tesseract' { foreach ($d in 'C:\Program Files\Tesseract-OCR','C:\Program Files\PDF24\tesseract') { if (Test-Path "$d\tesseract.exe") { $d; break } } } 'instale Tesseract (UB-Mannheim.TesseractOCR via winget)'
 Item 'OCR portugues' { if (Test-Path (Join-Path $W 'ferramentas\tessdata\por.traineddata')) { 'ferramentas\tessdata\por.traineddata' } } 'baixe tessdata_best/por.traineddata para ferramentas\tessdata'
 Item 'Modelo DOCX' { $m = Get-ChildItem (Join-Path $W 'modelos\*.docx') -ErrorAction Stop | Select-Object -First 1; if ($m) { $m.Name } } 'coloque o modelo do relatorio em modelos\'
 Item 'Delegado padrao' { $d = (Get-Content (Join-Path $W 'modelos\dados-padrao.json') -Raw -Encoding UTF8 | ConvertFrom-Json).delegado_padrao; if ($d) { $d } } 'preencha delegado_padrao em modelos\dados-padrao.json'
 Item 'Git' { (git --version) } 'winget install Git.Git'
-Item 'Plugin' { $c = Get-ChildItem "$env:APPDATA\Claude\claude-code\*\claude.exe" | Sort-Object { [version]$_.Directory.Name } | Select-Object -Last 1; $l = & $c.FullName plugin list 2>&1 | Out-String; if ($l -match 'investigacao-cpj@cpj-local[\s\S]*?Version:\s*([\d.]+)') { "investigacao-cpj $($Matches[1])" } } 'rode ferramentas\atualizar-plugin.ps1 -SemVersao'
+Item 'Plugin' {
+    $cli = $null
+    if ($env:APPDATA) {
+        $base = Join-Path $env:APPDATA 'Claude\claude-code'
+        if (Test-Path -LiteralPath $base -PathType Container) {
+            $versoes = @(Get-ChildItem -LiteralPath $base -Directory -ErrorAction SilentlyContinue |
+                Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'claude.exe') } |
+                Sort-Object { try { [version]$_.Name } catch { [version]'0.0' } })
+            if ($versoes.Count) { $cli = Join-Path $versoes[-1].FullName 'claude.exe' }
+        }
+        if (-not $cli) {
+            $npm = Join-Path $env:APPDATA 'npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe'
+            if (Test-Path -LiteralPath $npm -PathType Leaf) { $cli = $npm }
+        }
+    }
+    if (-not $cli) {
+        $comando = Get-Command claude.exe -CommandType Application -ErrorAction SilentlyContinue
+        if ($comando) { $cli = $comando.Source }
+    }
+    if (-not $cli) { return }
+    $l = & $cli plugin list 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0) { return }
+    if ($l -match 'investigacao-cpj@cpj-local[\s\S]*?Version:\s*([\d.]+)') { "investigacao-cpj $($Matches[1])" }
+} 'rode ferramentas\atualizar-plugin.ps1 -SemVersao'
 Item 'Central CPJ' { try { $null = Invoke-WebRequest 'http://127.0.0.1:8765/api/fila' -UseBasicParsing -TimeoutSec 3; 'em execucao (http://127.0.0.1:8765)' } catch { 'parada (abra pelo atalho Central CPJ)' } } ''
 $n = @(Get-ChildItem (Join-Path $W 'casos') -Directory | Where-Object { $_.Name -notlike '_*' }).Count
 Write-Host "Casos no workspace: $n"

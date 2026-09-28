@@ -81,7 +81,8 @@ def ler_original(arquivo, max_paginas=12):
         return ""
     import pypdfium2 as pdfium
     blocos = []
-    with pdfium.PdfDocument(arquivo) as pdf:
+    pdf = pdfium.PdfDocument(arquivo)
+    try:
         for i in range(min(len(pdf), max_paginas)):
             pagina = pdf[i]
             try:
@@ -89,6 +90,8 @@ def ler_original(arquivo, max_paginas=12):
                 try: blocos.append(f"## Página {i+1}\n{tp.get_text_range()}")
                 finally: tp.close()
             finally: pagina.close()
+    finally:
+        pdf.close()
     return "\n".join(blocos)
 
 

@@ -153,6 +153,11 @@ class Auth:
         u = self._ler()["usuarios"].get(login)
         return self.publico(login, u) if u and u.get("ativo", True) else None
 
+    def usuario_solo(self):
+        """Modo solo: o único administrador ativo; havendo mais de um (ou nenhum), exige login normal."""
+        admins = [(k, v) for k, v in self._ler()["usuarios"].items() if v.get("perfil") == "admin" and v.get("ativo", True)]
+        return self.publico(*admins[0]) if len(admins) == 1 else None
+
     def obter_sessao(self, login, sessao_id):
         """O vínculo interno muda ao trocar senha, ativação ou recriar a conta."""
         u = self._ler()["usuarios"].get(login)

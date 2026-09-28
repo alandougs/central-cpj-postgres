@@ -35,9 +35,12 @@ import docx
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Pt
+from docx.shared import Pt, Twips
 
-MODELO_PADRAO = r"C:\CPJ - TRABALHO\modelos\MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx"
+MODELO_PADRAO = os.path.join(
+    os.environ.get("CPJ_WORKSPACE", r"C:\CPJ - TRABALHO"),
+    "modelos", "MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx",
+)
 FONTE, TAM = "Arial", 12
 
 CAMPOS_CABECALHO = [  # (chave da minuta, rótulo no modelo)
@@ -146,18 +149,38 @@ def tabela_antes(doc, ref, linhas):
     ncol = max(len(r) for r in linhas)
     t = doc.add_table(rows=len(linhas), cols=ncol)
     tblPr = t._tbl.tblPr
+    secao = doc.sections[0]
+    largura_total = int(round((secao.page_width - secao.left_margin - secao.right_margin) / 635))
+    pesos = [min(max(max((len(r[j]) if j < len(r) else 0) for r in linhas), 8), 48) for j in range(ncol)]
+    larguras = [largura_total * peso // sum(pesos) for peso in pesos]
+    larguras[-1] += largura_total - sum(larguras)
+    tbl_w = tblPr.find(qn("w:tblW"))
+    tbl_w.set(qn("w:w"), str(largura_total)); tbl_w.set(qn("w:type"), "dxa")
+    t.autofit = False
+    for coluna, largura in zip(t.columns, larguras):
+        coluna.width = Twips(largura)
     bordas = OxmlElement("w:tblBorders")
     for b in ("top", "left", "bottom", "right", "insideH", "insideV"):
         e = OxmlElement(f"w:{b}"); e.set(qn("w:val"), "single"); e.set(qn("w:sz"), "4"); e.set(qn("w:color"), "000000")
         bordas.append(e)
     tblPr.append(bordas)
+    trPr = t.rows[0]._tr.get_or_add_trPr()
+    cabecalho = OxmlElement("w:tblHeader"); cabecalho.set(qn("w:val"), "true")
+    trPr.append(cabecalho)
+    colunas_monetarias = {
+        j for j, cabecalho in enumerate(linhas[0])
+        if re.search(r"(?:^|[^a-z])(valor|saldo|montante|total)(?:$|[^a-z])|r\$", cabecalho.lower())
+    }
     for i, r in enumerate(linhas):
         for j in range(ncol):
             cel = t.cell(i, j); cel.text = ""
             cp = cel.paragraphs[0]
+            if i > 0 and j in colunas_monetarias:
+                cp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
             for k, parte in enumerate(re.split(r"\*\*(.+?)\*\*", r[j] if j < len(r) else "")):
                 if not parte: continue
                 run = cp.add_run(parte); run.font.name = FONTE; run.font.size = Pt(9)
+                run._element.get_or_add_rPr().get_or_add_rFonts().set(qn("w:eastAsia"), FONTE)
                 run.bold = (i == 0) or (k % 2 == 1)
     ref._element.addprevious(t._tbl)
 
@@ -216,6 +239,14 @@ if a.sem_assinatura:
     for p in doc.paragraphs:
         if p._element.xpath(".//pic:pic") and not p.text.strip():
             remove(p)
+
+for indice, p in enumerate(doc.paragraphs):
+    if p._element.xpath(".//pic:pic"):
+        p.paragraph_format.page_break_before = True
+        p.paragraph_format.keep_with_next = True
+        if indice + 1 < len(doc.paragraphs):
+            doc.paragraphs[indice + 1].paragraph_format.keep_with_next = True
+        break
 
 os.makedirs(os.path.dirname(os.path.abspath(a.saida)), exist_ok=True)
 doc.save(a.saida)
