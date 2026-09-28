@@ -257,8 +257,8 @@ def linhas_pdf(p):
         if len(t) < 30:
             try:
                 import pytesseract
-                tess = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-                if os.path.exists(tess): pytesseract.pytesseract.tesseract_cmd = tess
+                for tess in (r"C:\Program Files\Tesseract-OCR\tesseract.exe", r"C:\Program Files\PDF24\tesseract\tesseract.exe"):
+                    if os.path.exists(tess): pytesseract.pytesseract.tesseract_cmd = tess; break
                 td = os.path.join(WS, "ferramentas", "tessdata")
                 cfg = f'--tessdata-dir "{td}"' if os.path.exists(os.path.join(td, "por.traineddata")) else ""
                 t = pytesseract.image_to_string(pdf[i].render(scale=200 / 72).to_pil(), lang="por", config=cfg)

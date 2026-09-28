@@ -11,6 +11,8 @@ PY = sys.executable
 SEM_JANELA = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 EXPORT_SCHEMA = "cpj-export/1"
 SEM_COMPRESSAO = (".pdf", ".png", ".jpg", ".jpeg", ".docx", ".xlsx", ".zip", ".sqlite")
+MAX_IMPORT_ARQUIVOS = 10_000
+MAX_IMPORT_BYTES = 2 * 1024 * 1024 * 1024
 
 
 def agora(): return datetime.datetime.now().isoformat(timespec="seconds")
@@ -29,6 +31,23 @@ def _apagar(p):
         try: os.remove(p); return
         except FileNotFoundError: return
         except PermissionError: time.sleep(0.4)
+
+
+class ImportacaoCancelada(Exception):
+    pass
+
+
+def _caminho_importavel(caminho):
+    """Aceita apenas caminhos que a exportação oficial pode produzir."""
+    if not isinstance(caminho, str) or not caminho or "\\" in caminho:
+        return False
+    partes = caminho.split("/")
+    if any(not p or p in (".", "..") for p in partes): return False
+    raiz = partes[0]
+    if raiz == "casos": return len(partes) >= 3 and partes[1] != "_MODELO-CASO"
+    if raiz in ("calibracao", "consulta", "referencias"): return len(partes) >= 2
+    return caminho in ("producao/config.json", "producao/base.csv", "producao/base.json", "modelos/dados-padrao.json") or (
+        raiz == "modelos" and len(partes) == 2 and caminho.lower().endswith(".docx"))
 
 
 sys.path.insert(0, AQUI)
@@ -99,7 +118,11 @@ class Tarefas:
 
     def indexar(self):
         env = dict(os.environ, CPJ_WORKSPACE=self.ws, PYTHONIOENCODING="utf-8")
-        subprocess.run([PY, os.path.join(S_BASE, "indexar.py")], env=env, capture_output=True, creationflags=SEM_JANELA)
+        r = subprocess.run([PY, os.path.join(S_BASE, "indexar.py")], env=env, capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", creationflags=SEM_JANELA)
+        if r.returncode:
+            detalhe = (r.stderr or r.stdout or "sem detalhe do processo").strip().replace("\x00", " ")
+            raise RuntimeError(f"Falha ao indexar a base (código {r.returncode}): {detalhe[-600:]}")
 
     # ------------------------------------------------------------ exportação
     def _lista_export(self, modo, incluir_modelo):
@@ -154,44 +177,82 @@ class Tarefas:
     # ------------------------------------------------------------ importação
     def importar(self, tid, zip_path):
         W = self.ws
-        with zipfile.ZipFile(zip_path) as z:
-            try: man = json.loads(z.read("manifest.json"))
-            except KeyError: raise ValueError("Pacote inválido: manifest.json ausente (use um arquivo exportado pela Central CPJ).")
-            if man.get("schema") != EXPORT_SCHEMA: raise ValueError(f"Versão de pacote não suportada: {man.get('schema')}")
-            arqs = man["arquivos"]; total = sum(a["tamanho"] for a in arqs) or 1; feito = 0
-            # 1) integridade
-            for i, a in enumerate(arqs, 1):
-                h = hashlib.sha256()
-                with z.open("dados/" + a["caminho"]) as f:
-                    for b in iter(lambda: f.read(1 << 20), b""):
-                        h.update(b); feito += len(b)
-                        self.at(tid, progresso=int(45 * feito / total), etapa=f"verificando integridade {i}/{len(arqs)}")
-                if h.hexdigest() != a["sha256"]: raise ValueError(f"Arquivo corrompido no pacote: {a['caminho']}")
-            # 2) decidir o que entra (nunca sobrescreve)
-            existentes = {d for d in os.listdir(os.path.join(W, "casos"))} if os.path.isdir(os.path.join(W, "casos")) else set()
-            novos, pulados, feito, copiados = set(), set(), 0, 0
-            raiz = os.path.normpath(W)
-            for i, a in enumerate(arqs, 1):
-                r = a["caminho"]; partes = r.split("/")
-                destino = os.path.normpath(os.path.join(W, *partes))
-                if not destino.startswith(raiz + os.sep): raise ValueError(f"Caminho inseguro no pacote: {r}")
-                if partes[0] == "casos" and len(partes) > 2:
-                    if partes[1] in existentes and partes[1] not in novos: pulados.add(partes[1]); continue
-                    novos.add(partes[1])
-                elif os.path.exists(destino):
-                    if os.path.isfile(destino) and _sha(destino) == a["sha256"]: continue  # idêntico: nada a fazer
-                    if partes[0] == "calibracao":
-                        destino = destino.replace(".md", f"-importado-{datetime.date.today():%Y%m%d}.md")
-                        if os.path.exists(destino): continue
-                    else:
-                        continue  # config, modelos, bases e referências já existentes não são sobrescritos
-                os.makedirs(os.path.dirname(destino), exist_ok=True)
-                with z.open("dados/" + r) as f, open(destino, "wb") as w: shutil.copyfileobj(f, w, 1 << 20)
-                copiados += 1; feito += a["tamanho"]
-                self.at(tid, progresso=45 + int(45 * i / len(arqs)), etapa=f"extraindo {i}/{len(arqs)}")
-        self.at(tid, progresso=92, etapa="reindexando a base"); self.indexar()
-        _apagar(zip_path)
-        return {"casos_novos": sorted(novos - pulados), "casos_ja_existentes": sorted(pulados), "arquivos": copiados}
+        temporaria = os.path.join(W, "exportacoes", "_importando", tid)
+        novos, pulados, copiados = set(), set(), 0
+        def cancelar():
+            if self.obter(tid)["status"] == "cancelada": raise ImportacaoCancelada()
+        try:
+            with zipfile.ZipFile(zip_path) as z:
+                try: man = json.loads(z.read("manifest.json"))
+                except KeyError: raise ValueError("Pacote inválido: manifest.json ausente (use um arquivo exportado pela Central CPJ).")
+                if man.get("schema") != EXPORT_SCHEMA: raise ValueError(f"Versão de pacote não suportada: {man.get('schema')}")
+                arqs = man.get("arquivos")
+                if not isinstance(arqs, list) or not arqs: raise ValueError("Pacote inválido: lista de arquivos ausente ou vazia.")
+                if len(arqs) > MAX_IMPORT_ARQUIVOS: raise ValueError("Pacote grande demais: muitos arquivos.")
+                vistos, total = set(), 0
+                arquivos_zip = [i for i in z.infolist() if not i.is_dir()]
+                infos = {i.filename: i for i in arquivos_zip}
+                if len(infos) != len(arquivos_zip): raise ValueError("Pacote contém nomes de arquivo duplicados.")
+                for a in arqs:
+                    if not isinstance(a, dict) or not _caminho_importavel(a.get("caminho")):
+                        raise ValueError(f"Caminho fora do escopo permitido: {a.get('caminho') if isinstance(a, dict) else a}")
+                    r, tamanho, h = a["caminho"], a.get("tamanho"), a.get("sha256")
+                    nome_zip = "dados/" + r
+                    if r in vistos or not isinstance(tamanho, int) or tamanho < 0 or not re.fullmatch(r"[0-9a-f]{64}", str(h)):
+                        raise ValueError(f"Manifesto inválido para: {r}")
+                    if nome_zip not in infos or infos[nome_zip].file_size != tamanho:
+                        raise ValueError(f"Arquivo ausente ou com tamanho divergente: {r}")
+                    vistos.add(r); total += tamanho
+                if total > MAX_IMPORT_BYTES: raise ValueError("Pacote descompactado excede o limite permitido.")
+                esperados = {"manifest.json"} | {"dados/" + r for r in vistos}
+                if set(infos) - esperados: raise ValueError("Pacote contém arquivos fora do manifesto.")
+                # 1) verificar tudo antes de criar qualquer arquivo do pacote.
+                feito = 0
+                for i, a in enumerate(arqs, 1):
+                    h = hashlib.sha256()
+                    with z.open("dados/" + a["caminho"]) as f:
+                        for b in iter(lambda: f.read(1 << 20), b""):
+                            cancelar(); h.update(b); feito += len(b)
+                            self.at(tid, progresso=int(45 * feito / (total or 1)), etapa=f"verificando integridade {i}/{len(arqs)}")
+                    if h.hexdigest() != a["sha256"]: raise ValueError(f"Arquivo corrompido no pacote: {a['caminho']}")
+                # 2) preparar fora das pastas operacionais. Cada caso só aparece ao final, por os.replace().
+                shutil.rmtree(temporaria, ignore_errors=True); os.makedirs(temporaria)
+                existentes = set(os.listdir(os.path.join(W, "casos"))) if os.path.isdir(os.path.join(W, "casos")) else set()
+                casos_pacote = {a["caminho"].split("/")[1] for a in arqs if a["caminho"].startswith("casos/")}
+                pulados = casos_pacote & existentes; novos = casos_pacote - existentes
+                for i, a in enumerate(arqs, 1):
+                    cancelar(); r = a["caminho"]; partes = r.split("/")
+                    if partes[0] == "casos" and partes[1] in pulados: continue
+                    destino = os.path.join(temporaria, *partes)
+                    os.makedirs(os.path.dirname(destino), exist_ok=True)
+                    with z.open("dados/" + r) as f, open(destino, "wb") as w:
+                        for b in iter(lambda: f.read(1 << 20), b""):
+                            cancelar(); w.write(b)
+                    copiados += 1
+                    self.at(tid, progresso=45 + int(40 * i / len(arqs)), etapa=f"preparando {i}/{len(arqs)}")
+            # 3) confirmar. A partir daqui a operação é curta e não cancelável: cada caso
+            # entra inteiro por renomeação atômica, nunca como uma pasta parcialmente copiada.
+            cancelar(); self.at(tid, etapa="confirmando importação")
+            for caso in sorted(novos):
+                origem, destino = os.path.join(temporaria, "casos", caso), os.path.join(W, "casos", caso)
+                if os.path.isdir(origem) and not os.path.exists(destino):
+                    os.makedirs(os.path.dirname(destino), exist_ok=True); os.replace(origem, destino)
+                else: pulados.add(caso); novos.discard(caso)
+            for raiz, _, arquivos in os.walk(temporaria):
+                for nome in arquivos:
+                    origem = os.path.join(raiz, nome); rel = os.path.relpath(origem, temporaria)
+                    if rel.split(os.sep)[0] == "casos": continue
+                    destino = os.path.join(W, rel)
+                    if os.path.exists(destino): continue
+                    os.makedirs(os.path.dirname(destino), exist_ok=True); os.replace(origem, destino)
+            self.at(tid, progresso=92, etapa="reindexando a base")
+            try: self.indexar()
+            except Exception as e: raise RuntimeError(f"Importação confirmada, mas a indexação falhou: {e}") from e
+            return {"casos_novos": sorted(novos), "casos_ja_existentes": sorted(pulados), "arquivos": copiados}
+        except ImportacaoCancelada:
+            return None
+        finally:
+            shutil.rmtree(temporaria, ignore_errors=True); _apagar(zip_path)
 
     # ------------------------------------------------------------ bases de consulta e referências
     def importar_consulta(self, tid, arquivo, nome):
@@ -239,6 +300,7 @@ class Tarefas:
         if str(tid).startswith("ia-"): return self.plantao.cancelar(tid)
         t = self.obter(tid)
         if not t or t["status"] not in ("na_fila", "executando"): return False
+        if t["tipo"] == "importacao" and t["etapa"] == "confirmando importação": return False
         self.at(tid, status="cancelada", etapa="cancelada", fim=agora())
         p = self.procs.get(tid)
         if p: subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True, creationflags=SEM_JANELA)

@@ -48,6 +48,7 @@ payload = json.dumps({"casos": dados, "cfg": cfg, "q": qualidade(), "gerado": da
 HTML = r"""<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Painel de Produção</title>
+<link rel="icon" href="data:,">
 <style>
 :root{color-scheme:light;--page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e1e0d9;
 --axis:#c3c2b7;--ring:rgba(11,11,11,.10);--s1:#2a78d6;--s1soft:#cde2fb;--good:#0ca30c;--warn:#fab219;--crit:#d03b3b;--up:#006300}

@@ -111,6 +111,7 @@ ACOES = {
                 "Revise a minuta mais recente de casos\\{id}\\03-relatorios com as instruções do agente revisor-de-relatorio "
                 "(skill investigacao-cpj:revisar-relatorio ou portatil\\05-revisar-relatorio.md) e grave revisao-vNN.md. Não altere a minuta.",
                 "10 'iniciando'; 40 'afirmações conferidas até a metade'; 80 'conferência concluída'; 100 'concluído'"),
+    "financeiro": ("Caminho do dinheiro (IA)", "Use a skill investigacao-cpj:analista-financeiro para o caso {id} (ou portatil\\03-analista-financeiro.md). Gere fluxo-financeiro.csv e fluxo-financeiro.md apenas com dados documentados, citando páginas; registre lacunas.", "10 'iniciando'; 50 'transações normalizadas'; 90 'fluxo e lacunas gravados'; 100 'concluído'"),
 }
 
 
@@ -157,6 +158,9 @@ class Plantao:
               criado_em TEXT, iniciado_em TEXT, fim TEXT);
             CREATE INDEX IF NOT EXISTS ix_ped_estado ON pedidos(estado, criado_em);
             """)
+            for coluna in ("grupo TEXT", "ordem INTEGER", "depende_de TEXT"):
+                try: c.execute("ALTER TABLE pedidos ADD COLUMN " + coluna)
+                except sqlite3.OperationalError: pass
 
     @contextmanager
     def _c(self):
@@ -208,10 +212,14 @@ class Plantao:
             c.execute("BEGIN IMMEDIATE")
             if c.execute("SELECT 1 FROM pedidos WHERE caso=? AND estado IN ('pendente','executando')", (caso,)).fetchone():
                 c.execute("ROLLBACK"); raise ValueError("Já existe uma tarefa de IA em andamento para este caso.")
-            pid = "ia-" + uuid.uuid4().hex[:10]
-            c.execute("INSERT INTO pedidos(id,caso,acao,observacoes,solicitante,preferido,estado,etapa,criado_em) "
-                      "VALUES(?,?,?,?,?,?,?,?,?)", (pid, caso, acao, (observacoes or "")[:2000], solicitante, preferido or None,
-                                                    "pendente", "aguardando agente de plantão", agora()))
+            etapas = ("analisar", "financeiro", "relatorio", "revisar") if acao == "completo" else (acao,)
+            grupo, anterior, pid = "fluxo-" + uuid.uuid4().hex[:10], None, None
+            for ordem, etapa in enumerate(etapas, 1):
+                atual = "ia-" + uuid.uuid4().hex[:10]
+                c.execute("INSERT INTO pedidos(id,caso,acao,observacoes,solicitante,preferido,estado,etapa,criado_em,grupo,ordem,depende_de) "
+                          "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", (atual, caso, etapa, (observacoes or "")[:2000], solicitante, preferido or None,
+                          "pendente", "aguardando etapa anterior" if anterior else "aguardando agente de plantão", agora(), grupo, ordem, anterior))
+                pid, anterior = pid or atual, atual
             c.execute("COMMIT")
         return pid
 
@@ -237,7 +245,7 @@ class Plantao:
                 a = c.execute("SELECT aprovado FROM agentes WHERE nome=?", (nome,)).fetchone()
                 ocupado = c.execute("SELECT 1 FROM pedidos WHERE estado='executando' AND agente=?", (nome,)).fetchone()
                 if not a or not a["aprovado"] or ocupado: c.execute("COMMIT"); return None
-                p = c.execute("SELECT * FROM pedidos WHERE estado='pendente' AND cancelar=0 AND (preferido IS NULL OR preferido=?) "
+                p = c.execute("SELECT * FROM pedidos WHERE estado='pendente' AND cancelar=0 AND (depende_de IS NULL OR EXISTS (SELECT 1 FROM pedidos d WHERE d.id=pedidos.depende_de AND d.estado='concluida')) AND (preferido IS NULL OR preferido=?) "
                               "ORDER BY (preferido IS NULL), criado_em LIMIT 1", (nome,)).fetchone()
                 if not p: c.execute("COMMIT"); return None
                 c.execute("UPDATE pedidos SET estado='executando', agente=?, tentativas=tentativas+1, iniciado_em=?, progresso=1, "
@@ -286,10 +294,13 @@ class Plantao:
 
     def cancelar(self, pid):
         with self._c() as c:
-            p = c.execute("SELECT estado FROM pedidos WHERE id=?", (pid,)).fetchone()
+            p = c.execute("SELECT estado,grupo FROM pedidos WHERE id=?", (pid,)).fetchone()
             if not p or p["estado"] not in ("pendente", "executando"): return False
             c.execute("UPDATE pedidos SET cancelar=1, estado=CASE WHEN estado='pendente' THEN 'cancelada' ELSE estado END, "
                       "etapa='cancelamento solicitado', fim=CASE WHEN estado='pendente' THEN ? ELSE fim END WHERE id=?", (agora(), pid))
+            if p["grupo"]:
+                c.execute("UPDATE pedidos SET cancelar=1, estado='cancelada', etapa='cancelado com o fluxo', fim=? "
+                          "WHERE grupo=? AND estado='pendente'", (agora(), p["grupo"]))
         return True
 
     def pedidos(self, horas=24):
@@ -318,13 +329,24 @@ class Plantao:
 
 # ------------------------------------------------------------------ executores automáticos
 def claude_exe():
-    base = os.path.join(os.environ.get("APPDATA", ""), "Claude", "claude-code")
-    try:
-        vs = sorted((d for d in os.listdir(base) if os.path.exists(os.path.join(base, d, "claude.exe"))),
-                    key=lambda v: [int(x) for x in re.findall(r"\d+", v)])
-        return os.path.join(base, vs[-1], "claude.exe") if vs else None
-    except OSError:
-        return None
+    import shutil
+    appdata = os.environ.get("APPDATA", "")
+    if appdata:
+        base = os.path.join(appdata, "Claude", "claude-code")
+        try:
+            vs = sorted((d for d in os.listdir(base) if os.path.exists(os.path.join(base, d, "claude.exe"))),
+                        key=lambda v: [int(x) for x in re.findall(r"\d+", v)])
+            if vs:
+                return os.path.join(base, vs[-1], "claude.exe")
+        except OSError:
+            pass
+        npm_bin = os.path.join(appdata, "npm", "node_modules", "@anthropic-ai", "claude-code", "bin", "claude.exe")
+        if os.path.isfile(npm_bin):
+            return npm_bin
+    w = shutil.which("claude.exe")
+    if w and w.lower().endswith(".exe") and os.path.isfile(w):
+        return w
+    return None
 
 
 def codex_exe():

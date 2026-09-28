@@ -146,7 +146,14 @@ print("8. IA sem login do Claude e segurança de login")
 st, j = adm.req("POST", "/api/casos/OS-901-2026/ia", {"acao": "analisar"})
 if st == 200:
     t = adm.esperar(j["tarefa"], 60)
-    ok(t and t["status"] in ("erro", "concluida"), f"tarefa de IA finaliza com status claro ({t and (t.get('erro') or t['status'])})")
+    if not t:
+        # Sem agente de plantão ativo (fila multiagente/D01): o pedido aguarda em vez de falhar.
+        t = next((x for x in adm.req("GET", "/api/tarefas")[1] if x["id"] == j["tarefa"]), None)
+        etapa = (t or {}).get("etapa") or ""
+        ok(t and t["status"] == "na_fila" and ("aguardando agente de plantão" in etapa or "fora do expediente" in etapa),
+           f"tarefa de IA finaliza com status claro ({t and (t.get('erro') or t['status'])})")
+    else:
+        ok(t["status"] in ("erro", "concluida"), f"tarefa de IA finaliza com status claro ({t.get('erro') or t['status']})")
 x = Cli()
 for _ in range(5): x.req("POST", "/api/entrar", {"login": CRED["escrivao"]["login"], "senha": "errada123"})
 st, j = x.req("POST", "/api/entrar", {"login": CRED["escrivao"]["login"], "senha": CRED["escrivao"]["senha"]})

@@ -1,6 +1,8 @@
 # Ambiente de investigação — CPJ (Alan Douglas Silva)
 
-> **Desenvolvimento em paralelo:** leia `PRD.md`, `AGENTS.md` e `TAREFAS-COMPARTILHADAS.md` antes de editar. Qualquer agente pode pegar tarefa disponível usando `python ferramentas\fila-tarefas.py assumir <ID> --agente Claude-1` (use nome da sessão). Preserve tarefas já em andamento, registre conclusão/testes pelo script e respeite reservas dos demais agentes. As tarefas L01/L02 já assumidas pelo Claude continuam reservadas até conclusão/liberação.
+> **Desenvolvimento em paralelo:** leia `PRD.md`, `AGENTS.md` e `TAREFAS-COMPARTILHADAS.md` antes de editar. Qualquer agente pode pegar tarefa disponível usando `python ferramentas\fila-tarefas.py assumir <ID> --agente Claude-1` (use nome da sessão). Preserve tarefas já em andamento, registre conclusão/testes pelo script e respeite reservas dos demais agentes.
+
+> **Fase atual (ratificada em 28/09/2026):** usuário único (Alan Douglas Silva, Investigador de Polícia), modo solo sem senha no próprio PC (`config\solo.json`) e foco só no core `PDF → OCR → Markdown/CSV → análise → DOCX`. PostgreSQL/Docker e multiusuário estão congelados. Trabalhe apenas nas tarefas `E` da seção "Rodada enxuta" de `TAREFAS-COMPARTILHADAS.md`. Em loop, use `python ferramentas\fila-tarefas.py proxima` e pare quando o código de saída for 3. Detalhes em `AGENTS.md`.
 
 Workspace de trabalho do Investigador de Polícia Alan Douglas Silva (Central de Polícia Judiciária — Seccional de Presidente Prudente, DEINTER 8). Foco atual: **relatórios de investigação em IPs de fraude e estelionato**. Plugin ativo: `investigacao-cpj` (fonte em `plugin\investigacao-cpj`).
 
@@ -45,7 +47,7 @@ Consultas: `/buscar`, `/painel`, `/revisar-relatorio`. Atalho: `/fluxo-ip`.
 ## Ferramentas locais
 
 - Python 3.12 com pypdf, pypdfium2, pdfplumber, pytesseract, Pillow, python-docx.
-- Tesseract 5.4 em `C:\Program Files\Tesseract-OCR` (fora do PATH: usar `$env:PATH += ";C:\Program Files\Tesseract-OCR"`). Idioma português: ver `ferramentas\tessdata` se existir (`$env:TESSDATA_PREFIX`).
+- Tesseract 5.4: neste PC, o do PDF24 (`C:\Program Files\PDF24\tesseract`); a instalação padrão (`C:\Program Files\Tesseract-OCR`) também é aceita. A Central detecta sozinha. Fora dela: `$env:PATH += ";C:\Program Files\PDF24\tesseract"`. Idioma português sempre em `ferramentas\tessdata` (`$env:TESSDATA_PREFIX = "<workspace>\ferramentas\tessdata"`), porque o PDF24 não traz idiomas.
 - Shell: PowerShell. Use `python` (não `python3`).
 
 ## Ao terminar cada etapa

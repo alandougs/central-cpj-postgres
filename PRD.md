@@ -2,11 +2,14 @@
 
 > Documento de continuidade. Qualquer agente (Claude Code, Codex, Gemini, modelo local) deve ler **este arquivo + `AGENTS.md`** antes de alterar o sistema. Atualize a seção **9 (Estado atual)** e o **Registro de mudanças** a cada entrega.
 > Dono do produto: Alan Douglas Silva — Investigador de Polícia, Central de Polícia Judiciária (CPJ), Seccional de Presidente Prudente, DEINTER 8, PCSP.
-> Última atualização: 2026-09-27.
+> Última atualização: 2026-09-28 (Revisão de Foco no Core e Operação Solo).
 
 ---
 
 ## 1. Visão
+
+> **FASE ATUAL, ratificada pelo investigador em 28/09/2026: operação solo e foco no core.** Usuário único: Alan Douglas Silva, Investigador de Polícia, no próprio computador. Core: **PDF dos autos → OCR local → Markdown por página + CSV → análise investigativa (caminho do dinheiro/Pix, art. 171) → relatório DOCX CPJ 2026**. Meta: uso real em 29/09/2026, 09:00 (tarefas `E` em `TAREFAS-COMPARTILHADAS.md`).
+> Modo solo implementado (`config\solo.json`), sem senha no próprio PC. **Congelados**, com o código mantido e sem melhorias: perfis delegado/escrivão, rede local, PostgreSQL/Docker (PG01) e novos papéis de IA. O texto abaixo sobre perfis e fluxo delegado/escrivão descreve a capacidade existente, não a prioridade.
 
 Sistema local, simples e seguro para a **produção de relatórios de investigação em inquéritos de fraude e estelionato**: a O.S. chega (cadastrada pelo delegado/escrivão ou pelo investigador) com o PDF do IP → o sistema extrai **Markdown por página + tabelas em CSV** (OCR em português quando necessário) → **agentes de IA** analisam somente o material do caso e redigem a **minuta no modelo oficial** (DOCX com timbre e assinatura) → o investigador revisa/edita, define a versão FINAL e a **produção** é contabilizada (dia/mês/ano, prazos, KPIs). Tudo vira base pesquisável (RAG local), com calibração contínua a partir das correções do investigador e de relatórios de referência.
 
@@ -23,6 +26,8 @@ Volume de referência: **30–50 relatórios/mês**, IPs de **100–300 páginas
 
 Permissões codificadas em `plugin/investigacao-cpj/app/auth.py` (`PERMISSOES`): `os, casos, trabalho, ia, pesquisa, estatisticas, dados, relatorio_final, usuarios, rede`.
 
+**Uso atual:** uma conta, `alandougs` (admin, Alan Douglas Silva). **Modo solo:** `config\solo.json` com `{"ativo": true}` faz a Central, acessada em `127.0.0.1`/`localhost`, entrar direto como o único admin ativo (`auth.usuario_solo()`, `rotas/comum.usuario()`). Deixa de valer, e o login volta, quando o acesso vem da rede, com outro Host ou com mais de um admin ativo. O anti-CSRF (`X-CPJ: 1`) continua. Com `ativo: false` ou sem o arquivo, o login volta. Teste: `app/testes/teste_solo_claude.py`.
+
 ## 3. Premissas e regras inegociáveis
 
 1. **Fonte do relatório = somente o IP/peças do próprio caso.** Bases de consulta (Muralha Paulista etc., pasta `consulta\`) e relatórios de referência (pasta `referencias\`) **nunca** são fonte de fatos; referências servem apenas como exemplo de estrutura/estilo.
@@ -33,12 +38,13 @@ Permissões codificadas em `plugin/investigacao-cpj/app/auth.py` (`PERMISSOES`):
 6. Toda saída de IA é **minuta**: decisão e assinatura são humanas.
 7. Relatório segue o **modelo DOCX CPJ 2026** (`modelos\`), com cabeçalho (O.S., Referência, Natureza, Investigado(s), Vítima(s), Local, Data dos Fatos) e seções RESUMO DOS FATOS / DILIGÊNCIAS REALIZADAS / CONCLUSÃO; conclusão preferencialmente **sem sugestões de providências** (discricionariedade do delegado).
 8. Simplicidade: Windows + Python + arquivos; sem banco de dados servidor; tudo regenerável a partir de `caso.json` + arquivos.
+9. **Modo solo e foco no core (28/09/2026):** uso diário do investigador no próprio computador. Não adicionar Docker, banco servidor, framework de frontend nem tela que não sirva ao core. A premissa 8 prevalece sobre a PG01: PostgreSQL/Docker ficam como experimento congelado, fora do caminho de execução (`db.py` só é usado por `ferramentas\migrar-json-postgres.py`; `psycopg` é opcional para a Central). Diretriz só conta como entregue depois de implementada e testada.
 
 ## 4. Requisitos funcionais (Central CPJ — `http://127.0.0.1:8765`)
 
 | # | Requisito | Estado |
 |---|---|---|
-| RF01 | Login com senha (PBKDF2), sessão 12 h, bloqueio após 5 falhas, configuração inicial do admin só no próprio PC | implementado (backend) |
+| RF01 | Login com senha (PBKDF2), sessão 12 h, bloqueio após 5 falhas, configuração inicial do admin só no próprio PC; **modo solo** sem senha no próprio PC (`config\solo.json`) | implementado; interface do modo solo na E02 |
 | RF02 | Perfis admin/investigador/delegado/escrivão com permissões por rota | implementado (backend) |
 | RF03 | Auditoria de ações (login, O.S., uploads, downloads, IA, exportações, pesquisas) em `config\auditoria.log` | implementado |
 | RF04 | **Nova O.S.**: nº O.S., BO, IP, processo, natureza, requisitante, prazo, prioridade, determinação + upload PDF/MD/CSV (progresso real de envio) | implementado (backend) |
@@ -141,14 +147,14 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 - Depois: acrescentar ao `teste_central.py` os casos de (a)–(d), rodar tudo, `ferramentas\Atualizar plugin.bat` (→ 0.3.0), atualizar skills (`analise-ip-fraude` gerar `pessoas.csv`; regra das bases de consulta; `relatorio-ip-fraude` usar `rag.py exemplos --autor`), `LEIA-ME.md`, e publicar quando o usuário fizer o login no GitHub.
 - Visual do grafo (próxima etapa): biblioteca JS **local** (sem CDN, ex. cytoscape.js copiado para `app/static/`) consumindo `/api/vinculos`.
 
-**Próximos passos (em ordem):**
-1. Reescrever `app/static/index.html` para a v2: tela de login e de configuração inicial; abas por perfil — Início (pendências/prazos), Nova O.S., Casos (ficha com IA, editor de minuta, relatórios), Pesquisa (relacional + textual), Estatísticas (iframe `/painel` + botões Exportar/Planilha), Sistema (exportar/importar, bases de consulta, referências, IA/login Claude, usuários, auditoria, rede, tarefas). Toda chamada POST com cabeçalho `X-CPJ: 1`. Barras de progresso a partir de `/api/tarefas` e `/api/fila` (polling 1,5–2 s).
-2. Testar tudo em workspace isolado (perfis, permissões 403, prazos, exportar→importar, base de consulta Excel/Word fictícia, referência, pesquisa relacional, editor→DOCX→FINAL→baixa).
-3. KPIs de prazo e retrabalho no `gerar_painel.py` (incluir `prazo` e `situacao_prazo` em `producao\base.json`).
-4. Atualizar skills: `analise-ip-fraude` (gerar `pessoas.csv`; registrar progresso quando em modo automático), `relatorio-ip-fraude` (exemplos via `rag.py exemplos <modalidade> --autor`; regra das bases de consulta), `calibrar` (usar referências por autor/peso), `AGENTS.md` (regra 9: bases de consulta), `LEIA-ME.md`.
-5. Validar IA automática após `claude auth login` (teste com caso fictício; confirmar que `Bash/PowerShell(python *)` permite os scripts).
-6. Versão 0.3.0: `ferramentas\Atualizar plugin.bat`; publicar no GitHub (login do usuário no Git Credential Manager pendente).
-7. Opcional: LibreOffice para PDF automático; busca semântica (embeddings locais) na coluna `trechos.embedding`; notificações (e-mail/Teams) de novas O.S. — só com aprovação.
+**Rodada enxuta — 2026-09-28 (ratificada pelo investigador; meta 29/09 09:00):**
+Revisão da proposta feita com o Gemini: o foco no core e a operação solo foram mantidos. O "auto-login" constava só nos documentos e foi implementado e testado nesta revisão (modo solo, seção 2). Também foram corrigidos dois bloqueios de uso neste PC:
+- **OCR:** o Tesseract não está em `C:\Program Files\Tesseract-OCR`, só no PDF24 (5.4.1, sem idiomas). A Central detecta `CPJ_TESSERACT`, a instalação padrão, o PDF24 e o PATH, e usa o `por.traineddata` de `ferramentas\tessdata`. O teste de OCR real (`teste_dados_os_codex`) passou pela primeira vez neste PC.
+- **Fila:** `fila-tarefas.py proxima` (códigos 0/3/4) para agentes em loop; saída UTF-8 no console do Windows.
+
+Pendente (tarefas E01–E06): Claude CLI instalado via npm não é encontrado pela Central (E01); interface do modo solo (E02); ensaio ponta a ponta com PDF fictício de ~120 págs. (E03); extratos/Pix → CSV (E04); guia de uso (E05); fechamento, suítes, plugin e esta seção (E06). Busca RAG e estatísticas já existem e não entram nesta rodada.
+
+**Fechamento da rodada enxuta — E06 (2026-09-28, Claude-1):** E01–E05, E07 e a rodada de melhorias F (F01–F04, F10, F03) concluídas. Suíte completa validada em workspace temporário, dados fictícios: as 26 suítes de `app\testes\` (exceto `teste_central.py`) passaram — 0 falhas; `teste_central.py` rodado de ponta a ponta com servidor real na porta 8768, workspace temporário e fixtures fictícias (`credenciais-teste.json`, PDF/xlsx/docx fictícios) — **TUDO OK, retorno 0** (52 verificações: configuração inicial, permissões por perfil, processamento OCR, base de consulta/Muralha fictícia, pesquisa relacional, referência, minuta → DOCX → FINAL → baixa, exportar/importar, IA sem login do Claude, auditoria, pasta pessoal, responsáveis). `ferramentas\verificar-ambiente.ps1`: Python, bibliotecas, Tesseract, OCR português e modelo DOCX OK; duas pendências sem bloquear o core — "Delegado padrão" em `modelos\dados-padrao.json` (preenchimento é do investigador) e o item **Plugin** com caminho desatualizado para o Claude CLI (registrado como `E12`, em andamento por Codex-1). Falha intermitente antes observada em `teste_core_e03.py` sob carga (registrada como `E11`) não se repetiu após a correção da E07; suíte agora estável. `ferramentas\atualizar-plugin.ps1` foi executado (`-SemVersao`) e falhou antes de tocar qualquer arquivo: usa o mesmo caminho fixo desatualizado da E12 para localizar `claude.exe` (`$env:APPDATA\Claude\claude-code\*\claude.exe`, inexistente neste PC — o Claude Code está instalado via npm). Registrado como `E13` (não é arquivo reservado da E06). Plugin e `portatil\` seguem na versão já instalada; nenhuma regressão. Checklist de pronto: itens 1–4 e 6 confirmados por teste; item 5 com três pendências não bloqueantes ao uso do core (E12, E13 e o "Delegado padrão" pendente de preenchimento pelo investigador).
 
 ## Registro de mudanças
 
@@ -161,3 +167,6 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 | 2026-09-27 | Revisão técnica | Inventário do que existe e falta; suíte API com 52 verificações aprovadas em dados fictícios, reproduções de falhas e prioridades de confiabilidade, desempenho e usabilidade; sem alteração do código funcional |
 | 2026-09-27 | Melhorias C01/C02 | Quadro Codex/Claude e reservas de arquivos; autorização uniforme de O.S., revogação de sessões e proteção do último admin ativo; 11 testes novos e 52 verificações existentes aprovados em dados fictícios |
 | 2026-09-27 | Fila multiagente | Tarefas livres para qualquer agente, preservando as já em andamento; CLI de reserva/conclusão/liberação com trava e verificações de conflitos, responsável e dependências; instruções Gemini atualizadas |
+| 2026-09-28 | Revisão Estratégica (Investigador) | Diretriz soberana de foco no Core: PDF -> OCR -> Markdown/CSV -> Análise Investigativa -> DOCX Oficial. Modo solo/direto (sem atrito de login local); postergação de complexidades multiusuário e infraestrutura pesada (Docker/Postgres) em prol de simplicidade e uso operacional diário imediato. |
+| 2026-09-28 | Ratificação + rodada enxuta | Diretriz do Gemini revisada: modo solo implementado (opt-in, só loopback, único admin; 7 testes), Tesseract do PDF24 detectado + tessdata do projeto (OCR real verde neste PC), `fila-tarefas.py proxima`; PostgreSQL/Docker e multiusuário congelados; tarefas E01–E06 para uso em 29/09 09:00 |
+| 2026-09-28 | Fechamento E06 | E01–E05, E07, F01–F04/F03/F10 concluídas; 26 suítes de `app\testes\` + `teste_central.py` (52 verificações) verdes em workspace temporário; `verificar-ambiente.ps1` sem pendência crítica (2 avisos não bloqueantes, um deles já em atendimento na E12); `atualizar-plugin.ps1` adiado até a E12 concluir |
