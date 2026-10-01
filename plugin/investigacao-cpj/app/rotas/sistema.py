@@ -407,6 +407,28 @@ def api_sistema_llm_post():
     return jsonify({"ok": True, "provedor": prov})
 
 
+@bp_sistema.get("/api/sistema/ia-config")
+@requer("ia")
+def api_sistema_ia_config_get():
+    import executores_llm as EL
+    cfg = EL.config_ia(WS)
+    cfg["provedores_prontos"] = [p for p in sorted(EL.PROVEDORES_API) if EL.configuracao(WS, p)]
+    return jsonify(cfg)
+
+
+@bp_sistema.post("/api/sistema/ia-config")
+@requer("usuarios")
+def api_sistema_ia_config_post():
+    import executores_llm as EL
+    dados = request.get_json(force=True) or {}
+    try:
+        cfg = EL.salvar_config_ia(WS, dados)
+    except ValueError as e:
+        return jsonify({"erro": str(e)}), 400
+    auditar("ia_config_atualizada", f"modo={cfg['modo_padrao']} provedor={cfg['provedor_api'] or '-'}")
+    return jsonify(cfg)
+
+
 @bp_sistema.post("/api/sistema/llm/modelos")
 @requer("usuarios")
 def api_sistema_llm_modelos():

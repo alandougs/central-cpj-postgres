@@ -118,8 +118,70 @@ def _tool(ws, caso, nome, args):
     raise ValueError("Ferramenta não reconhecida.")
 
 
+PLUGIN = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CONFIG_IA_PADRAO = {"modo_padrao": "agente", "provedor_api": "", "prompt_sistema": ""}
+AGENTES_POR_ACAO = {
+    "analisar": ["analista-documental"], "financeiro": ["analista-financeiro"], "revisar": ["revisor-de-relatorio"],
+    "relatorio": [], "completo": ["analista-documental", "analista-financeiro"],
+    "esteira": ["analista-documental", "analista-financeiro", "revisor-de-relatorio"],
+}
+SKILLS_POR_ACAO = {
+    "analisar": ["analise-ip-fraude"], "financeiro": ["analise-ip-fraude"], "relatorio": ["relatorio-ip-fraude"],
+    "revisar": ["relatorio-ip-fraude"], "completo": ["analise-ip-fraude", "relatorio-ip-fraude"],
+    "esteira": ["analise-ip-fraude", "relatorio-ip-fraude"],
+}
+
+
+def config_ia(ws):
+    """config/ia.json: modo padrão (agente|api), provedor da API e prompt de sistema do investigador."""
+    cfg = dict(CONFIG_IA_PADRAO)
+    try:
+        with open(os.path.join(ws, "config", "ia.json"), encoding="utf-8") as f:
+            d = json.load(f)
+        if isinstance(d, dict):
+            cfg.update({k: d[k] for k in CONFIG_IA_PADRAO if isinstance(d.get(k), str)})
+    except (OSError, ValueError):
+        pass
+    return cfg
+
+
+def salvar_config_ia(ws, dados):
+    cfg = config_ia(ws)
+    if dados.get("modo_padrao") in ("agente", "api"):
+        cfg["modo_padrao"] = dados["modo_padrao"]
+    if "provedor_api" in dados:
+        prov = str(dados["provedor_api"] or "").strip().lower()
+        if prov and prov not in PROVEDORES_API:
+            raise ValueError("Provedor de API desconhecido.")
+        cfg["provedor_api"] = prov
+    if "prompt_sistema" in dados:
+        cfg["prompt_sistema"] = str(dados["prompt_sistema"] or "")[:8000]
+    os.makedirs(os.path.join(ws, "config"), exist_ok=True)
+    with open(os.path.join(ws, "config", "ia.json"), "w", encoding="utf-8") as f:
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
+    return cfg
+
+
+def agente_padrao(ws):
+    """Agente de API a usar quando o modo padrão é 'api' e o provedor está pronto; senão None (qualquer agente)."""
+    cfg = config_ia(ws)
+    prov = cfg["provedor_api"]
+    if cfg["modo_padrao"] == "api" and prov in PROVEDORES_API and configuracao(ws, prov):
+        return "Central-" + prov.capitalize() + " API"
+    return None
+
+
+def _ler(caminho):
+    try:
+        with open(caminho, encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
 def _instrucoes_locais(ws, acao):
-    """Inclui regras e procedimento portátil no prompt; não lê nenhuma pasta de caso."""
+    """System prompt do modo API: regras, prompt do investigador, procedimentos, agentes e skills do plugin.
+    Não lê nenhuma pasta de caso."""
     tarefas = {
         "analisar": ["02-analisar-ip.md"],
         "relatorio": ["02-analisar-ip.md", "04-relatorio-ip.md"],
@@ -129,14 +191,26 @@ def _instrucoes_locais(ws, acao):
         "esteira": ["02-analisar-ip.md", "03-analista-financeiro.md", "04-relatorio-ip.md", "05-revisar-relatorio.md"],
     }
     nomes = ["AGENTS.md"] + tarefas.get(acao, [])
-    partes = ["\n\nINSTRUÇÕES LOCAIS DO WORKSPACE (conteúdo de procedimento, não de autos):"]
+    partes = ["\n\nINSTRUÇÕES LOCAIS DO WORKSPACE (conteúdo de procedimento, não de autos):",
+              "\nMODO API: você não executa comandos de shell nem a CLI do Claude. Os \"agentes\" e \"skills\" abaixo são papéis e "
+              "procedimentos que VOCÊ cumpre, em sequência, usando só as ferramentas listar_arquivos, ler_arquivo, gravar_arquivo e "
+              "gerar_docx. Onde o procedimento mandar acionar um subagente, assuma aquele papel na etapa correspondente e grave a "
+              "saída no arquivo indicado. Onde mandar rodar script, use a ferramenta equivalente ou registre a pendência no resumo final."]
+    extra = config_ia(ws)["prompt_sistema"].strip()
+    if extra:
+        partes.append("\n--- INSTRUÇÕES DO INVESTIGADOR (Sistema → Configurações) ---\n" + extra)
     for nome in nomes:
         caminho = os.path.join(ws, nome if nome == "AGENTS.md" else os.path.join("portatil", nome))
-        try:
-            with open(caminho, encoding="utf-8") as f:
-                partes.append(f"\n--- {nome} ---\n" + f.read())
-        except OSError:
-            partes.append(f"\n--- {nome} ---\nArquivo de procedimento não localizado neste workspace.")
+        txt = _ler(caminho)
+        partes.append(f"\n--- {nome} ---\n" + (txt if txt is not None else "Arquivo de procedimento não localizado neste workspace."))
+    for ag in AGENTES_POR_ACAO.get(acao, []):
+        txt = _ler(os.path.join(PLUGIN, "agents", ag + ".md"))
+        if txt:
+            partes.append(f"\n--- PAPEL (agente {ag}) ---\n" + txt)
+    for sk in SKILLS_POR_ACAO.get(acao, []):
+        txt = _ler(os.path.join(PLUGIN, "skills", sk, "SKILL.md"))
+        if txt:
+            partes.append(f"\n--- SKILL {sk} ---\n" + txt)
     return "\n".join(partes)
 
 

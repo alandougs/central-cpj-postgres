@@ -518,6 +518,13 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
  <div class="acoes"><button class="btn" id="b-claude-login">Entrar no Claude</button><button class="btn sm" id="b-claude-rec">Verificar novamente</button></div></div>
 
+<div class="card" data-perm="ia" id="card-config-ia"><h3>CONFIGURAÇÕES — processamento por agente ou por API</h3>
+ <p class="muted">Define quem executa os botões de IA e a esteira por padrão: <b>agente de plantão</b> (sessão de chat ou CLI local) ou <b>API</b> do provedor cadastrado abaixo. Na API, o modelo recebe como instruções o AGENTS.md, os procedimentos, os papéis dos agentes (analista-documental, analista-financeiro, revisor) e as skills do plugin, mais o texto que você escrever aqui. <b>Atenção ao sigilo:</b> na via API o conteúdo extraído do caso é enviado ao provedor escolhido (exceção autorizada à regra 6; cada uso fica na auditoria). Chaves e modelos ficam no cartão logo abaixo.</p>
+ <div class="campos" style="grid-template-columns:1fr 1fr"><div><label>Modo padrão</label><select id="cfgia-modo"><option value="agente">Agente de plantão (recomendado)</option><option value="api">API do provedor</option></select></div>
+ <div><label>Provedor da API</label><select id="cfgia-prov"><option value="">— selecione —</option></select></div></div>
+ <label>Instruções adicionais do investigador (prompt de sistema da via API)</label><textarea id="cfgia-prompt" rows="5" maxlength="8000" placeholder="Opcional: estilo, cautelas, prioridades. Não coloque dados de caso aqui."></textarea>
+ <div class="acoes"><button class="btn pri" id="b-cfgia" data-perm="usuarios">Salvar configurações</button><span class="muted" id="msg-cfgia"></span></div></div>
+
 <div class="card" data-perm="usuarios"><h3>Chaves de API e Modelos de LLM (GPT, Claude, Gemini, DeepSeek, Copilot)</h3>
 
  <p class="muted">Cadastre as chaves de API e modelos para acionamento direto ou agentes de IA. As chaves são salvas localmente de forma segura neste computador (<code>config\chaves_llm.json</code>).</p>
@@ -1872,7 +1879,7 @@ atualizarTarefas.vistos=new Set();
 
 $("#chip-tarefas").onclick=()=>abrirAba("sistema");
 
-async function carregarSistema(leve){atualizarTarefas();preencherConta();carregarLLM();
+async function carregarSistema(leve){atualizarTarefas();preencherConta();carregarLLM();carregarConfigIA();
 
  const mp=await api("/api/minha-pasta");$("#minha-pasta").innerHTML=mp.arquivos.map(a=>`<div><a href="/minha-pasta/${a.caminho.split("/").map(enc).join("/")}">${esc(a.caminho)}</a><span class="muted">${kb(a.tamanho)}</span></div>`).join("")||`<span class="muted">Vazia${mp.pasta?" — "+esc(mp.pasta):""}</span>`;
 
@@ -2019,6 +2026,26 @@ $("#f-conta").onsubmit=async e=>{e.preventDefault();const f=e.target;try{const u
 $("#b-rede").onclick=async()=>{try{await api("/api/rede",{json:{compartilhar:$("#rede-on").checked,https:$("#rede-https").checked}});$("#msg-rede").textContent="Salvo. Feche e abra a Central para aplicar."}catch(x){$("#msg-rede").textContent=x.message}};
 
 $("#f-senha").onsubmit=async e=>{e.preventDefault();const f=e.target;try{await api("/api/minha-senha",{json:{atual:f.atual.value,nova:f.nova.value}});$("#msg-senha").textContent="Senha alterada";f.reset()}catch(x){$("#msg-senha").textContent=x.message}};
+
+// ---------------- configurações de IA (modo agente × API)
+async function carregarConfigIA(){
+  const modo=$("#cfgia-modo"); if(!modo) return;
+  try{
+    const c=await api("/api/sistema/ia-config");
+    const sel=$("#cfgia-prov");
+    sel.innerHTML='<option value="">— selecione —</option>'+c.provedores_prontos.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join("");
+    modo.value=c.modo_padrao; sel.value=c.provedor_api||""; $("#cfgia-prompt").value=c.prompt_sistema||"";
+    if(!c.provedores_prontos.length) $("#msg-cfgia").textContent="Nenhum provedor pronto: ative e salve chave e modelo no cartão de chaves.";
+  }catch(x){}
+}
+if($("#b-cfgia"))$("#b-cfgia").onclick=async()=>{
+  const modo=$("#cfgia-modo").value, prov=$("#cfgia-prov").value, msg=$("#msg-cfgia");
+  if(modo==="api"&&!prov){msg.textContent="Escolha o provedor da API.";return}
+  if(modo==="api"&&!confirm("Na via API o conteúdo dos autos extraídos será enviado ao provedor "+prov+". Confirma que isso é compatível com o sigilo do caso?"))return;
+  msg.textContent="salvando…";
+  try{await api("/api/sistema/ia-config",{json:{modo_padrao:modo,provedor_api:prov,prompt_sistema:$("#cfgia-prompt").value}});msg.textContent="Salvo!";toast("Configurações salvas");setTimeout(()=>msg.textContent="",3000)}
+  catch(x){msg.textContent="Erro: "+x.message}
+};
 
 // ---------------- chaves LLM
 
