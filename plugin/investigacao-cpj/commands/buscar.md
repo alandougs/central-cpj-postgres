@@ -5,7 +5,7 @@ argument-hint: <texto ou valor> [--caso ID] [--tipo relatorio|transcricao|analis
 
 Pesquise na base: $ARGUMENTS
 
-Scripts: `C:\CPJ - TRABALHO\plugin\investigacao-cpj\skills\base-cpj\scripts\`.
+Scripts: `plugin\investigacao-cpj\skills\base-cpj\scripts\`.
 - Se o argumento parecer identificador (CPF, CNPJ, telefone, placa, chave Pix, conta) → `rag.py entidade "<valor>"`.
 - Se for um ID de caso precedido de "cruzar" → `rag.py cruzar <ID>`.
 - Se for pessoa (nome, mãe, pai, CPF, RG, telefone, CNPJ/empresa, endereço) → `rag.py pessoas --nome "..." [--mae ...] [--cpf ...]` (qualificações de `02-analise\pessoas.csv` dos casos + bases de consulta importadas). Na Central: *Pesquisa* (também BO, processo, placa, mandado e cautelar, e *vínculos*).

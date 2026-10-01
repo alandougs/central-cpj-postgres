@@ -1,6 +1,6 @@
 # Produção e painel
 
-*Arquivo portátil gerado em 2026-09-30 15:11 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
+*Arquivo portátil gerado em 2026-10-01 10:50 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
 
 ## Regras obrigatórias
 
@@ -22,7 +22,7 @@
     - **Informações super relevantes:** grifadas de amarelo (use a marcação `==texto super relevante==`).
     - **Informações que o investigador deva obter ou preencher manualmente:** escritas em **CAIXA ALTA E EM VERMELHO** para alertar (use `[PESQUISAR: DADO EM CAIXA ALTA]`, `[OBTER: ...]`, `{PREENCHER: ...}`). O gerador DOCX automaticamente aplica a cor vermelha e caixa alta.
 
-14. **Um agente por Ordem de Serviço:** antes de extrair, analisar ou redigir qualquer O.S. de `E:\ORDENS DE SERVIÇO CPJ`, rode `python ferramentas\fila-os.py listar` e reserve com `assumir <nº> --agente <nome>` (ou `proxima --agente <nome>`). Não pegue O.S. `em_andamento` de outro agente nem refaça O.S. `concluida`/`com_relatorio` sem pedido expresso do investigador. Workspace canônico dos casos: `C:\CPJ - TRABALHO\casos`. Ao terminar, `concluir <nº> --agente <nome> --docx "<caminho>"` e copie o DOCX final para a pasta da O.S.; se parar, `liberar ... --motivo "<onde parou>"`. A reserva vence em 4 h sem `renovar`. Quadro: `E:\ORDENS DE SERVIÇO CPJ\_CONTROLE-OS.md`.
+14. **Um agente por Ordem de Serviço:** antes de extrair, analisar ou redigir qualquer O.S. de `E:\ORDENS DE SERVIÇO CPJ`, rode `python ferramentas\fila-os.py listar` e reserve com `assumir <nº> --agente <nome>` (ou `proxima --agente <nome>`). Não pegue O.S. `em_andamento` de outro agente nem refaça O.S. `concluida`/`com_relatorio` sem pedido expresso do investigador. Workspace canônico dos casos: `casos`. Ao terminar, `concluir <nº> --agente <nome> --docx "<caminho>"` e copie o DOCX final para a pasta da O.S.; se parar, `liberar ... --motivo "<onde parou>"`. A reserva vence em 4 h sem `renovar`. Quadro: `E:\ORDENS DE SERVIÇO CPJ\_CONTROLE-OS.md`.
 
 15. **Numeração do procedimento no cabeçalho (determinação do delegado, 30/09/2026):** no campo **Referência:** e nas informações do procedimento na parte superior do relatório de inquérito policial, use **EXCLUSIVAMENTE o número do Inquérito Policial Eletrônico (IPe) e do Processo Judicial** (ex.: `Referência: IPe nº <número> / Processo nº <número>`). **NÃO coloque o número do Boletim de Ocorrência (BO)** e **NÃO coloque o número do IP local (físico/delegacia de origem)**. Esta regra é mandatória para todos os relatórios elaborados a partir de 30/09/2026.
 
@@ -31,7 +31,7 @@ Governança completa: `acervo\repo-ia-alandougs\governanca\seguranca-e-dados.md`
 ## Como usar fora do Claude Code
 
 - Onde estiver `/comando`, siga o texto daquele comando abaixo. Onde disser "skill X" ou "agente X", as instruções estão neste arquivo ou em `portatil\`.
-- Scripts Python ficam em `C:\CPJ - TRABALHO\plugin\investigacao-cpj\skills\<skill>\scripts\` (PowerShell, `python`). Sem execução de comandos, peça ao usuário para rodá-los.
+- Scripts Python ficam em `plugin\investigacao-cpj\skills\<skill>\scripts\` (PowerShell, `python`). Sem execução de comandos, peça ao usuário para rodá-los.
 - Sem subagentes: execute as etapas em sequência.
 
 ## Fonte: `plugin/investigacao-cpj/commands/painel.md`
@@ -40,9 +40,9 @@ Governança completa: `acervo\repo-ia-alandougs\governanca\seguranca-e-dados.md`
 
 Atualize e mostre a produção. [ARGUMENTOS: informe o ID do caso (ex.: OS-123-2026) e observações]
 
-1. `python "C:\CPJ - TRABALHO\plugin\investigacao-cpj\skills\base-cpj\scripts\indexar.py"`
-2. `python "C:\CPJ - TRABALHO\plugin\investigacao-cpj\skills\base-cpj\scripts\gerar_painel.py"`
-3. `Start-Process "C:\CPJ - TRABALHO\producao\painel.html"` (abre no navegador local; não publicar).
+1. `python "plugin\investigacao-cpj\skills\base-cpj\scripts\indexar.py"`
+2. `python "plugin\investigacao-cpj\skills\base-cpj\scripts\gerar_painel.py"`
+3. `Start-Process "producao\painel.html"` (abre no navegador local; não publicar).
 4. Resuma em 4–6 linhas a partir de `producao\base.json`: entregues hoje, no mês (× meta de `producao\config.json`), no ano, prazo mediano, casos em aberto por etapa.
 
 ## Fonte: `plugin/investigacao-cpj/skills/base-cpj/SKILL.md`
@@ -51,9 +51,9 @@ Atualize e mostre a produção. [ARGUMENTOS: informe o ID do caso (ex.: OS-123-2
 
 ## Base CPJ — casos, estatística, RAG e painel
 
-Todo o conteúdo de `C:\CPJ - TRABALHO` é a base de dados. **Fonte da verdade:** `casos\<ID>\caso.json` (um por caso) + os arquivos Markdown/CSV do caso. Tudo o mais é derivado e pode ser regenerado a qualquer momento.
+Todo o conteúdo do workspace é a base de dados. **Fonte da verdade:** `casos\<ID>\caso.json` (um por caso) + os arquivos Markdown/CSV do caso. Tudo o mais é derivado e pode ser regenerado a qualquer momento.
 
-Scripts em `scripts\` (ao lado deste SKILL.md). Em PowerShell: `$B = "C:\CPJ - TRABALHO\plugin\investigacao-cpj\skills\<skill>\scripts"`.
+Scripts em `scripts\` (ao lado deste SKILL.md). Em PowerShell: `$B = "plugin\investigacao-cpj\skills\<skill>\scripts"`.
 
 ### 1. Registro de casos — `caso.py`
 
@@ -111,12 +111,12 @@ Regras de uso do RAG:
 
 ### 4. Central CPJ e painel
 
-A **Central CPJ** (`C:\CPJ - TRABALHO\Central CPJ.bat` → http://127.0.0.1:8765) é a interface única, com login e perfis (admin, delegado, investigador, escrivão): Início (pendências e prazos), Nova O.S. (upload e processamento automático), Casos (ficha, botões de IA atendidos pelos agentes de plantão, editor, DOCX/PDF, baixa), Pesquisa (RAG, pesquisa relacional e vínculos), Estatísticas (painel e KPIs) e Sistema (exportar/importar, bases de consulta, referências, agentes, usuários). Código em `C:\CPJ - TRABALHO\plugin\investigacao-cpj\app\`. O painel também pode ser gerado avulso:
+A **Central CPJ** (`Central CPJ.bat` → http://127.0.0.1:8765) é a interface única, com login e perfis (admin, delegado, investigador, escrivão): Início (pendências e prazos), Nova O.S. (upload e processamento automático), Casos (ficha, botões de IA atendidos pelos agentes de plantão, editor, DOCX/PDF, baixa), Pesquisa (RAG, pesquisa relacional e vínculos), Estatísticas (painel e KPIs) e Sistema (exportar/importar, bases de consulta, referências, agentes, usuários). Código em `plugin\investigacao-cpj\app\`. O painel também pode ser gerado avulso:
 
 #### Painel avulso — `gerar_painel.py`
 
 ```powershell
-python "$B\indexar.py"; python "$B\gerar_painel.py"; Start-Process "C:\CPJ - TRABALHO\producao\painel.html"
+python "$B\indexar.py"; python "$B\gerar_painel.py"; Start-Process "producao\painel.html"
 ```
 
 Painel local (HTML único, sem internet): entregues no mês × meta (`producao\config.json`, padrão 40), entregues no ano, páginas analisadas, prazo mediano, casos em aberto por etapa, modalidades, % de autoria indicada, valor rastreado, entregas por dia e por mês, últimas entregas. **Não publicar** (deriva de dados de casos); é para abrir no navegador local.

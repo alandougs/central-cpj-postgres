@@ -1,5 +1,0 @@
-# Dependências de desenvolvimento e testes E2E da Central CPJ
-playwright>=1.49,<2
-pytest>=8,<9
-pytest-asyncio>=0.24,<1
-ruff>=0.8,<1

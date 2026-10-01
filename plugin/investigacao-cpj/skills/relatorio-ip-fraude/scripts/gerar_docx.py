@@ -42,7 +42,32 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
-MODELO_PADRAO = r"C:\CPJ - TRABALHO\modelos\MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx"
+def ws_padrao():
+    """Workspace CPJ: CPJ_WORKSPACE > 1ª pasta acima deste script com casos/ e modelos/ > cwd com casos/ > erro."""
+    if os.environ.get("CPJ_WORKSPACE"):
+        return os.environ["CPJ_WORKSPACE"]
+    d = os.path.dirname(os.path.abspath(__file__))
+    while True:
+        if os.path.isdir(os.path.join(d, "casos")) and os.path.isdir(os.path.join(d, "modelos")):
+            return d
+        if os.path.dirname(d) == d:
+            break
+        d = os.path.dirname(d)
+    if os.path.isdir(os.path.join(os.getcwd(), "casos")):
+        return os.getcwd()
+    raise SystemExit("Workspace CPJ não encontrado: defina CPJ_WORKSPACE ou execute a partir da pasta do workspace "
+                     "(a que contém as pastas casos e modelos).")
+
+
+def _resolver_modelo_padrao():
+    try:
+        ws = ws_padrao()
+        return os.path.join(ws, "modelos", "MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx")
+    except SystemExit:
+        return None
+
+
+MODELO_PADRAO = _resolver_modelo_padrao()
 FONTE, TAM = "Arial", 12
 
 CAMPOS_CABECALHO = [  # (chave da minuta, rótulo no modelo)
@@ -55,15 +80,31 @@ CAMPOS_CABECALHO = [  # (chave da minuta, rótulo no modelo)
     ("data_fatos", "Data dos Fatos:"),
     ("escrivao", "Escrivão do feito:"),
 ]
-SECOES = {  # seção da minuta -> prefixos dos parágrafos-guia do modelo que ela substitui
+SECOES = {  # seção canônica da minuta -> prefixos dos parágrafos-guia do modelo que ela substitui
     "RESUMO DOS FATOS": ["{Resumir"],
     "DILIGÊNCIAS REALIZADAS": ["{Elencar"],
     "CONCLUSÃO": ["{breve descrição", "{Sugestão de providências"],
 }
+SECOES_OBRIGATORIAS = ["RESUMO DOS FATOS", "DILIGÊNCIAS REALIZADAS", "CONCLUSÃO"]
+
+
+def remover_acentos(texto: str) -> str:
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn")
+
+
+def normalizar_titulo(texto: str) -> str:
+    sem_acento = remover_acentos(texto).strip()
+    limpo = re.sub(r"^\d+[\.\)\-\s]+", "", sem_acento)
+    return limpo.strip().upper()
+
+
+SECOES_CANONICAS = {normalizar_titulo(k): k for k in SECOES}
 
 ap = argparse.ArgumentParser()
 ap.add_argument("minuta"); ap.add_argument("--saida", required=True)
-ap.add_argument("--modelo", default=MODELO_PADRAO)
+ap.add_argument("--modelo", default=None, help="caminho do arquivo modelo.docx (padrão: <workspace>/modelos/MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx)")
+ap.add_argument("--permitir-secoes-faltantes", action="store_true", help="não aborta se faltar seção obrigatória")
 ap.add_argument("--sem-assinatura", action="store_true", help="remove a imagem da assinatura (rascunho)")
 ap.add_argument("--fluxo-csv", default=None, help="caminho do arquivo fluxo-financeiro.csv para gerar fluxograma")
 ap.add_argument("--fluxograma", default=None, help="caminho de imagem PNG existente do fluxograma")
@@ -83,16 +124,41 @@ if m:
             meta[k.strip().lower()] = v.strip()
     corpo = m.group(2)
 
-secoes, atual = {}, None
+secoes = {s: [] for s in SECOES}
+atual = None
 for ln in corpo.splitlines():
-    t = re.match(r"^##\s+(.+?)\s*$", ln)
-    if t and not ln.startswith("###"):
-        nome = t.group(1).strip().upper()
-        atual = next((s for s in SECOES if s in nome or nome in s), nome)
-        secoes[atual] = []
-        continue
+    m_head = re.match(r"^(#{2,3})\s+(.+?)\s*$", ln)
+    if m_head:
+        nivel = len(m_head.group(1))
+        tit_raw = m_head.group(2).strip()
+        tit_norm = normalizar_titulo(tit_raw)
+
+        canon_match = None
+        for k_norm, k_canon in SECOES_CANONICAS.items():
+            if tit_norm == k_norm or k_norm in tit_norm or (len(tit_norm) >= 6 and tit_norm in k_norm):
+                canon_match = k_canon
+                break
+
+        if canon_match:
+            atual = canon_match
+            continue
+        elif nivel == 2:
+            atual = tit_raw.upper()
+            if atual not in secoes:
+                secoes[atual] = []
+            continue
+        else:
+            # Subtítulo (###) dentro da seção atual
+            if atual:
+                secoes[atual].append(ln)
+            continue
+
     if atual:
         secoes[atual].append(ln)
+
+faltantes = [s for s in SECOES_OBRIGATORIAS if not any(x.strip() for x in secoes.get(s, []))]
+if faltantes and not a.permitir_secoes_faltantes:
+    raise SystemExit(f"Erro: seção(ões) obrigatória(s) ausente(s) ou vazia(s) na minuta: {', '.join(faltantes)}")
 
 
 def blocos(linhas):
@@ -104,9 +170,26 @@ def blocos(linhas):
 
     def fecha_tab():
         if tab:
-            linhas_t = [[c.strip() for c in r.strip().strip("|").split("|")] for r in tab
-                        if not re.fullmatch(r"\|?[\s:\-|]+\|?", r.strip())]
-            if linhas_t: out.append(("tab", linhas_t))
+            linhas_t = []
+            alinhamentos = []
+            for r in tab:
+                cells = [c.strip() for c in r.strip().strip("|").split("|")]
+                if re.fullmatch(r"\|?[\s:\-|]+\|?", r.strip()):
+                    alinhamentos = []
+                    for c in cells:
+                        cs = c.strip()
+                        if cs.startswith(":") and cs.endswith(":"):
+                            alinhamentos.append(WD_ALIGN_PARAGRAPH.CENTER)
+                        elif cs.endswith(":"):
+                            alinhamentos.append(WD_ALIGN_PARAGRAPH.RIGHT)
+                        elif cs.startswith(":"):
+                            alinhamentos.append(WD_ALIGN_PARAGRAPH.LEFT)
+                        else:
+                            alinhamentos.append(None)
+                else:
+                    linhas_t.append(cells)
+            if linhas_t:
+                out.append(("tab", {"linhas": linhas_t, "alinhamentos": alinhamentos}))
             tab.clear()
 
     for ln in linhas:
@@ -214,20 +297,86 @@ def paragrafo_antes(ref, texto="", negrito=False, recuo_lista=False):
     return p
 
 
-def tabela_antes(doc, ref, linhas):
+def tabela_antes(doc, ref, tab_data):
+    if isinstance(tab_data, dict):
+        linhas = tab_data.get("linhas", [])
+        alinhamentos = tab_data.get("alinhamentos", [])
+    else:
+        linhas = tab_data
+        alinhamentos = []
+    if not linhas:
+        return
+
     ncol = max(len(r) for r in linhas)
     t = doc.add_table(rows=len(linhas), cols=ncol)
+    t.autofit = False
+
+    secao = doc.sections[0]
+    largura_conteudo = secao.page_width - secao.left_margin - secao.right_margin
+    largura_twips = int(round(largura_conteudo / 635))
+
     tblPr = t._tbl.tblPr
+    tblW = tblPr.find(qn("w:tblW"))
+    if tblW is None:
+        tblW = OxmlElement("w:tblW")
+        tblPr.append(tblW)
+    tblW.set(qn("w:type"), "dxa")
+    tblW.set(qn("w:w"), str(largura_twips))
+
     bordas = OxmlElement("w:tblBorders")
     for b in ("top", "left", "bottom", "right", "insideH", "insideV"):
         e = OxmlElement(f"w:{b}"); e.set(qn("w:val"), "single"); e.set(qn("w:sz"), "4"); e.set(qn("w:color"), "000000")
         bordas.append(e)
     tblPr.append(bordas)
+
+    tblGrid = t._tbl.find(qn("w:tblGrid"))
+    if tblGrid is None:
+        tblGrid = OxmlElement("w:tblGrid")
+        t._tbl.insert(t._tbl.index(tblPr) + 1, tblGrid)
+    else:
+        for c in list(tblGrid):
+            tblGrid.remove(c)
+
+    largura_base = largura_twips // ncol
+    resto = largura_twips % ncol
+    col_widths = [largura_base + (1 if j < resto else 0) for j in range(ncol)]
+
+    for w in col_widths:
+        col = OxmlElement("w:gridCol")
+        col.set(qn("w:w"), str(w))
+        tblGrid.append(col)
+
     for i, r in enumerate(linhas):
+        trPr = t.rows[i]._tr.get_or_add_trPr()
+        if i == 0:
+            if trPr.find(qn("w:tblHeader")) is None:
+                trPr.append(OxmlElement("w:tblHeader"))
+        if trPr.find(qn("w:cantSplit")) is None:
+            trPr.append(OxmlElement("w:cantSplit"))
+
         for j in range(ncol):
-            cel = t.cell(i, j); cel.text = ""
+            cel = t.cell(i, j)
+            tcPr = cel._tc.get_or_add_tcPr()
+            tcW = tcPr.find(qn("w:tcW"))
+            if tcW is None:
+                tcW = OxmlElement("w:tcW")
+                tcPr.append(tcW)
+            tcW.set(qn("w:type"), "dxa")
+            tcW.set(qn("w:w"), str(col_widths[j]))
+
+            cel.text = ""
             cp = cel.paragraphs[0]
             val = r[j] if j < len(r) else ""
+
+            align = alinhamentos[j] if j < len(alinhamentos) else None
+            val_limpo = val.strip()
+            if align is None:
+                if re.match(r"^[-+]?\s*R\$\s*[\d\.,]+$", val_limpo) or re.match(r"^[-+]?[\d]{1,3}(?:\.\d{3})*,\d{2}$", val_limpo):
+                    align = WD_ALIGN_PARAGRAPH.RIGHT
+
+            if align is not None:
+                cp.alignment = align
+
             add_runs(cp, val, negrito_base=(i == 0), tam_pt=9)
     ref._element.addprevious(t._tbl)
 
@@ -255,9 +404,13 @@ def remove(p):
 
 
 # ---------- preenchimento ----------
-if not os.path.exists(a.modelo):
-    raise SystemExit(f"Modelo não encontrado: {a.modelo}")
-doc = docx.Document(a.modelo)
+caminho_modelo = a.modelo
+if not caminho_modelo:
+    caminho_modelo = MODELO_PADRAO or os.path.join(ws_padrao(), "modelos", "MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx")
+
+if not os.path.exists(caminho_modelo):
+    raise SystemExit(f"Modelo não encontrado: {caminho_modelo}")
+doc = docx.Document(caminho_modelo)
 pars = list(doc.paragraphs)
 pendentes = []
 
@@ -367,7 +520,7 @@ for chave, prefixo in (("local_data", "[local, Estado]"), ("delegado", "{Nome do
     p = next((x for x in doc.paragraphs if x.text.strip().startswith(prefixo)), None)
     if p is None: continue
     if meta.get(chave):
-        limpa_runs(p); add_runs(p, meta[chave].upper() if chave == "delegado" else meta[chave], negrito_base=(chave == "delegado"))
+        limpa_runs(p); add_runs(p, meta[chave], negrito_base=(chave == "delegado"))
     else:
         pendentes.append(chave)
 
@@ -395,10 +548,14 @@ if meta.get("data_rodape"):
                 if re.fullmatch(r"\s*\d{2}/\d{2}/\d{4}\s*", r.text or ""):
                     r.text = meta["data_rodape"]
 
-if a.sem_assinatura:
-    for p in doc.paragraphs:
-        if p._element.xpath(".//pic:pic") and not p.text.strip():
+for i, p in enumerate(doc.paragraphs):
+    if p._element.xpath(".//pic:pic") and not p.text.strip():
+        if a.sem_assinatura:
+            if i + 1 < len(doc.paragraphs):
+                doc.paragraphs[i + 1].paragraph_format.page_break_before = True
             remove(p)
+        else:
+            p.paragraph_format.page_break_before = True
 
 # Conferência final: texto-guia do modelo, chaves e marcadores que não podem chegar ao delegado.
 texto_doc = "\n".join([p.text for p in doc.paragraphs] +

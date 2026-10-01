@@ -14,7 +14,7 @@ Base de comportamento: skill `analise-documental` (inventário → achados com l
 - `casos\<ID>\01-extracao\<documento>\transcricao.md` (seções `## Página N`; uma pasta por arquivo original — cite o documento quando houver mais de um: `(Doc. <nome>, pág. N)`) — ou o Markdown entregue pelo usuário (copie para `01-extracao\<nome>\transcricao.md` e registre a origem em `registro-tratamento.md`).
 - `01-extracao\<documento>\tabelas\*.csv`, `entidades.csv`, `relatorio_extracao.json` (páginas pendentes/⚠), `estrutura.md` quando existirem.
 - `caso.json` (ordem de serviço, referência) e, se houver, o texto da **Ordem de Serviço / determinação do delegado** — ela delimita o escopo da análise.
-- Leia também `C:\CPJ - TRABALHO\calibracao\licoes-aprendidas.md` antes de começar.
+- Leia também `calibracao\licoes-aprendidas.md` antes de começar.
 
 Se o Markdown do usuário não tiver marcação de página, use outro localizador reproduzível (título da peça + parágrafo, ou nº de linha) e avise que a citação por página ficará prejudicada.
 
@@ -68,4 +68,4 @@ Em uso interativo (sem pedido da Central), não é necessário.
 
 ## Saída
 
-Arquivos em `02-analise\` listados acima (inclusive `pessoas.csv`) + resumo. Rode `indexar.py` ao final para a Pesquisa relacional enxergar as pessoas do caso. Todos são material de apoio e podem alimentar o RAG (ver `C:\CPJ - TRABALHO\rag\README.md`).
+Arquivos em `02-analise\` listados acima (inclusive `pessoas.csv`) + resumo. Rode `indexar.py` ao final para a Pesquisa relacional enxergar as pessoas do caso. Todos são material de apoio e podem alimentar o RAG (ver `rag\README.md`).

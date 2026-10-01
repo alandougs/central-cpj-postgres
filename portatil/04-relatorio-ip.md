@@ -1,6 +1,6 @@
 # Redigir o Relatório de Investigação no modelo CPJ e gerar o DOCX
 
-*Arquivo portátil gerado em 2026-09-30 15:11 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
+*Arquivo portátil gerado em 2026-10-01 10:50 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
 
 ## Regras obrigatórias
 
@@ -22,7 +22,7 @@
     - **Informações super relevantes:** grifadas de amarelo (use a marcação `==texto super relevante==`).
     - **Informações que o investigador deva obter ou preencher manualmente:** escritas em **CAIXA ALTA E EM VERMELHO** para alertar (use `[PESQUISAR: DADO EM CAIXA ALTA]`, `[OBTER: ...]`, `{PREENCHER: ...}`). O gerador DOCX automaticamente aplica a cor vermelha e caixa alta.
 
-14. **Um agente por Ordem de Serviço:** antes de extrair, analisar ou redigir qualquer O.S. de `E:\ORDENS DE SERVIÇO CPJ`, rode `python ferramentas\fila-os.py listar` e reserve com `assumir <nº> --agente <nome>` (ou `proxima --agente <nome>`). Não pegue O.S. `em_andamento` de outro agente nem refaça O.S. `concluida`/`com_relatorio` sem pedido expresso do investigador. Workspace canônico dos casos: `C:\CPJ - TRABALHO\casos`. Ao terminar, `concluir <nº> --agente <nome> --docx "<caminho>"` e copie o DOCX final para a pasta da O.S.; se parar, `liberar ... --motivo "<onde parou>"`. A reserva vence em 4 h sem `renovar`. Quadro: `E:\ORDENS DE SERVIÇO CPJ\_CONTROLE-OS.md`.
+14. **Um agente por Ordem de Serviço:** antes de extrair, analisar ou redigir qualquer O.S. de `E:\ORDENS DE SERVIÇO CPJ`, rode `python ferramentas\fila-os.py listar` e reserve com `assumir <nº> --agente <nome>` (ou `proxima --agente <nome>`). Não pegue O.S. `em_andamento` de outro agente nem refaça O.S. `concluida`/`com_relatorio` sem pedido expresso do investigador. Workspace canônico dos casos: `casos`. Ao terminar, `concluir <nº> --agente <nome> --docx "<caminho>"` e copie o DOCX final para a pasta da O.S.; se parar, `liberar ... --motivo "<onde parou>"`. A reserva vence em 4 h sem `renovar`. Quadro: `E:\ORDENS DE SERVIÇO CPJ\_CONTROLE-OS.md`.
 
 15. **Numeração do procedimento no cabeçalho (determinação do delegado, 30/09/2026):** no campo **Referência:** e nas informações do procedimento na parte superior do relatório de inquérito policial, use **EXCLUSIVAMENTE o número do Inquérito Policial Eletrônico (IPe) e do Processo Judicial** (ex.: `Referência: IPe nº <número> / Processo nº <número>`). **NÃO coloque o número do Boletim de Ocorrência (BO)** e **NÃO coloque o número do IP local (físico/delegacia de origem)**. Esta regra é mandatória para todos os relatórios elaborados a partir de 30/09/2026.
 
@@ -31,7 +31,7 @@ Governança completa: `acervo\repo-ia-alandougs\governanca\seguranca-e-dados.md`
 ## Como usar fora do Claude Code
 
 - Onde estiver `/comando`, siga o texto daquele comando abaixo. Onde disser "skill X" ou "agente X", as instruções estão neste arquivo ou em `portatil\`.
-- Scripts Python ficam em `C:\CPJ - TRABALHO\plugin\investigacao-cpj\skills\<skill>\scripts\` (PowerShell, `python`). Sem execução de comandos, peça ao usuário para rodá-los.
+- Scripts Python ficam em `plugin\investigacao-cpj\skills\<skill>\scripts\` (PowerShell, `python`). Sem execução de comandos, peça ao usuário para rodá-los.
 - Sem subagentes: execute as etapas em sequência.
 
 ## Fonte: `plugin/investigacao-cpj/commands/relatorio-ip.md`
@@ -47,7 +47,7 @@ Use a skill `relatorio-ip-fraude`.
 2a. **Dados faltantes:** se faltar dado muito importante para autoria, materialidade ou circunstâncias, grave `02-analise\dados-faltantes.md` e avise o operador **em CAIXA ALTA** na resposta final (`DADOS FALTANTES — PROVIDENCIAR (OPERADOR)`), conforme `skills\analise-ip-fraude\references\dados-faltantes.md`. Não deduza; no relatório, só ressalva objetiva na Conclusão.
 3. Grave `03-relatorios\minuta-vNN.md` e `rastreabilidade-vNN.md`; `caso.py status <ID> minuta`.
 4. execute as instruções do agente `revisor-de-relatorio` (seção neste arquivo ou em portatil\) → `revisao-vNN.md`. Corrija erros objetivos na minuta (mesma versão) e liste o que depende de decisão.
-5. Gere o DOCX (rascunho): `python "C:\CPJ - TRABALHO\plugin\investigacao-cpj\skills\relatorio-ip-fraude\scripts\gerar_docx.py" "<minuta>" --saida "casos\<ID>\03-relatorios\RELATORIO-<ID>-vNN.docx"`.
+5. Gere o DOCX (rascunho): `python "plugin\investigacao-cpj\skills\relatorio-ip-fraude\scripts\gerar_docx.py" "<minuta>" --saida "casos\<ID>\03-relatorios\RELATORIO-<ID>-vNN.docx"`.
 6. Apresente: caminho do DOCX, resumo da revisão, campos pendentes, dados críticos não conferidos e, **em CAIXA ALTA, os DADOS FALTANTES para o operador providenciar**. Diga que, após revisar/editar no Word e entregar, basta rodar `/entregar <ID>`.
 
 ## Fonte: `plugin/investigacao-cpj/skills/relatorio-ip-fraude/SKILL.md`
@@ -56,11 +56,11 @@ Use a skill `relatorio-ip-fraude`.
 
 ## RelatÃ³rio de InvestigaÃ§Ã£o â€” IP de fraude/estelionato (modelo CPJ)
 
-Produz a minuta do relatÃ³rio **sobre a anÃ¡lise jÃ¡ feita** (`02-analise\`), nunca direto do PDF bruto. Estilo e estrutura seguem o **modelo DOCX do investigador** (`C:\CPJ - TRABALHO\modelos\MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx`) e o "Modelo Alan" da skill `relatorio-investigacao-policial` (mÃ©todo PTCFREE). Onde divergirem, **prevalece o modelo DOCX**.
+Produz a minuta do relatório **sobre a análise já feita** (`02-analise\`), nunca direto do PDF bruto. Estilo e estrutura seguem o **modelo DOCX do investigador** (`modelos\MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx`) e o "Modelo Alan" da skill `relatorio-investigacao-policial` (método PTCFREE). Onde divergirem, **prevalece o modelo DOCX**.
 
-### Antes de redigir (obrigatÃ³rio)
+### Antes de redigir (obrigatório)
 
-1. Leia `C:\CPJ - TRABALHO\calibracao\licoes-aprendidas.md` e aplique cada liÃ§Ã£o.
+1. Leia `calibracao\licoes-aprendidas.md` e aplique cada lição.
 2. Leia `references\modelo-cpj.md` (estrutura e regras extraÃ­das do modelo DOCX).
 3. **Exemplos (estilo e estrutura, nunca fatos):** `python "<scripts da base-cpj>\rag.py" exemplos <modalidade> --autor "<investigador de dados-padrao.json>" -n 3`. A lista junta relatÃ³rios `-FINAL` do sistema e **referÃªncias importadas** (`referencias\`, relatÃ³rios anteriores do investigador ou de colegas), ordenadas por mesma modalidade â†’ autor preferido â†’ **peso** (5 = modelo exemplar â€¦ 1 = usar com reservas). Use 1â€“2, preferindo peso â‰¥ 4 e o prÃ³prio autor; com peso â‰¤ 2, aproveite sÃ³ a estrutura. Se o Ã­ndice estiver vazio, procure `casos\*\03-relatorios\*-FINAL.md` da mesma `modalidade`. Nunca transporte nomes, nÃºmeros, datas ou conclusÃµes de um exemplo para a minuta.
 4. Confirme que existem `02-analise\ficha-caso.md`, `cronologia.md`, `fluxo-financeiro.md/.csv`, `matriz-achados.md`. Se faltarem, rode antes a skill `analise-ip-fraude` (ou avise e produza com ressalvas, se o usuÃ¡rio quiser).
@@ -145,7 +145,7 @@ Os campos do cabeÃ§alho e as trÃªs seÃ§Ãµes sÃ£o exatamente os lidos p
 4. Com a aprovaÃ§Ã£o do usuÃ¡rio, gere o DOCX:
 
 ```powershell
-python "C:\CPJ - TRABALHO\plugin\investigacao-cpj\skills\<skill>\scripts\gerar_docx.py" "casos\<ID>\03-relatorios\minuta-vNN.md" --saida "casos\<ID>\03-relatorios\RELATORIO-<ID>-vNN.docx"
+python "plugin\investigacao-cpj\skills\<skill>\scripts\gerar_docx.py" "casos\<ID>\03-relatorios\minuta-vNN.md" --saida "casos\<ID>\03-relatorios\RELATORIO-<ID>-vNN.docx"
 ## rascunho sem assinatura: acrescente --sem-assinatura
 ```
 
@@ -164,7 +164,7 @@ O script preserva timbre, rodapÃ© (paginaÃ§Ã£o automÃ¡tica) e assinatura
 
 ## Modelo CPJ 2026 — estrutura extraída do DOCX do investigador
 
-Fonte: `C:\CPJ - TRABALHO\modelos\MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx` (A4, margens 2 cm, Arial 12, justificado).
+Fonte: `modelos\MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx` (A4, margens 2 cm, Arial 12, justificado).
 
 ### Cabeçalho (timbre — preservado pelo gerador)
 

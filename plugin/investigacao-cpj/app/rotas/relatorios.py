@@ -172,17 +172,36 @@ def api_minuta_salvar(id_):
     d = request.get_json(force=True) or {}
     rel_dir = os.path.join(C.caminho(id_), "03-relatorios")
     ultima_vista = d.get("ultima_vista")
+    versao_base = d.get("versao_base")
     forcar = d.get("forcar", False)
 
-    if ultima_vista and not forcar:
+    if not forcar:
         ult = ultima_minuta(id_)
-        if ult and ult != ultima_vista:
-            return jsonify({
-                "conflito": True,
-                "erro": "minuta_atualizada",
-                "ultima": ult,
-                "mensagem": f"A minuta foi atualizada para {ult} por outro usuário ou processo.",
-            }), 409
+        if ult:
+            if versao_base is not None:
+                m_v = re.findall(r"\d+", ult)
+                v_atual = int(m_v[0]) if m_v else 0
+                try:
+                    v_base_num = int(versao_base)
+                except (ValueError, TypeError):
+                    v_base_num = None
+                if v_base_num is not None and v_atual > v_base_num:
+                    return jsonify({
+                        "conflito": True,
+                        "erro": "conflito_concorrencia",
+                        "ultima": ult,
+                        "versao_atual": v_atual,
+                        "versao_base": v_base_num,
+                        "mensagem": f"Conflito de concorrência: a minuta já está na versão {v_atual} (base era {v_base_num}).",
+                    }), 409
+
+            if ultima_vista and ult != ultima_vista:
+                return jsonify({
+                    "conflito": True,
+                    "erro": "minuta_atualizada",
+                    "ultima": ult,
+                    "mensagem": f"A minuta foi atualizada para {ult} por outro usuário ou processo.",
+                }), 409
 
     meta_in = {k: str((d.get("meta") or {}).get(k) or "").replace("\n", " ").strip() for k in CAMPOS_MINUTA}
     sec = d.get("secoes") or {}

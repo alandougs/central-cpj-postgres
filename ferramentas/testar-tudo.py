@@ -103,9 +103,54 @@ def preparar_workspace_teste(raiz_teste: Path, codigo: Path) -> Path:
     return ws
 
 
+def matar_processos_da_pasta(pasta: Path) -> None:
+    if sys.platform != "win32":
+        return
+    nome_pasta = pasta.name
+    meu_pid = os.getpid()
+    try:
+        cmd = ["powershell", "-NoProfile", "-Command",
+               f"Get-CimInstance Win32_Process | Where-Object {{ $_.CommandLine -like '*{nome_pasta}*' }} | Select-Object -ExpandProperty ProcessId"]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        for linha in r.stdout.splitlines():
+            linha = linha.strip()
+            if linha.isdigit():
+                pid = int(linha)
+                if pid != meu_pid:
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, timeout=5)
+    except Exception:
+        pass
+
+
+def limpar_diretorio_tolerante(pasta: Path, tentativas: int = 5, espera: float = 0.5) -> None:
+    if not pasta.exists():
+        return
+    matar_processos_da_pasta(pasta)
+
+    def _remover_readonly(func, path, exc_info):
+        try:
+            os.chmod(path, 0o777)
+            func(path)
+        except Exception:
+            pass
+
+    for i in range(tentativas):
+        try:
+            shutil.rmtree(pasta, onerror=_remover_readonly)
+            return
+        except (PermissionError, OSError):
+            matar_processos_da_pasta(pasta)
+            time.sleep(espera)
+    try:
+        shutil.rmtree(pasta, ignore_errors=True)
+    except Exception:
+        pass
+
+
 def rodar_suíte(nome: str) -> tuple[int, float, str]:
-    with tempfile.TemporaryDirectory(prefix=f"cpj-suite-{Path(nome).stem}-") as td:
-        raiz_teste = Path(td)
+    td = tempfile.mkdtemp(prefix=f"cpj-suite-{Path(nome).stem}-")
+    raiz_teste = Path(td)
+    try:
         codigo = clonar_codigo(raiz_teste)
         ws = preparar_workspace_teste(raiz_teste, codigo)
         script = codigo / "plugin" / "investigacao-cpj" / "app" / "testes" / nome
@@ -126,6 +171,8 @@ def rodar_suíte(nome: str) -> tuple[int, float, str]:
                 erro = erro.decode("utf-8", errors="replace")
             return 124, 600.0, saida + erro + "\nSuíte excedeu o limite de 600 segundos."
         return proc.returncode, time.monotonic() - inicio, proc.stdout + proc.stderr
+    finally:
+        limpar_diretorio_tolerante(raiz_teste)
 
 
 def porta_livre() -> int:
@@ -207,8 +254,9 @@ def esperar_central(url: str, proc: subprocess.Popen, segundos: int = 30) -> boo
 
 
 def rodar_central() -> tuple[int, float, str]:
-    with tempfile.TemporaryDirectory(prefix="cpj-central-e2e-") as td:
-        raiz_teste = Path(td)
+    td = tempfile.mkdtemp(prefix="cpj-central-e2e-")
+    raiz_teste = Path(td)
+    try:
         codigo = clonar_codigo(raiz_teste)
         ws = preparar_workspace_teste(raiz_teste, codigo)
         gerar_fixtures(ws)
@@ -246,6 +294,8 @@ def rodar_central() -> tuple[int, float, str]:
                 except subprocess.TimeoutExpired:
                     proc.kill()
                     proc.wait(timeout=5)
+    finally:
+        limpar_diretorio_tolerante(raiz_teste)
 
 
 def main() -> int:

@@ -5,7 +5,7 @@ description: Base de dados local do workspace CPJ - registro de casos (caso.json
 
 # Base CPJ — casos, estatística, RAG e painel
 
-Todo o conteúdo de `C:\CPJ - TRABALHO` é a base de dados. **Fonte da verdade:** `casos\<ID>\caso.json` (um por caso) + os arquivos Markdown/CSV do caso. Tudo o mais é derivado e pode ser regenerado a qualquer momento.
+Todo o conteúdo do workspace é a base de dados. **Fonte da verdade:** `casos\<ID>\caso.json` (um por caso) + os arquivos Markdown/CSV do caso. Tudo o mais é derivado e pode ser regenerado a qualquer momento.
 
 Scripts em `scripts\` (ao lado deste SKILL.md). Em PowerShell: `$B = "<base da skill>\scripts"`.
 
@@ -65,12 +65,12 @@ Regras de uso do RAG:
 
 ## 4. Central CPJ e painel
 
-A **Central CPJ** (`C:\CPJ - TRABALHO\Central CPJ.bat` → http://127.0.0.1:8765) é a interface única, com login e perfis (admin, delegado, investigador, escrivão): Início (pendências e prazos), Nova O.S. (upload e processamento automático), Casos (ficha, botões de IA atendidos pelos agentes de plantão, editor, DOCX/PDF, baixa), Pesquisa (RAG, pesquisa relacional e vínculos), Estatísticas (painel e KPIs) e Sistema (exportar/importar, bases de consulta, referências, agentes, usuários). Código em `C:\CPJ - TRABALHO\plugin\investigacao-cpj\app\`. O painel também pode ser gerado avulso:
+A **Central CPJ** (`Central CPJ.bat` → http://127.0.0.1:8765) é a interface única, com login e perfis (admin, delegado, investigador, escrivão): Início (pendências e prazos), Nova O.S. (upload e processamento automático), Casos (ficha, botões de IA atendidos pelos agentes de plantão, editor, DOCX/PDF, baixa), Pesquisa (RAG, pesquisa relacional e vínculos), Estatísticas (painel e KPIs) e Sistema (exportar/importar, bases de consulta, referências, agentes, usuários). Código em `plugin\investigacao-cpj\app\`. O painel também pode ser gerado avulso:
 
 ### Painel avulso — `gerar_painel.py`
 
 ```powershell
-python "$B\indexar.py"; python "$B\gerar_painel.py"; Start-Process "C:\CPJ - TRABALHO\producao\painel.html"
+python "$B\indexar.py"; python "$B\gerar_painel.py"; Start-Process "producao\painel.html"
 ```
 
 Painel local (HTML único, sem internet): entregues no mês × meta (`producao\config.json`, padrão 40), entregues no ano, páginas analisadas, prazo mediano, casos em aberto por etapa, modalidades, % de autoria indicada, valor rastreado, entregas por dia e por mês, últimas entregas. **Não publicar** (deriva de dados de casos); é para abrir no navegador local.

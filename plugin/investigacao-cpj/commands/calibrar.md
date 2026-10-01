@@ -10,7 +10,7 @@ Calibre a partir de: $ARGUMENTS
 2. Classifique cada diferença: estilo/redação, estrutura, conteúdo acrescentado pelo investigador, conteúdo removido, erro factual da IA, excesso de cautela, termo preferido.
 3. Converta em **lições genéricas e acionáveis**, sem nomes, números, contas ou fatos do caso (ex.: "Na Conclusão, não usar 'restou comprovado'; usar 'foram reunidos elementos indicativos'").
 4. Mostre as lições propostas e **peça aprovação**. Aprovadas → acrescente em `calibracao\licoes-aprendidas.md` (seção adequada, com data e ID do caso de origem) e registre em `calibracao\historico-calibracao.md` (data, caso, nº de diferenças por categoria, lições aprovadas/rejeitadas).
-5. Se uma lição exigir mudança de procedimento (skill, agente, comando), proponha a edição exata no arquivo do plugin em `C:\CPJ - TRABALHO\plugin\investigacao-cpj\`, aplique só com aprovação, aumente a versão em `.claude-plugin\plugin.json` e informe que é preciso rodar `claude plugin update investigacao-cpj@cpj-local` (ou reiniciar a sessão).
+5. Se uma lição exigir mudança de procedimento (skill, agente, comando), proponha a edição exata no arquivo do plugin em `plugin\investigacao-cpj\`, aplique só com aprovação, aumente a versão em `.claude-plugin\plugin.json` e informe que é preciso rodar `claude plugin update investigacao-cpj@cpj-local` (ou reiniciar a sessão).
 
 **`geral`:** leia `historico-calibracao.md` e os últimos relatórios FINAL (via `producao\base.json`), identifique padrões recorrentes, consolide/remova lições duplicadas ou obsoletas e proponha as mudanças — sempre com aprovação.
 

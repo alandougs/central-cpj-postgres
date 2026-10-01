@@ -1,6 +1,6 @@
 # Analisar IP de fraude/estelionato com rastreabilidade
 
-*Arquivo portátil gerado em 2026-09-30 15:11 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
+*Arquivo portátil gerado em 2026-10-01 10:50 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
 
 ## Regras obrigatórias
 
@@ -22,7 +22,7 @@
     - **Informações super relevantes:** grifadas de amarelo (use a marcação `==texto super relevante==`).
     - **Informações que o investigador deva obter ou preencher manualmente:** escritas em **CAIXA ALTA E EM VERMELHO** para alertar (use `[PESQUISAR: DADO EM CAIXA ALTA]`, `[OBTER: ...]`, `{PREENCHER: ...}`). O gerador DOCX automaticamente aplica a cor vermelha e caixa alta.
 
-14. **Um agente por Ordem de Serviço:** antes de extrair, analisar ou redigir qualquer O.S. de `E:\ORDENS DE SERVIÇO CPJ`, rode `python ferramentas\fila-os.py listar` e reserve com `assumir <nº> --agente <nome>` (ou `proxima --agente <nome>`). Não pegue O.S. `em_andamento` de outro agente nem refaça O.S. `concluida`/`com_relatorio` sem pedido expresso do investigador. Workspace canônico dos casos: `C:\CPJ - TRABALHO\casos`. Ao terminar, `concluir <nº> --agente <nome> --docx "<caminho>"` e copie o DOCX final para a pasta da O.S.; se parar, `liberar ... --motivo "<onde parou>"`. A reserva vence em 4 h sem `renovar`. Quadro: `E:\ORDENS DE SERVIÇO CPJ\_CONTROLE-OS.md`.
+14. **Um agente por Ordem de Serviço:** antes de extrair, analisar ou redigir qualquer O.S. de `E:\ORDENS DE SERVIÇO CPJ`, rode `python ferramentas\fila-os.py listar` e reserve com `assumir <nº> --agente <nome>` (ou `proxima --agente <nome>`). Não pegue O.S. `em_andamento` de outro agente nem refaça O.S. `concluida`/`com_relatorio` sem pedido expresso do investigador. Workspace canônico dos casos: `casos`. Ao terminar, `concluir <nº> --agente <nome> --docx "<caminho>"` e copie o DOCX final para a pasta da O.S.; se parar, `liberar ... --motivo "<onde parou>"`. A reserva vence em 4 h sem `renovar`. Quadro: `E:\ORDENS DE SERVIÇO CPJ\_CONTROLE-OS.md`.
 
 15. **Numeração do procedimento no cabeçalho (determinação do delegado, 30/09/2026):** no campo **Referência:** e nas informações do procedimento na parte superior do relatório de inquérito policial, use **EXCLUSIVAMENTE o número do Inquérito Policial Eletrônico (IPe) e do Processo Judicial** (ex.: `Referência: IPe nº <número> / Processo nº <número>`). **NÃO coloque o número do Boletim de Ocorrência (BO)** e **NÃO coloque o número do IP local (físico/delegacia de origem)**. Esta regra é mandatória para todos os relatórios elaborados a partir de 30/09/2026.
 
@@ -31,7 +31,7 @@ Governança completa: `acervo\repo-ia-alandougs\governanca\seguranca-e-dados.md`
 ## Como usar fora do Claude Code
 
 - Onde estiver `/comando`, siga o texto daquele comando abaixo. Onde disser "skill X" ou "agente X", as instruções estão neste arquivo ou em `portatil\`.
-- Scripts Python ficam em `C:\CPJ - TRABALHO\plugin\investigacao-cpj\skills\<skill>\scripts\` (PowerShell, `python`). Sem execução de comandos, peça ao usuário para rodá-los.
+- Scripts Python ficam em `plugin\investigacao-cpj\skills\<skill>\scripts\` (PowerShell, `python`). Sem execução de comandos, peça ao usuário para rodá-los.
 - Sem subagentes: execute as etapas em sequência.
 
 ## Fonte: `plugin/investigacao-cpj/commands/analisar-ip.md`
@@ -48,7 +48,7 @@ Use a skill `analise-ip-fraude` sobre `casos\<ID>\01-extracao\`. Para IPs acima 
 - Se o pedido veio da Central (plantão), informe o progresso nos marcos do pedido.
 - Rode `rag.py cruzar <ID>` depois de indexar: se chaves Pix/contas/CPFs aparecerem em outros casos, registre em `02-analise\conexoes.md` como indício a verificar.
 - Rode `indexar.py` ao final.
-- Scripts em `C:\CPJ - TRABALHO\plugin\investigacao-cpj\skills\base-cpj\scripts\`.
+- Scripts em `plugin\investigacao-cpj\skills\base-cpj\scripts\`.
 
 Entregue resumo curto: modalidade, cronologia essencial, caminho do dinheiro com totais, conexões com outros casos, lacunas e dados críticos pendentes de conferência. Próximo passo: `/relatorio-ip <ID>`.
 
@@ -67,7 +67,7 @@ Base de comportamento: skill `analise-documental` (inventário → achados com l
 - `casos\<ID>\01-extracao\<documento>\transcricao.md` (seções `## Página N`; uma pasta por arquivo original — cite o documento quando houver mais de um: `(Doc. <nome>, pág. N)`) — ou o Markdown entregue pelo usuário (copie para `01-extracao\<nome>\transcricao.md` e registre a origem em `registro-tratamento.md`).
 - `01-extracao\<documento>\tabelas\*.csv`, `entidades.csv`, `relatorio_extracao.json` (páginas pendentes/⚠), `estrutura.md` quando existirem.
 - `caso.json` (ordem de serviço, referência) e, se houver, o texto da **Ordem de Serviço / determinação do delegado** — ela delimita o escopo da análise.
-- Leia também `C:\CPJ - TRABALHO\calibracao\licoes-aprendidas.md` antes de começar.
+- Leia também `calibracao\licoes-aprendidas.md` antes de começar.
 
 Se o Markdown do usuário não tiver marcação de página, use outro localizador reproduzível (título da peça + parágrafo, ou nº de linha) e avise que a citação por página ficará prejudicada.
 
@@ -121,7 +121,7 @@ Em uso interativo (sem pedido da Central), não é necessário.
 
 ### Saída
 
-Arquivos em `02-analise\` listados acima (inclusive `pessoas.csv`) + resumo. Rode `indexar.py` ao final para a Pesquisa relacional enxergar as pessoas do caso. Todos são material de apoio e podem alimentar o RAG (ver `C:\CPJ - TRABALHO\rag\README.md`).
+Arquivos em `02-analise\` listados acima (inclusive `pessoas.csv`) + resumo. Rode `indexar.py` ao final para a Pesquisa relacional enxergar as pessoas do caso. Todos são material de apoio e podem alimentar o RAG (ver `rag\README.md`).
 
 ## Fonte: `plugin/investigacao-cpj/skills/analise-documental/SKILL.md`
 
@@ -157,7 +157,7 @@ O responsável compara achados materiais com os originais, valida referências e
 
 > Analista de documentos de inquérito com rastreabilidade. Use para ler blocos de transcrição de autos (ex.: páginas 1-100 de um IP) e devolver achados com localizador, pessoas, cronologia, dados críticos e lacunas, separando fato, relato e inferência. Ideal para dividir IPs grandes em blocos analisados em paralelo.
 
-Você auxilia um analista humano (Investigador de Polícia) a examinar documentos de inquérito cuja utilização foi autorizada neste ambiente (`C:\CPJ - TRABALHO`). Organize o conteúdo fornecido, sem presumir que esteja completo ou autêntico. (Origem: `acervo\repo-ia-alandougs\system-prompts\assistente-analise-documental.md` e `skills\analise-documental\SKILL.md`.)
+Você auxilia um analista humano (Investigador de Polícia) a examinar documentos de inquérito cuja utilização foi autorizada neste ambiente (workspace local). Organize o conteúdo fornecido, sem presumir que esteja completo ou autêntico. (Origem: `acervo\repo-ia-alandougs\system-prompts\assistente-analise-documental.md` e `skills\analise-documental\SKILL.md`.)
 
 ### Contrato
 

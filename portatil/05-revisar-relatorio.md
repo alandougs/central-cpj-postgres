@@ -1,6 +1,6 @@
 # Revisar relatório contra as fontes e o modelo CPJ
 
-*Arquivo portátil gerado em 2026-09-30 15:11 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
+*Arquivo portátil gerado em 2026-10-01 10:50 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
 
 ## Regras obrigatórias
 
@@ -22,7 +22,7 @@
     - **Informações super relevantes:** grifadas de amarelo (use a marcação `==texto super relevante==`).
     - **Informações que o investigador deva obter ou preencher manualmente:** escritas em **CAIXA ALTA E EM VERMELHO** para alertar (use `[PESQUISAR: DADO EM CAIXA ALTA]`, `[OBTER: ...]`, `{PREENCHER: ...}`). O gerador DOCX automaticamente aplica a cor vermelha e caixa alta.
 
-14. **Um agente por Ordem de Serviço:** antes de extrair, analisar ou redigir qualquer O.S. de `E:\ORDENS DE SERVIÇO CPJ`, rode `python ferramentas\fila-os.py listar` e reserve com `assumir <nº> --agente <nome>` (ou `proxima --agente <nome>`). Não pegue O.S. `em_andamento` de outro agente nem refaça O.S. `concluida`/`com_relatorio` sem pedido expresso do investigador. Workspace canônico dos casos: `C:\CPJ - TRABALHO\casos`. Ao terminar, `concluir <nº> --agente <nome> --docx "<caminho>"` e copie o DOCX final para a pasta da O.S.; se parar, `liberar ... --motivo "<onde parou>"`. A reserva vence em 4 h sem `renovar`. Quadro: `E:\ORDENS DE SERVIÇO CPJ\_CONTROLE-OS.md`.
+14. **Um agente por Ordem de Serviço:** antes de extrair, analisar ou redigir qualquer O.S. de `E:\ORDENS DE SERVIÇO CPJ`, rode `python ferramentas\fila-os.py listar` e reserve com `assumir <nº> --agente <nome>` (ou `proxima --agente <nome>`). Não pegue O.S. `em_andamento` de outro agente nem refaça O.S. `concluida`/`com_relatorio` sem pedido expresso do investigador. Workspace canônico dos casos: `casos`. Ao terminar, `concluir <nº> --agente <nome> --docx "<caminho>"` e copie o DOCX final para a pasta da O.S.; se parar, `liberar ... --motivo "<onde parou>"`. A reserva vence em 4 h sem `renovar`. Quadro: `E:\ORDENS DE SERVIÇO CPJ\_CONTROLE-OS.md`.
 
 15. **Numeração do procedimento no cabeçalho (determinação do delegado, 30/09/2026):** no campo **Referência:** e nas informações do procedimento na parte superior do relatório de inquérito policial, use **EXCLUSIVAMENTE o número do Inquérito Policial Eletrônico (IPe) e do Processo Judicial** (ex.: `Referência: IPe nº <número> / Processo nº <número>`). **NÃO coloque o número do Boletim de Ocorrência (BO)** e **NÃO coloque o número do IP local (físico/delegacia de origem)**. Esta regra é mandatória para todos os relatórios elaborados a partir de 30/09/2026.
 
@@ -31,7 +31,7 @@ Governança completa: `acervo\repo-ia-alandougs\governanca\seguranca-e-dados.md`
 ## Como usar fora do Claude Code
 
 - Onde estiver `/comando`, siga o texto daquele comando abaixo. Onde disser "skill X" ou "agente X", as instruções estão neste arquivo ou em `portatil\`.
-- Scripts Python ficam em `C:\CPJ - TRABALHO\plugin\investigacao-cpj\skills\<skill>\scripts\` (PowerShell, `python`). Sem execução de comandos, peça ao usuário para rodá-los.
+- Scripts Python ficam em `plugin\investigacao-cpj\skills\<skill>\scripts\` (PowerShell, `python`). Sem execução de comandos, peça ao usuário para rodá-los.
 - Sem subagentes: execute as etapas em sequência.
 
 ## Fonte: `plugin/investigacao-cpj/commands/revisar-relatorio.md`
@@ -61,7 +61,7 @@ Você revisa, de forma independente e cética, a minuta de relatório. (Origem: 
 2. Separe **erros de transcrição** (dígito, valor, data) de **inferências indevidas** (relato tratado como fato, titular de conta tratado como autor, indício tratado como prova).
 3. Verifique o modelo CPJ (`skills\relatorio-ip-fraude\references\modelo-cpj.md`): campos do cabeçalho (especialmente a **Referência:** que deve conter **EXCLUSIVAMENTE o número do IPe e do Processo Judicial**, apontando como irregularidade grave se constar número de BO ou IP local, conforme determinação do Delegado de 30/09/2026), três seções, Resumo breve, caminho do dinheiro nas Diligências, Conclusão breve e **sem sugestões não pedidas**.
 4. Verifique linguagem: nada de "criminoso", "golpista", "culpado", "comprovou-se"; presença de "em tese", "consta", "há indícios".
-5. Verifique as lições de `C:\CPJ - TRABALHO\calibracao\licoes-aprendidas.md`.
+5. Verifique as lições de `calibracao\licoes-aprendidas.md`.
 6. Verifique **estilo e tratamento** (AGENTS.md §1.11-1.13): texto corrido, sem tópicos/marcadores/negritos de abertura no corpo (tabela só para a planilha do dinheiro); Resumo dos fatos compacto com a dinâmica e os **valores movimentados**; fls. só em pontos relevantes e dados financeiros; `delegado_genero` definido (M/F, sem inferir pelo nome) e coerente com a saudação e o endereçamento final; dado muito importante ausente dos autos **não** foi deduzido e consta em `02-analise\dados-faltantes.md` (CAIXA ALTA), com ressalva objetiva na Conclusão.
 7. Verifique a origem: afirmação cuja única fonte seja base de consulta (`consulta\`, ex.: Muralha Paulista), relatório de referência/exemplo ou outro caso é `não localizada` nos autos — aponte como erro, salvo se o investigador tiver informado a consulta como diligência própria (sistema, data), caso em que o texto deve dizê-lo.
 

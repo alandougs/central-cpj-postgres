@@ -44,7 +44,9 @@ PACOTES = [
 
 SUBST = [
     (r"\$ARGUMENTS", "[ARGUMENTOS: informe o ID do caso (ex.: OS-123-2026) e observações]"),
-    (r"<base da skill>\\scripts", r"C:\\CPJ - TRABALHO\\plugin\\investigacao-cpj\\skills\\<skill>\\scripts"),
+    (r"<base da skill>\\scripts", r"plugin\\investigacao-cpj\\skills\\<skill>\\scripts"),
+    (r"C:\\CPJ - TRABALHO\\", ""),
+    (r"C:/CPJ - TRABALHO/", ""),
     (r"(?i)delegue (a revisão )?ao agente `([\w-]+)`", r"execute as instruções do agente `\2` (seção neste arquivo ou em portatil\\)"),
 ]
 
@@ -52,7 +54,11 @@ SUBST = [
 def regras():
     t = open(os.path.join(WS, "AGENTS.md"), encoding="utf-8").read()
     m = re.search(r"## 1\. Regras.*?(?=\n## 2\.)", t, flags=re.S)
-    return m.group(0).strip() if m else ""
+    if not m: return ""
+    reg = m.group(0).strip()
+    reg = re.sub(r"C:\\CPJ - TRABALHO\\", "", reg)
+    reg = re.sub(r"C:/CPJ - TRABALHO/", "", reg)
+    return reg
 
 
 def peca(rel):
@@ -84,7 +90,7 @@ for nome, titulo, partes in PACOTES:
              "## Regras obrigatórias", "", regras().split("\n", 1)[1].strip(), "",
              "## Como usar fora do Claude Code", "",
              "- Onde estiver `/comando`, siga o texto daquele comando abaixo. Onde disser \"skill X\" ou \"agente X\", as instruções estão neste arquivo ou em `portatil\\`.",
-             "- Scripts Python ficam em `C:\\CPJ - TRABALHO\\plugin\\investigacao-cpj\\skills\\<skill>\\scripts\\` (PowerShell, `python`). Sem execução de comandos, peça ao usuário para rodá-los.",
+             "- Scripts Python ficam em `plugin\\investigacao-cpj\\skills\\<skill>\\scripts\\` (PowerShell, `python`). Sem execução de comandos, peça ao usuário para rodá-los.",
              "- Sem subagentes: execute as etapas em sequência.", ""]
     corpo += [peca(p) for p in partes]
     open(os.path.join(OUT, f"{nome}.md"), "w", encoding="utf-8").write("\n".join(corpo))

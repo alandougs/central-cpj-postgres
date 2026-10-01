@@ -5,11 +5,11 @@ description: Redige o RelatÃ³rio de InvestigaÃ§Ã£o no modelo oficial da CP
 
 # RelatÃ³rio de InvestigaÃ§Ã£o â€” IP de fraude/estelionato (modelo CPJ)
 
-Produz a minuta do relatÃ³rio **sobre a anÃ¡lise jÃ¡ feita** (`02-analise\`), nunca direto do PDF bruto. Estilo e estrutura seguem o **modelo DOCX do investigador** (`C:\CPJ - TRABALHO\modelos\MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx`) e o "Modelo Alan" da skill `relatorio-investigacao-policial` (mÃ©todo PTCFREE). Onde divergirem, **prevalece o modelo DOCX**.
+Produz a minuta do relatório **sobre a análise já feita** (`02-analise\`), nunca direto do PDF bruto. Estilo e estrutura seguem o **modelo DOCX do investigador** (`modelos\MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx`) e o "Modelo Alan" da skill `relatorio-investigacao-policial` (método PTCFREE). Onde divergirem, **prevalece o modelo DOCX**.
 
-## Antes de redigir (obrigatÃ³rio)
+## Antes de redigir (obrigatório)
 
-1. Leia `C:\CPJ - TRABALHO\calibracao\licoes-aprendidas.md` e aplique cada liÃ§Ã£o.
+1. Leia `calibracao\licoes-aprendidas.md` e aplique cada lição.
 2. Leia `references\modelo-cpj.md` (estrutura e regras extraÃ­das do modelo DOCX).
 3. **Exemplos (estilo e estrutura, nunca fatos):** `python "<scripts da base-cpj>\rag.py" exemplos <modalidade> --autor "<investigador de dados-padrao.json>" -n 3`. A lista junta relatÃ³rios `-FINAL` do sistema e **referÃªncias importadas** (`referencias\`, relatÃ³rios anteriores do investigador ou de colegas), ordenadas por mesma modalidade â†’ autor preferido â†’ **peso** (5 = modelo exemplar â€¦ 1 = usar com reservas). Use 1â€“2, preferindo peso â‰¥ 4 e o prÃ³prio autor; com peso â‰¤ 2, aproveite sÃ³ a estrutura. Se o Ã­ndice estiver vazio, procure `casos\*\03-relatorios\*-FINAL.md` da mesma `modalidade`. Nunca transporte nomes, nÃºmeros, datas ou conclusÃµes de um exemplo para a minuta.
 4. Confirme que existem `02-analise\ficha-caso.md`, `cronologia.md`, `fluxo-financeiro.md/.csv`, `matriz-achados.md`. Se faltarem, rode antes a skill `analise-ip-fraude` (ou avise e produza com ressalvas, se o usuÃ¡rio quiser).

@@ -178,7 +178,6 @@ class TesteE2EF03CentralCPJ(unittest.TestCase):
             # Preenche metadados e seções da minuta
             page.locator("#ed-meta input[data-m='local']").fill("Presidente Prudente, SP")
             page.locator("#ed-meta input[data-m='data_fatos']").fill("10/03/2026")
-            page.locator("#ed-meta input[data-m='referencia']").fill("IPe nº 456001/2026 / Processo nº 0000456-01.2026.8.26.0000")
             page.locator("#ed-secoes textarea[data-s='RESUMO DOS FATOS']").fill(
                 "Consta que a vítima relatou transferência via Pix no valor de R$ 5.000,00 (pág. 2 do PDF; fls. 2)."
             )

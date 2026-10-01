@@ -13,6 +13,6 @@ Use a skill `analise-ip-fraude` sobre `casos\<ID>\01-extracao\`. Para IPs acima 
 - Se o pedido veio da Central (plantão), informe o progresso nos marcos do pedido.
 - Rode `rag.py cruzar <ID>` depois de indexar: se chaves Pix/contas/CPFs aparecerem em outros casos, registre em `02-analise\conexoes.md` como indício a verificar.
 - Rode `indexar.py` ao final.
-- Scripts em `C:\CPJ - TRABALHO\plugin\investigacao-cpj\skills\base-cpj\scripts\`.
+- Scripts em `plugin\investigacao-cpj\skills\base-cpj\scripts\`.
 
 Entregue resumo curto: modalidade, cronologia essencial, caminho do dinheiro com totais, conexões com outros casos, lacunas e dados críticos pendentes de conferência. Próximo passo: `/relatorio-ip <ID>`.

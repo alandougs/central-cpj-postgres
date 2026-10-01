@@ -2,9 +2,11 @@
 """Reserva tarefas e arquivos para agentes que trabalham no mesmo workspace.
 
 python ferramentas/fila-tarefas.py listar
-python ferramentas/fila-tarefas.py assumir L04 --agente Gemini-1
-python ferramentas/fila-tarefas.py concluir L04 --agente Gemini-1 --resultado "Arquivos e testes"
-python ferramentas/fila-tarefas.py proxima [--prefixo V|R] # loop: 0 = ID livre; 3 = fila concluída; 4 = só bloqueadas
+python ferramentas/fila-tarefas.py assumir RV14 --agente Gemini-1
+python ferramentas/fila-tarefas.py concluir RV14 --agente Gemini-1 --resultado "Arquivos e testes"
+python ferramentas/fila-tarefas.py liberar RV14 --agente Gemini-1 --resultado "Onde parou"
+python ferramentas/fila-tarefas.py reabrir FT01 --agente Gemini-1 --motivo "Entrega com 0 bytes"
+python ferramentas/fila-tarefas.py proxima [--prefixo RV|GH] # loop: 0 = ID livre; 3 = fila concluída; 4 = só bloqueadas
 """
 import sys
 import argparse
@@ -23,22 +25,6 @@ DEPENDENCIAS = {
     "S01": ["C03"],          # tarefas.py: executor de IA depois da correção de importação
     "P01": ["I01"],          # piloto com o sistema integrado
     "D02": ["N01", "D01"],   # painel do plantão: servidor/interface livres e núcleo pronto
-    "E06": ["E01", "E02", "E03", "E04", "E05"],  # rodada enxuta: fechamento depois das entregas
-    # Rodada V1 (revisoes/plano-v1-2026-09-28.md) — trilha V: core
-    "V03": ["V01", "V02"],   # instalar o plugin só com caminhos corrigidos (e decisão D2 no quadro)
-    "V05": ["V04"],
-    "V06": ["V02", "V04"],
-    "V10": ["V01", "V02", "V03", "V04", "V05", "V06", "V07", "V08"],
-    # trilha R: acervo repo-ia-alandougs (validar.py é compartilhado → sequência)
-    "R02": ["R01"],
-    "R03": ["R02"],
-    "R04": ["R02"],
-    "R05": ["R04"],
-    "R06": ["R03", "R05"],
-    "R07": ["R01"],
-    "R08": ["R05"],
-    "R09": ["R03"],
-    "R10": ["R01"],         # hook local no clone sincronizado
     # Novas tarefas de arquitetura, esteira completa e full-time
     "EC01": ["SD01"],        # esteira completa depende da formalização dos papéis e contratos
     "FD01": ["EC01", "H01"], # fluxograma no DOCX após esteira e cabeçalho de escrivão
@@ -67,10 +53,45 @@ def linhas_tarefas(texto):
     return tarefas
 
 
+def normalizar_caminho(p):
+    """Normaliza caminhos para comparação de sobreposição.
+
+    Remove barras iniciais/finais, unifica separadores, converte caminhos absolutos
+    da raiz em relativos e mapeia atalhos históricos ('app/...', 'skills/...',
+    'commands/...', 'agents/...') para 'plugin/investigacao-cpj/...'.
+    """
+    p = p.replace("\\", "/").strip().strip("/")
+    if not p:
+        return ""
+    try:
+        p_obj = Path(p)
+        if p_obj.is_absolute():
+            try:
+                p = str(p_obj.resolve().relative_to(RAIZ.resolve())).replace("\\", "/")
+            except ValueError:
+                pass
+    except Exception:
+        pass
+    p = p.replace("\\", "/").strip().strip("/")
+    if p.startswith("./"):
+        p = p[2:].strip("/")
+
+    for prefixo in ("app", "skills", "commands", "agents"):
+        if p == prefixo:
+            p = f"plugin/investigacao-cpj/{prefixo}"
+            break
+        elif p.startswith(f"{prefixo}/"):
+            p = f"plugin/investigacao-cpj/{p}"
+            break
+
+    return p.casefold()
+
+
 def caminhos(campos):
     # Os caminhos explícitos da coluna final são o escopo reservado.
-    return [p.replace("\\", "/").strip("/").casefold()
-            for p in re.findall(r"`([^`]+)`", campos[4])]
+    return [normalizar_caminho(p)
+            for p in re.findall(r"`([^`]+)`", campos[4])
+            if normalizar_caminho(p)]
 
 
 def sobrepostos(a, b):
@@ -109,11 +130,16 @@ def impedimento(tarefas, id_):
     return None
 
 
-def proxima(tarefas, prefixo):
-    """Primeira tarefa livre do prefixo, na ordem do quadro."""
-    ids = [i for i in tarefas if i.startswith(prefixo)]
+def proxima(tarefas, prefixo=None):
+    """Primeira tarefa livre (do prefixo se informado, ou de todo o quadro), na ordem do quadro."""
+    if prefixo:
+        ids = [i for i in tarefas if i.startswith(prefixo)]
+        rotulo = f"FILA {prefixo} CONCLUÍDA"
+    else:
+        ids = list(tarefas.keys())
+        rotulo = "QUADRO CONCLUÍDO"
     abertas = [i for i in ids if tarefas[i][1][2] != "concluída"]
-    if not abertas: return 3, f"FILA {prefixo} CONCLUÍDA ({len(ids)} tarefas)."
+    if not abertas: return 3, f"{rotulo} ({len(ids)} tarefas)."
     for i in sorted(abertas, key=lambda i: tarefas[i][0]):
         if impedimento(tarefas, i) is None: return 0, i
     return 4, "AGUARDANDO: " + "; ".join(f"{i} ({tarefas[i][1][2]}, {tarefas[i][1][1]})" for i in abertas)
@@ -130,6 +156,13 @@ def atualizar(arquivo, acao, id_, agente, resultado):
             erro = impedimento(tarefas, id_)
             if erro: raise ValueError(erro)
             campos[1:3] = [agente, "em andamento"]
+        elif acao == "reabrir":
+            if campos[2] != "concluída":
+                raise ValueError(f"Só tarefa concluída pode ser reaberta: {id_} está {campos[2]}.")
+            pendentes = [d for d in DEPENDENCIAS.get(id_, [])
+                         if d not in tarefas or tarefas[d][1][2] != "concluída"]
+            campos[1] = "—"
+            campos[2] = "aguardando dependências" if pendentes else "disponível"
         else:
             if campos[2] != "em andamento" or campos[1] != agente:
                 raise ValueError(f"Só o responsável atual pode {acao}: {id_}, {campos[1]}, {campos[2]}.")
@@ -150,6 +183,8 @@ def atualizar(arquivo, acao, id_, agente, resultado):
             os.replace(tmp, arquivo)
         finally:
             if tmp.exists(): tmp.unlink()
+        if acao == "reabrir":
+            return f"{id_}: reaberta ({campos[2]}); responsável: {campos[1]}."
         return f"{id_}: {campos[2]}; responsável: {campos[1]}."
 
 
@@ -158,12 +193,17 @@ def main():
     parser.add_argument("--arquivo", type=Path, default=RAIZ / "TAREFAS-COMPARTILHADAS.md")
     sub = parser.add_subparsers(dest="acao", required=True)
     sub.add_parser("listar")
-    sub.add_parser("proxima").add_argument("--prefixo", default="V")  # rodada ativa: V1 (trilha R: --prefixo R)
+    sub.add_parser("proxima").add_argument("--prefixo", default=None, help="Filtrar por prefixo (ex: RV, GH). Padrão: qualquer prefixo")
     for acao in ("assumir", "concluir", "liberar"):
         p = sub.add_parser(acao)
         p.add_argument("id")
         p.add_argument("--agente", required=True)
         p.add_argument("--resultado", required=acao != "assumir")
+    p_reabrir = sub.add_parser("reabrir", help="Reabre tarefa concluída cuja entrega se perdeu")
+    p_reabrir.add_argument("id")
+    p_reabrir.add_argument("--agente", required=True)
+    p_reabrir.add_argument("--motivo", "--resultado", dest="resultado", required=True,
+                           help="Motivo da reabertura da tarefa")
     args = parser.parse_args()
     if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     try:
@@ -178,7 +218,7 @@ def main():
         else:
             if not re.fullmatch(r"[\w.\- ]{1,60}", args.agente) or not args.agente.strip():
                 raise ValueError("Use um nome de sessão com letras, números, espaço, ponto ou hífen.")
-            print(atualizar(arquivo, args.acao, args.id, args.agente.strip(), args.resultado))
+            print(atualizar(arquivo, args.acao, args.id, args.agente.strip(), getattr(args, "resultado", None)))
         return 0
     except (OSError, ValueError) as exc:
         print(f"Erro: {exc}")

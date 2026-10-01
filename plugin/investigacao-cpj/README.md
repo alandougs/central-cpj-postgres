@@ -21,7 +21,7 @@ Plugin do ambiente de investigação de Alan Douglas Silva (CPJ Presidente Prude
 ## Instalação (já feita neste PC)
 
 ```bash
-claude plugin marketplace add "C:\CPJ - TRABALHO\plugin"
+claude plugin marketplace add "./plugin"
 claude plugin install investigacao-cpj@cpj-local
 ```
 

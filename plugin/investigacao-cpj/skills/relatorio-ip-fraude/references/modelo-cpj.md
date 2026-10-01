@@ -1,6 +1,6 @@
 # Modelo CPJ 2026 — estrutura extraída do DOCX do investigador
 
-Fonte: `C:\CPJ - TRABALHO\modelos\MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx` (A4, margens 2 cm, Arial 12, justificado).
+Fonte: `modelos\MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx` (A4, margens 2 cm, Arial 12, justificado).
 
 ## Cabeçalho (timbre — preservado pelo gerador)
 
