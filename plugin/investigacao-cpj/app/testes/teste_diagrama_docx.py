@@ -63,6 +63,56 @@ class TesteDiagramaFinanceiro(unittest.TestCase):
             origem.write_text("valor;origem_titular;destino_titular\n;ORIGEM;DESTINO\n", encoding="utf-8-sig")
             self.assertEqual(modulo_diagrama().carregar_transacoes(origem), [])
 
+    def _gerar_docx(self, nome_caso, csv_texto):
+        """Roda gerar_docx.py num workspace temporário com o modelo oficial copiado; devolve (processo, pasta de relatórios)."""
+        import os
+        import shutil
+        import subprocess
+        import sys
+        modelos = ROOT / "modelos"
+        if not (modelos / "MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx").is_file():
+            self.skipTest("modelo DOCX oficial não está neste workspace")
+        sys.path.insert(0, str(AQUI))
+        from teste_gate_v04 import LIMPA
+        TEMP_ROOT.mkdir(exist_ok=True)
+        tmp = tempfile.TemporaryDirectory(prefix="cpj-diagrama-docx-", dir=TEMP_ROOT, ignore_cleanup_errors=True)
+        self.addCleanup(tmp.cleanup)
+        ws = Path(tmp.name)
+        (ws / "modelos").mkdir()
+        for arq in modelos.iterdir():
+            if arq.is_file():
+                shutil.copy(arq, ws / "modelos" / arq.name)
+        caso = ws / "casos" / nome_caso
+        (caso / "03-relatorios").mkdir(parents=True)
+        (caso / "02-analise").mkdir()
+        if csv_texto is not None:
+            (caso / "02-analise" / "fluxo-financeiro.csv").write_text(csv_texto, encoding="utf-8-sig")
+        minuta = caso / "03-relatorios" / "minuta-v01.md"
+        minuta.write_text(LIMPA, encoding="utf-8")
+        saida = caso / "03-relatorios" / "RELATORIO.docx"
+        env = dict(os.environ, CPJ_WORKSPACE=str(ws), PYTHONIOENCODING="utf-8")
+        gerar = ROOT / "plugin" / "investigacao-cpj" / "skills" / "relatorio-ip-fraude" / "scripts" / "gerar_docx.py"
+        r = subprocess.run([sys.executable, str(gerar), str(minuta), "--saida", str(saida)], cwd=str(ws), env=env,
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        return r, caso / "03-relatorios", saida
+
+    def test_docx_recebe_o_fluxograma_do_csv_do_caso(self):
+        csv_texto = ("seq;data;valor;origem_titular;destino_titular;origem_banco;destino_banco;fonte_pag;fls\n"
+                     "1;10/03/2026;1500,00;VITIMA FICTICIA;RECEBEDOR FICTICIO;BANCO A;BANCO B;2;4\n")
+        r, pasta, saida = self._gerar_docx("OS-950-2099", csv_texto)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("Aviso ao gerar fluxograma", r.stderr)
+        self.assertTrue(list(pasta.glob("FLUXO-FINANCEIRO-*.png")), "PNG gerado ao lado do DOCX")
+        import docx
+        d = docx.Document(str(saida))
+        self.assertTrue(d.inline_shapes, "figura inserida no DOCX")
+        self.assertIn("Fluxograma do Caminho do Dinheiro", " ".join(p.text for p in d.paragraphs))
+
+    def test_sem_csv_o_docx_sai_sem_figura_e_sem_erro(self):
+        r, pasta, _ = self._gerar_docx("OS-951-2099", None)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(list(pasta.glob("*.png")))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

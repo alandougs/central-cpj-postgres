@@ -44,6 +44,11 @@ Item 'Plugin' {
         }
     }
     if (-not $cli) {
+        $vs = Get-ChildItem "$env:USERPROFILE\.vscode\extensions\anthropic.claude-code-*-win32-*\resources\native-binary\claude.exe" -ErrorAction SilentlyContinue |
+            Sort-Object { [version](($_.FullName -replace '^.*anthropic\.claude-code-(\d+(\.\d+)*)-win32.*$', '$1')) } | Select-Object -Last 1
+        if ($vs) { $cli = $vs.FullName }
+    }
+    if (-not $cli) {
         $comando = Get-Command claude.exe -CommandType Application -ErrorAction SilentlyContinue
         if ($comando) { $cli = $comando.Source }
     }

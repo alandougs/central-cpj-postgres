@@ -375,6 +375,19 @@ def claude_exe():
         npm_bin = os.path.join(appdata, "npm", "node_modules", "@anthropic-ai", "claude-code", "bin", "claude.exe")
         if os.path.isfile(npm_bin):
             return npm_bin
+    # binário nativo que acompanha a extensão Claude Code do VS Code (não vai para o PATH)
+    ext = os.path.join(os.environ.get("USERPROFILE", ""), ".vscode", "extensions")
+    try:
+        cands = []
+        for d in os.listdir(ext):
+            m = re.match(r"anthropic\.claude-code-(\d+(?:\.\d+)*)-win32", d)
+            exe = os.path.join(ext, d, "resources", "native-binary", "claude.exe")
+            if m and os.path.isfile(exe):
+                cands.append(([int(x) for x in m.group(1).split(".")], exe))
+        if cands:
+            return max(cands)[1]
+    except OSError:
+        pass
     w = shutil.which("claude.exe")
     if w and w.lower().endswith(".exe") and os.path.isfile(w):
         return w

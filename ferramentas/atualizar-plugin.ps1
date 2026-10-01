@@ -11,6 +11,9 @@ if (-not $claude) {
     if (Test-Path -LiteralPath $npm) { $claude = Get-Item -LiteralPath $npm }
 }
 if (-not $claude) {
+    $claude = Get-ChildItem "$env:USERPROFILE\.vscode\extensions\anthropic.claude-code-*-win32-*\resources\native-binary\claude.exe" -ErrorAction SilentlyContinue | Sort-Object { [version](($_.FullName -replace '^.*anthropic\.claude-code-(\d+(\.\d+)*)-win32.*$', '$1')) } | Select-Object -Last 1
+}
+if (-not $claude) {
     $noPath = Get-Command claude.exe -ErrorAction SilentlyContinue
     if ($noPath) { $claude = Get-Item -LiteralPath $noPath.Source }
 }
