@@ -1,0 +1,4 @@
+# <!-- Gerado por ferramentas/configurar-codex.py; edite o gerador. -->
+interface:
+  display_name: "CPJ: OSINT policial"
+  short_description: "OSINT lícito e rastreável, com dados faltantes em caixa alta"

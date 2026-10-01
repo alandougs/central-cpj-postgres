@@ -1,0 +1,53 @@
+{
+  "schema": "cpj-caso/1",
+  "id": "",
+  "ordem_servico": "",
+  "bo": "",
+  "inquerito": "",
+  "processo": "",
+  "referencia": "",
+  "documentos": [],
+  "prazo": null,
+  "requisitante": "",
+  "prioridade": "normal",
+  "determinacao": "",
+  "criado_por": "",
+  "responsavel": "",
+  "visto": true,
+  "natureza": "Estelionato",
+  "modalidade": null,
+  "status": "recebido",
+  "datas": {
+    "recebido": null,
+    "extraido": null,
+    "em_analise": null,
+    "analisado": null,
+    "minuta": null,
+    "entregue": null
+  },
+  "ip": {
+    "arquivo": null,
+    "paginas": null,
+    "sha256": null,
+    "metodos": {},
+    "pendentes": null,
+    "conferir": null
+  },
+  "vitimas": [],
+  "investigados": [],
+  "financeiro": {
+    "prejuizo_declarado": null,
+    "prejuizo_documentado": null,
+    "valor_rastreado": null,
+    "transacoes": null,
+    "contas_destino": null,
+    "camadas": null
+  },
+  "resultado": {
+    "autoria": null,
+    "sugestoes_providencias": null
+  },
+  "relatorios": [],
+  "horas_trabalho": null,
+  "observacoes": ""
+}

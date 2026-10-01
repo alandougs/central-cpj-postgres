@@ -1,0 +1,14 @@
+# MCPs de desenvolvimento da Central CPJ (escopo do projeto).
+# Regras de uso em AGENTS.md, seção "Ferramentas de desenvolvimento".
+
+[mcp_servers.playwright]
+command = "cmd"
+args = ["/c", "npx", "-y", "@playwright/mcp@latest", "--browser", "msedge"]
+
+[mcp_servers.chrome-devtools]
+command = "cmd"
+args = ["/c", "npx", "-y", "chrome-devtools-mcp@latest", "--isolated"]
+
+[mcp_servers.context7]
+command = "cmd"
+args = ["/c", "npx", "-y", "@upstash/context7-mcp"]

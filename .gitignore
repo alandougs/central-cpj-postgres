@@ -1,0 +1,52 @@
+# Dados sensíveis, autos e casos policiais (sigilo CPP art. 20 e Regra 7)
+casos/*
+!casos/_MODELO-CASO/
+ordens-de-servico/
+config/*
+!config/.gitkeep
+usuarios/*
+!usuarios/.gitkeep
+rag/*
+!rag/README.md
+producao/*
+!producao/config.json
+consulta/*
+referencias/*
+exportacoes/*
+revisoes/lote-*
+revisoes/comparativo-versoes*.md
+ferramentas/completar-casos.py
+
+# Arquivos temporários, bancos e chaves
+.env
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+*.log
+*.key
+*.crt
+*.pem
+*.pfx
+*.p12
+
+# Documentos e binários do Word / OCR / Mídia
+*.docx
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.patch
+ferramentas/tessdata/*.traineddata
+acervo/
+data/
+Imagens/
+
+# IDE e ferramentas locais
+.claude/
+.gemini/

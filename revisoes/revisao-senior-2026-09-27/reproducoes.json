@@ -1,0 +1,58 @@
+{
+  "cancelado_concluido": {
+    "estado": "concluida",
+    "cancelar": 1
+  },
+  "cancelado_abandonado": {
+    "estado": "pendente",
+    "cancelar": 1,
+    "reivindicado": false
+  },
+  "caso_bloqueado_apos_cancelar": "Já existe uma tarefa de IA em andamento para este caso.",
+  "importacao_cancelada_fora_escopo": {
+    "gravou": true,
+    "arquivos": 1,
+    "status": "cancelada"
+  },
+  "erro_indexacao_ignorado": true,
+  "atualizacao_perdida": {
+    "determinacao": "",
+    "prazo": "2099-12-31"
+  },
+  "filtros_descartados": {
+    "http": 200,
+    "filtros_repassados": {
+      "nome": null,
+      "mae": null,
+      "pai": null,
+      "cpf": null,
+      "rg": null,
+      "telefone": null,
+      "cnpj": null,
+      "empresa": null,
+      "endereco": null,
+      "texto": null,
+      "processo": null,
+      "bo": null,
+      "placa": null,
+      "mandado": null,
+      "cautelar": null
+    }
+  },
+  "filtro_incompleto": {
+    "banco_confirmados": 1,
+    "api_retornados": 200,
+    "apos_filtro_browser": 0,
+    "somente_situacao": 0
+  },
+  "pos_processamento_sem_entrega": {
+    "aviso": "nenhuma minuta encontrada"
+  },
+  "download_fora_permissao": {
+    "investigador_config_http": 200,
+    "investigador_leu_marcador": true,
+    "delegado_direto_http": 403,
+    "delegado_via_originais_http": 200,
+    "delegado_leu_analise": true
+  }
+}

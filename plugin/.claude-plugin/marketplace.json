@@ -1,0 +1,17 @@
+{
+  "name": "cpj-local",
+  "owner": {
+    "name": "Alan Douglas Silva"
+  },
+  "metadata": {
+    "description": "Marketplace local do ambiente de investigação CPJ (C:\\CPJ - TRABALHO)."
+  },
+  "plugins": [
+    {
+      "name": "investigacao-cpj",
+      "source": "./investigacao-cpj",
+      "description": "IP de fraude/estelionato em PDF ou Markdown → OCR/extração (MD + CSV) → análise rastreável → relatório de investigação no modelo CPJ (DOCX) → produção e painel.",
+      "version": "0.2.0"
+    }
+  ]
+}
