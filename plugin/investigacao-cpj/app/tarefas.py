@@ -59,7 +59,7 @@ import plantao as PL  # noqa: E402  (fila de pedidos de IA e agentes de plantão
 def plantao_config(ws):
     """config/plantao.json: {"agente_embutido": true, "tipo_embutido": "claude"}. O agente embutido é a própria Central
     atuando como um agente de plantão (aprovado automaticamente); pode ser desligado quando houver outros agentes."""
-    cfg = {"agente_embutido": True, "tipo_embutido": "claude"}
+    cfg = {"agente_embutido": True, "tipo_embutido": "auto"}
     p = os.path.join(ws, "config", "plantao.json")
     if os.path.exists(p):
         try: cfg.update(json.load(open(p, encoding="utf-8")))
@@ -73,11 +73,44 @@ class Tarefas:
         self.t, self.trava, self.procs = {}, threading.Lock(), {}
         self.plantao = PL.Plantao(ws)
         self.parar_agente = threading.Event()
+        self._paradas_provedores, self._threads_provedores, self._travas_provedores = {}, {}, threading.Lock()
         cfg = plantao_config(ws)
         if iniciar_agente and cfg.get("agente_embutido") and os.environ.get("CPJ_SEM_AGENTE_EMBUTIDO") != "1":
-            threading.Thread(target=PL.trabalhar, args=(ws, "Central-" + cfg.get("tipo_embutido", "claude").capitalize(),
-                                                        cfg.get("tipo_embutido", "claude")),
-                             kwargs={"parar": self.parar_agente, "aprovado": True}, daemon=True).start()
+            tipo = cfg.get("tipo_embutido", "auto")
+            # "claude" era o padrão legado. Trate-o como auto para que uma
+            # configuração antiga não esconda outros agentes locais instalados.
+            tipos = ([x["tipo"] for x in PL.executaveis_locais() if x["tipo"] in PL.TIPOS_CLI_AUTO]
+                     if tipo in ("auto", "claude") else [tipo])
+            for local_tipo in tipos:
+                if local_tipo in PL.TIPOS_CLI_AUTO:
+                    threading.Thread(target=PL.trabalhar,
+                                     args=(ws, "Central-" + local_tipo.capitalize(), local_tipo),
+                                     kwargs={"parar": self.parar_agente, "aprovado": True}, daemon=True).start()
+        if iniciar_agente and os.environ.get("CPJ_SEM_AGENTE_EMBUTIDO") != "1":
+            for tipo, prov in PL.provedores_api_ativos(ws):
+                self._iniciar_provedor(prov, tipo)
+
+    def _iniciar_provedor(self, prov, tipo=None):
+        tipo = tipo or (prov + "-api")
+        with self._travas_provedores:
+            atual = self._paradas_provedores.get(prov)
+            thread = self._threads_provedores.get(prov)
+            if thread and thread.is_alive():
+                if atual and not atual.is_set(): return
+                thread.join(timeout=0.25)
+                if thread.is_alive(): return
+            parar = threading.Event()
+            self._paradas_provedores[prov] = parar
+            thread = threading.Thread(target=PL.trabalhar, args=(self.ws, "Central-" + prov.capitalize() + " API", tipo),
+                                      kwargs={"parar": parar, "aprovado": True}, daemon=True)
+            self._threads_provedores[prov] = thread
+            thread.start()
+
+    def sincronizar_provedor(self, prov):
+        """Aplica a ativação/desativação da API sem reiniciar o servidor."""
+        ativos = {p for _, p in PL.provedores_api_ativos(self.ws)}
+        if prov in ativos:
+            self._iniciar_provedor(prov)
 
     # ------------------------------------------------------------ registro
     def nova(self, tipo, titulo, usuario, caso=None, **extra):

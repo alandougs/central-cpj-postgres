@@ -15,7 +15,11 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.dirname(AQUI)
 S_BASE = os.path.join(PLUGIN, "skills", "base-cpj", "scripts")
 SEM_JANELA = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-TIPOS = ("claude", "codex", "gemini", "antigravity", "gpt", "copilot", "deepseek", "outro", "simulado")
+TIPOS = ("claude", "codex", "gemini", "antigravity", "gpt", "copilot", "deepseek", "outro", "simulado",
+         "openai-api", "anthropic-api", "gemini-api", "deepseek-api", "xai-api", "openrouter-api")
+TIPOS_API = {"openai-api": "openai", "anthropic-api": "anthropic", "gemini-api": "gemini",
+             "deepseek-api": "deepseek", "xai-api": "xai", "openrouter-api": "openrouter"}
+TIPOS_CLI_AUTO = ("claude", "codex", "gemini", "copilot")
 MODOS = ("chat", "auto")
 SILENCIO_MAX = {"auto": 45, "chat": 20 * 60}   # segundos sem sinal de vida até considerar o agente fora do ar
 TENTATIVAS_MAX = 2
@@ -137,9 +141,13 @@ def montar_prompt(job, ws, modo="auto", agente=None):
                f'arquivos gerados, pendências>". Se não for possível concluir: python "{cli}" falhar {job["id"]} --agente "{agente}" '
                '--erro "<motivo>". Se o comando de progresso responder CANCELADO, pare imediatamente e não conclua.')
     else:
-        prog = f'python "{os.path.join(S_BASE, "progresso.py")}" {id_} <percentual> "<etapa>"'
-        fim = ("Ao final, atualize caso.json com caso.py quando a skill indicar e responda com um resumo de até 6 linhas: o que foi "
-               "feito, arquivos gerados e pendências para o investigador conferir.")
+        if modo == "api":
+            prog = "A Central atualiza o progresso enquanto você usa as ferramentas disponíveis."
+            fim = "Ao final, responda com um resumo de até 6 linhas do que foi feito, dos arquivos gerados e das pendências."
+        else:
+            prog = f'python "{os.path.join(S_BASE, "progresso.py")}" {id_} <percentual> "<etapa>"'
+            fim = ("Ao final, atualize caso.json com caso.py quando a skill indicar e responda com um resumo de até 6 linhas: o que foi "
+                   "feito, arquivos gerados e pendências para o investigador conferir.")
     return (
         f"PEDIDO {job['id']} — {titulo} — acionado na Central CPJ por '{job['solicitante']}'. Execute sem fazer perguntas: siga as "
         "recomendações padrão dos procedimentos; onde faltar dado, use placeholders {...} e liste as pendências no resumo final.\n"
@@ -149,7 +157,7 @@ def montar_prompt(job, ws, modo="auto", agente=None):
         "estrutura e estilo. Não acesse a internet. Não altere 00-originais.\n"
         "Determinação do Delegado (30/09/2026): no cabeçalho do relatório (campo Referência / dados do procedimento), use SOMENTE "
         "o número do Inquérito Policial Eletrônico (IPe) e do Processo Judicial. NUNCA coloque número de BO nem número de IP local.\n"
-        f"Progresso: registre cada marco executando  {prog}  nos marcos: {marcos}.\n"
+        + (f"{prog}\n" if modo == "api" else f"Progresso: registre cada marco executando  {prog}  nos marcos: {marcos}.\n")
         + (f"Observações do investigador: {job['observacoes']}\n" if job.get("observacoes") else "")
         + f"Tarefa: {tarefa.format(id=id_)}\n" + fim
     )
@@ -380,7 +388,27 @@ def codex_exe():
     return which("codex")
 
 
-def provedor_pronto(tipo):
+def executaveis_locais():
+    """Inventário seguro dos CLIs; não lê conversas, credenciais ou arquivos dos casos."""
+    import shutil
+    saida = []
+    for tipo, caminho in (("claude", claude_exe()), ("codex", codex_exe()),
+                          ("gemini", shutil.which("gemini")), ("copilot", shutil.which("copilot"))):
+        if caminho:
+            saida.append({"tipo": tipo, "executavel": caminho})
+    return saida
+
+
+def provedores_api_ativos(ws):
+    import executores_llm as EL
+    out = []
+    for tipo, prov in TIPOS_API.items():
+        if EL.configuracao(ws, prov):
+            out.append((tipo, prov))
+    return out
+
+
+def provedor_pronto(tipo, ws=None):
     """(pronto, motivo). Só reserva pedido quem está instalado e logado."""
     try:
         if tipo == "simulado":
@@ -396,6 +424,17 @@ def provedor_pronto(tipo):
             if not exe: return False, "Codex CLI não encontrado"
             r = subprocess.run([exe, "login", "status"], capture_output=True, text=True, timeout=30, creationflags=SEM_JANELA)
             return (True, "") if "logged in" in (r.stdout + r.stderr).lower() else (False, "Codex sem login")
+        if tipo in ("gemini", "copilot"):
+            import shutil
+            exe = shutil.which(tipo)
+            if not exe: return False, f"{tipo} CLI não encontrado"
+            r = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=20, creationflags=SEM_JANELA)
+            return (True, "") if r.returncode == 0 else (False, f"{tipo} CLI indisponível")
+        if tipo in TIPOS_API:
+            if not ws: return False, "Workspace da Central indisponível"
+            import executores_llm as EL
+            prov = TIPOS_API[tipo]
+            return (True, "") if EL.configuracao(ws, prov) else (False, f"{prov}: habilite o provedor e selecione chave e modelo")
     except Exception as e:
         return False, f"verificação falhou: {e}"
     return False, f"tipo {tipo} não tem modo automático (use o modo chat)"
@@ -408,6 +447,12 @@ def _matar(p):
 def executar_pedido(pl, job, nome, tipo):
     """Executa um pedido com o CLI do agente (modo automático). Lança exceção em falha."""
     ws, id_, acao = pl.ws, job["caso"], job["acao"]
+    if tipo in TIPOS_API:
+        import executores_llm as EL
+        prov = TIPOS_API[tipo]
+        cfg = EL.configuracao(ws, prov)
+        if not cfg: raise RuntimeError(f"Provedor {prov} sem chave/modelo ou desativado na configuração.")
+        return EL.executar(ws, job, nome, prov, cfg, pl)
     prompt = montar_prompt(job, ws, "auto")
     dlog = os.path.join(ws, "casos", id_, "ia-logs"); os.makedirs(dlog, exist_ok=True)
     log = os.path.join(dlog, f"{datetime.datetime.now():%Y%m%d-%H%M%S}-{acao}-{tipo}.jsonl")
@@ -422,6 +467,22 @@ def executar_pedido(pl, job, nome, tipo):
     elif tipo == "codex":
         # sandbox workspace-write: comandos escrevem só no workspace e sem rede
         cmd = [codex_exe(), "exec", "-C", ws, "-s", "workspace-write", "--skip-git-repo-check", "--json", "-o", ultima, prompt]
+    elif tipo == "gemini":
+        import shutil
+        exe = shutil.which("gemini")
+        if not exe: raise RuntimeError("Gemini CLI não encontrado.")
+        cmd = [exe, "-p", prompt, "--approval-mode=yolo", "--output-format", "stream-json"]
+    elif tipo == "copilot":
+        import shutil
+        exe = shutil.which("copilot")
+        if not exe: raise RuntimeError("GitHub Copilot CLI não encontrado.")
+        modelo = ""
+        try:
+            with open(os.path.join(ws, "config", "chaves_llm.json"), encoding="utf-8") as f:
+                modelo = ((json.load(f).get("copilot") or {}).get("modelo") or "").strip()
+        except (OSError, ValueError, TypeError): pass
+        cmd = [exe, "-p", prompt, "--allow-tool=read,write,shell", "--deny-tool=url"]
+        if modelo: cmd += ["--model", modelo]
     elif tipo == "simulado":   # somente testes automatizados (CPJ_PLANTAO_SIMULADO=1)
         cmd = [sys.executable, "-c", os.environ.get("CPJ_PLANTAO_SIMULADO_CMD", "import time; time.sleep(2); print('{\"type\": \"result\", \"subtype\": \"success\", \"result\": \"ok\"}')")]
     else:
@@ -430,7 +491,7 @@ def executar_pedido(pl, job, nome, tipo):
     inicio = time.time()
     p = subprocess.Popen(cmd, cwd=ws, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                          encoding="utf-8", errors="replace", creationflags=SEM_JANELA)
-    acoes, ultimo, resultado, cancelado = 0, "", None, [False]
+    acoes, ultimo, resultado, cancelado, saida_cli = 0, "", None, [False], []
 
     def vigia():   # sinal de vida + cancelamento mesmo quando o CLI fica em silêncio
         while p.poll() is None:
@@ -446,6 +507,8 @@ def executar_pedido(pl, job, nome, tipo):
     with open(log, "w", encoding="utf-8") as lg:
         for ln in p.stdout:
             lg.write(ln)
+            if tipo not in ("claude", "codex", "simulado"):
+                saida_cli.append(ln)
             try: ev = json.loads(ln)
             except ValueError: continue
             msg = ev.get("msg") if isinstance(ev.get("msg"), dict) else {}
@@ -467,9 +530,12 @@ def executar_pedido(pl, job, nome, tipo):
             raise RuntimeError(f"Agente não concluiu: {str((resultado or {}).get('result') or p.returncode)[:300]} "
                                f"(log: {os.path.relpath(log, ws)})")
         resumo = resultado.get("result") or ""
-    else:
+    elif tipo == "codex":
         if p.returncode != 0: raise RuntimeError(f"Codex terminou com código {p.returncode} (log: {os.path.relpath(log, ws)})")
         resumo = open(ultima, encoding="utf-8", errors="replace").read() if os.path.exists(ultima) else ""
+    else:
+        if p.returncode != 0: raise RuntimeError(f"{tipo} terminou com código {p.returncode} (log: {os.path.relpath(log, ws)})")
+        resumo = "".join(saida_cli)
     return {"resumo": resumo[:1500], "log": os.path.relpath(log, ws)}
 
 
@@ -505,7 +571,7 @@ def trabalhar(ws, nome, tipo, parar=None, aprovado=None, intervalo=3):
             (parar.wait(max(intervalo, 30)) if parar else time.sleep(max(intervalo, 30)))
             continue
         if time.time() - ultimo_teste > 60:
-            pronto, motivo = provedor_pronto(tipo); ultimo_teste = time.time()
+            pronto, motivo = provedor_pronto(tipo, ws); ultimo_teste = time.time()
         job = None
         if pronto:
             pl.sinal(nome, "ocioso", "")
