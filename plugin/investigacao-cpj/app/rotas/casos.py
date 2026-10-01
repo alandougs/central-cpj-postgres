@@ -639,49 +639,65 @@ def api_caso_esteira(id_):
     })
 
 
+def _calibrador():
+    import sys
+    s_rel = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                         "skills", "relatorio-ip-fraude", "scripts")
+    if s_rel not in sys.path:
+        sys.path.insert(0, s_rel)
+    import calibrar_versoes
+    return calibrar_versoes
+
+
 @bp_casos.post("/api/casos/<id_>/calibrar")
 @requer("trabalho")
 def api_calibrar(id_):
-    pasta = C.caminho(id_)
-    pasta_rel = os.path.join(pasta, "03-relatorios")
-    if not os.path.isdir(pasta_rel):
-        return jsonify({"erro": "Pasta de relatórios não encontrada."}), 404
+    """K01: compara a última minuta com o FINAL enviado (PDF/DOCX/MD) e devolve proposta genérica.
+    Não grava nada em calibracao/ (regra 7): a gravação só ocorre em /calibrar/aprovar, por id de lição."""
+    if not C.existe(id_):
+        abort(404)
+    pasta_rel = os.path.join(C.caminho(id_), "03-relatorios")
+    minutas = sorted((f for f in os.listdir(pasta_rel) if re.match(r"minuta-v\d+\.md$", f)),
+                     key=lambda f: int(re.findall(r"\d+", f)[0])) if os.path.isdir(pasta_rel) else []
+    if not minutas:
+        return jsonify({"erro": "Este caso não tem minuta (minuta-vNN.md) para comparar."}), 400
+    arq = request.files.get("final")
+    if not arq or not arq.filename:
+        return jsonify({"erro": "Envie o FINAL (PDF, DOCX ou MD) no campo 'final'."}), 400
+    dados = arq.read(20 * 1024 * 1024 + 1)
+    if len(dados) > 20 * 1024 * 1024:
+        return jsonify({"erro": "Arquivo acima de 20 MB."}), 413
+    cal = _calibrador()
+    try:
+        final = cal.ler_texto(arq.filename, dados)
+    except ValueError as e:
+        return jsonify({"erro": str(e)}), 400
+    except Exception:
+        return jsonify({"erro": "Não foi possível ler o arquivo enviado."}), 400
+    if len(final.split()) < 30:
+        return jsonify({"erro": "O FINAL tem pouco texto legível (PDF escaneado?). Envie DOCX ou MD."}), 400
+    with open(os.path.join(pasta_rel, minutas[-1]), encoding="utf-8", errors="replace") as f:
+        minuta = f.read()
+    res = cal.comparar(minuta, final)
+    auditar("calibracao_proposta", f"{id_}: {len(res['licoes'])} sugestões")
+    return jsonify({"ok": True, "proposta": True, "gravado": False, "minuta": minutas[-1],
+                    "metricas": res["metricas"], "licoes": res["licoes"],
+                    "mensagem": f"{len(res['licoes'])} lição(ões) genérica(s) proposta(s). Nada foi gravado em calibracao/; "
+                                "aprove as que quiser."})
 
-    arq_final = None
-    for f in sorted(os.listdir(pasta_rel), reverse=True):
-        if "final" in f.lower() and f.endswith(".md"):
-            arq_final = os.path.join(pasta_rel, f)
-            break
 
-    if not arq_final or not os.path.isfile(arq_final):
-        return jsonify({"erro": "Nenhum relatório final markdown encontrado para calibração. A calibração exige o relatório final aprovado."}), 400
-
-    with open(arq_final, "r", encoding="utf-8", errors="replace") as f:
-        texto = f.read()
-
-    licoes = []
-    autor = request.usuario.get("nome") or "Investigador de Polícia"
-
-    if "[DILIGÊNCIA POLICIAL" in texto or "PESQUISA OPERACIONAL" in texto:
-        licoes.append("Manter placeholders destacados em caixa alta para pesquisas e diligências de campo essenciais do investigador.")
-    if "fluxograma" in texto.lower() or "![" in texto:
-        licoes.append("Incluir fluxograma visual do caminho do dinheiro nas fraudes com múltiplas camadas.")
-    if "não é possível afirmar" in texto or "em tese" in texto:
-        licoes.append("Adotar tom técnico e prudente: utilizar 'em tese' e reservar conclusão de dolo à autoridade policial.")
-    if "fls." in texto:
-        licoes.append("Assegurar rastreabilidade integral com indicação precisa de folha e página dos autos em cada afirmação.")
-
-    # Regra 7 de governança e contenção RV06:
-    # NÃO gravar ID do caso nem dados em calibracao/licoes-aprendidas.md nem em historico-calibracao.md.
-    # Devolve apenas a proposta para revisão humana até a K01.
-    auditar("calibracao_proposta", f"{id_} - {len(licoes)} sugestões")
-    return jsonify({
-        "ok": True,
-        "proposta": True,
-        "gravado": False,
-        "caso": id_,
-        "arquivo": os.path.basename(arq_final),
-        "licoes": licoes,
-        "mensagem": f"Proposta de calibração gerada ({len(licoes)} lições). Nenhuma alteração gravada em calibracao/ (governança Regra 7)."
-    })
-
+@bp_casos.post("/api/casos/<id_>/calibrar/aprovar")
+@requer("trabalho")
+def api_calibrar_aprovar(id_):
+    """K01: grava em calibracao/ só as lições do catálogo aprovadas por id (sem ID de caso, sem dados)."""
+    if not C.existe(id_):
+        abort(404)
+    ids = (request.get_json(silent=True) or {}).get("ids")
+    if not isinstance(ids, list) or not ids:
+        return jsonify({"erro": "Informe os ids das lições aprovadas."}), 400
+    try:
+        novas, existentes = _calibrador().registrar(WS, [str(i) for i in ids])
+    except ValueError as e:
+        return jsonify({"erro": str(e)}), 400
+    auditar("calibracao_aprovada", f"{len(novas)} lição(ões) gravada(s)")
+    return jsonify({"ok": True, "gravadas": novas, "ja_existentes": existentes})

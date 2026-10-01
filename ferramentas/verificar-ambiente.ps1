@@ -9,16 +9,19 @@ function Item($nome, [scriptblock]$teste, $dica) {
 Item 'Python' { (python --version) 2>&1 } 'instale Python 3.12'
 Item 'Bibliotecas (requirements.txt)' {
     $req = Join-Path $W 'requirements.txt'
-    $modulos = @('flask:flask', 'cryptography:cryptography', 'openpyxl:openpyxl', 'pdfplumber:pdfplumber', 'pillow:PIL', 'pypdf:pypdf', 'pypdfium2:pypdfium2', 'pytesseract:pytesseract', 'python-docx:docx')
+    # nome do pacote -> modulo importavel, quando diferem
+    $mapa = @{ 'pillow' = 'PIL'; 'python-docx' = 'docx'; 'pyyaml' = 'yaml' }
+    $pacotes = @(Get-Content -LiteralPath $req -Encoding UTF8 | ForEach-Object { $_.Trim() } |
+        Where-Object { $_ -and -not $_.StartsWith('#') -and -not $_.StartsWith('-') } |
+        ForEach-Object { ($_ -split '[\[<>=!~; ]')[0].ToLower() } | Where-Object { $_ })
     $faltando = @()
-    foreach ($m in $modulos) {
-        $p = $m.Split(':')
-        $pkg = $p[0]; $mod = $p[1]
+    foreach ($pkg in $pacotes) {
+        $mod = if ($mapa.ContainsKey($pkg)) { $mapa[$pkg] } else { $pkg.Replace('-', '_') }
         python -c "import $mod" 2>$null
         if ($LASTEXITCODE -ne 0) { $faltando += $pkg }
     }
     if ($faltando.Count -gt 0) { throw "Faltando: $($faltando -join ', ')" }
-    "todas as $(($modulos).Count) instaladas"
+    "todas as $($pacotes.Count) instaladas"
 } 'python -m pip install -r requirements.txt'
 Item 'Tesseract' { foreach ($d in 'C:\Program Files\Tesseract-OCR','C:\Program Files\PDF24\tesseract') { if (Test-Path "$d\tesseract.exe") { $d; break } } } 'instale Tesseract (UB-Mannheim.TesseractOCR via winget)'
 Item 'OCR portugues' { if (Test-Path (Join-Path $W 'ferramentas\tessdata\por.traineddata')) { 'ferramentas\tessdata\por.traineddata' } } 'baixe tessdata_best/por.traineddata para ferramentas\tessdata'

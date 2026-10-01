@@ -498,7 +498,7 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
   <div id="lista-bc" style="margin-top:10px"></div></div>
 
- <div class="card"><h3>Relatórios de referência</h3><p class="muted">Relatórios já elaborados (seus ou de colegas) para calibrar o estilo. Peso 5 = modelo exemplar. Usados só como exemplo de estrutura e estilo.</p>
+ <div class="card" id="card-referencias"><h3>Relatórios de referência</h3><p class="muted">Relatórios já elaborados (seus ou de colegas) para calibrar o estilo. Peso 5 = modelo exemplar. Usados só como exemplo de estrutura e estilo.</p>
 
   <div class="campos"><div><label>Autor *</label><input id="rf-autor"></div><div><label>Modalidade</label><select id="rf-mod"></select></div><div><label>Peso (qualidade)</label><select id="rf-peso"><option>5</option><option>4</option><option selected>3</option><option>2</option><option>1</option></select></div>
 
@@ -845,7 +845,7 @@ async function carregarInicio(){const p=await api("/api/pendencias");
 
  h+=pode("trabalho")?`<div class="card"><h4>Andamento</h4><table><tbody>${Object.entries(p.em_andamento).map(([s,n])=>`<tr><td>${s}</td><td class="n">${n}</td></tr>`).join("")}</tbody></table></div>`:lista("Minhas O.S.",p.minhas,"Você ainda não cadastrou O.S.");
 
- $("#ini-listas").innerHTML=h;$$("#ini-listas .it").forEach(e=>e.onclick=()=>{abrirAba("casos");abrirCaso(e.dataset.id)});
+ $("#ini-listas").innerHTML=h;$$("#ini-listas .it").forEach(e=>e.onclick=()=>{abrirAba("casos");abrirCaso(e.dataset.id,true)});
 
  if(pode("trabalho")){$("#n-inicio").hidden=!(p.novas.length+p.vencidos.length+p.hoje.length);$("#n-inicio").textContent=p.novas.length+p.vencidos.length+p.hoje.length}
 
@@ -927,7 +927,7 @@ async function carregarCasos(){const cs=await api(`/api/casos?q=${enc($("#q-caso
 
  <td>${c.processando?badge("processando")+barraHTML(c.progresso_proc):(c.erro?badge("erro"):esc(c.status))}</td><td>${prazoBadge(c)}</td><td class="n">${c.paginas??"—"}</td></tr>`).join("");
 
- $$("#t-casos tr").forEach(tr=>tr.onclick=()=>abrirCaso(tr.dataset.id))}
+ $$("#t-casos tr").forEach(tr=>tr.onclick=()=>abrirCaso(tr.dataset.id,true))}
 
 let casoAberto=null;
 
@@ -935,7 +935,7 @@ const NOMES_OS={ordem_servico:"O.S.",bo:"BO",inquerito:"IP",processo:"Processo",
 
 const ESTADO_IA_OS={modelo_local_nao_instalado:"modelo local não instalado; complete manualmente",modelo_remoto_bloqueado:"modelo remoto bloqueado; selecione um modelo local",aguardando_ocr:"aguardando extração/OCR",dispensada:"campos detectados por script",concluida:"IA local consultada",ia_local_nao_configurada:"modelo local ainda não configurado",ia_local_indisponivel:"IA local indisponível; complete os campos pendentes",sem_evidencia:"dados não localizados; complete manualmente",resposta_invalida:"IA sem resposta válida; complete manualmente"};
 
-async function abrirCaso(id){casoAberto=id;const j=await api("/api/casos/"+enc(id)),c=j.caso,r=j.resumo,T=j.trabalho;
+async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;const j=await api("/api/casos/"+enc(id)),c=j.caso,r=j.resumo,T=j.trabalho;
 
  const campo=(k,l,v,t="text")=>`<div><label>${l}</label><input data-k="${k}" type="${t}" value="${esc(v??"")}"></div>`;
 
@@ -971,9 +971,10 @@ async function abrirCaso(id){casoAberto=id;const j=await api("/api/casos/"+enc(i
 
  <div class="acoes" style="margin:0">${T?'<button class="btn sm" id="b-pasta">Abrir pasta</button><button class="btn sm" id="b-caso-ver-fluxo">Ver Fluxograma</button><a class="btn sm" id="b-caso-fluxo-csv" href="/api/casos/'+enc(id)+'/fluxo-csv" target="_blank">Planilha (CSV)</a><button class="btn sm" id="b-cruzar">Cruzar com outros casos</button>':""}${podeGestao?'<button class="btn sm pri" id="b-salvar">Salvar</button>':""}</div></div>
 
- <div class="campos" style="margin-top:12px">${dados}</div>${c.preenchimento_os?`<div class="muted">Preenchimento automático: ${esc(ESTADO_IA_OS[c.preenchimento_os.ia]||"aguardando processamento")}. Pendentes: ${esc((c.preenchimento_os.pendentes||[]).map(k=>NOMES_OS[k]||k).join(", ")||"nenhum")}. ${Object.keys(c.preenchimento_os.conflitos||{}).length?"Dados divergentes: "+esc(Object.keys(c.preenchimento_os.conflitos).map(k=>NOMES_OS[k]||k).join(", "))+". Confira no IP antes de preencher.":""}<details><summary>Fontes dos dados preenchidos</summary>${Object.entries(c.preenchimento_os.fontes||{}).map(([k,d])=>`<p>${esc(NOMES_OS[k]||k)}: ${esc(d.documento)}, pág. ${d.pagina} — ${esc(d.trecho)} (${esc(d.metodo)})</p>`).join("")}</details></div>`:""}<label>Determinação da autoridade</label><textarea data-k="determinacao" rows="2" ${podeGestao?"":"disabled"}>${esc(c.determinacao||"")}</textarea>
+ <div class="acoes" style="margin:10px 0 0"><button class="btn sm" data-ir="nv-ficha">Ficha</button>${T?'<button class="btn sm" data-ir="nv-ia">IA</button><button class="btn sm" data-ir="nv-cal">Calibração</button>':""}</div>
+ <div class="campos" id="nv-ficha" style="margin-top:12px">${dados}</div>${c.preenchimento_os?`<div class="muted">Preenchimento automático: ${esc(ESTADO_IA_OS[c.preenchimento_os.ia]||"aguardando processamento")}. Pendentes: ${esc((c.preenchimento_os.pendentes||[]).map(k=>NOMES_OS[k]||k).join(", ")||"nenhum")}. ${Object.keys(c.preenchimento_os.conflitos||{}).length?"Dados divergentes: "+esc(Object.keys(c.preenchimento_os.conflitos).map(k=>NOMES_OS[k]||k).join(", "))+". Confira no IP antes de preencher.":""}<details><summary>Fontes dos dados preenchidos</summary>${Object.entries(c.preenchimento_os.fontes||{}).map(([k,d])=>`<p>${esc(NOMES_OS[k]||k)}: ${esc(d.documento)}, pág. ${d.pagina} — ${esc(d.trecho)} (${esc(d.metodo)})</p>`).join("")}</details></div>`:""}<label>Determinação da autoridade</label><textarea data-k="determinacao" rows="2" ${podeGestao?"":"disabled"}>${esc(c.determinacao||"")}</textarea>
 
- ${T?`<div class="card" style="margin-top:14px;background:var(--page)"><h4>Inteligência artificial</h4><div class="acoes" style="margin:0 0 8px">
+ ${T?`<div class="card" id="nv-ia" style="margin-top:14px;background:var(--page)"><h4>Inteligência artificial</h4><div class="acoes" style="margin:0 0 8px">
 
   <button class="btn pri" data-ia="esteira" style="background:#1b5e20;border-color:#1b5e20;color:#fff;font-weight:600" title="Executa a esteira completa: OCR, RAG, analistas, redação, revisão e DOCX">⚡ Esteira Completa 1-Clique</button><button class="btn" data-ia="analisar">Analisar IP</button><button class="btn pri" data-ia="relatorio">Gerar relatório</button><button class="btn" data-ia="completo">Análise + relatório</button><button class="btn" data-ia="revisar">Revisar relatório</button><button class="btn" id="b-ia-ver-fluxo">Ver Fluxograma</button><a class="btn" href="/api/casos/${enc(id)}/fluxo-csv" target="_blank">Planilha de Rastreio (CSV)</a></div>
 
@@ -981,7 +982,11 @@ async function abrirCaso(id){casoAberto=id;const j=await api("/api/casos/"+enc(i
 
   <div><select id="ia-agente" title="Quem executa"><option value="">Qualquer agente ocioso (recomendado)</option></select></div></div>
 
-  <div class="muted" id="ia-agentes-resumo"></div><div id="ia-painel" style="margin-top:8px"></div></div>`:""}
+  <div class="muted" id="ia-agentes-resumo"></div><div id="ia-painel" style="margin-top:8px"></div></div>
+ <div class="card" id="nv-cal" style="margin-top:14px;background:var(--page)"><h4>Calibração do estilo (minuta × FINAL)</h4>
+  <p class="muted">Envie o relatório FINAL (PDF, DOCX ou MD) que você assinou. A comparação com a última minuta é feita neste computador e gera só lições genéricas, sem nomes, números ou trechos do caso. Nada é gravado até você aprovar.</p>
+  <div class="acoes" style="margin:0"><input type="file" id="cal-arq" accept=".pdf,.docx,.md,.txt"><button class="btn pri" id="b-cal-comparar">Comparar com a minuta</button><button class="btn sm" id="b-cal-ref">Guardar como exemplo de estilo</button></div>
+  <div class="prog" id="prog-cal" hidden><i aria-hidden="true"></i></div><div class="muted" id="cal-msg" style="margin-top:6px"></div><div id="cal-res"></div></div>`:""}
 
  <div class="g2" style="margin-top:14px"><div>
 
@@ -995,9 +1000,27 @@ async function abrirCaso(id){casoAberto=id;const j=await api("/api/casos/"+enc(i
 
  <div><h4>Arquivos</h4><div class="arqs">${j.arquivos.map(a=>`<div><a href="${link(a.caminho)}" target="_blank">${esc(a.caminho)}</a><span class="muted">${kb(a.tamanho)}</span></div>`).join("")||'<span class="muted">—</span>'}</div></div></div></div>`;
 
- $("#detalhe").scrollIntoView({behavior:"smooth"});
+ if(rolar||novoCaso)requestAnimationFrame(()=>$("#detalhe").scrollIntoView({behavior:"smooth",block:"start"}));
+ const irPara=k=>{const e=$("#"+k);if(e)e.scrollIntoView({behavior:"smooth",block:"start"})};
+ $$("#detalhe [data-ir]").forEach(b=>b.onclick=()=>irPara(b.dataset.ir));$$("#detalhe [data-calibrar]").forEach(b=>b.onclick=()=>irPara("nv-cal"));
 
  const post=(u,b)=>api(`/api/casos/${enc(id)}${u}`,{json:b||{}});
+ if($("#b-cal-comparar")){
+  const msg=t=>{$("#cal-msg").textContent=t||""},barra=on=>{const p=$("#prog-cal");p.hidden=!on;p.classList.toggle("ind",on)};
+  $("#b-cal-comparar").onclick=async()=>{const f=$("#cal-arq").files[0];$("#cal-res").innerHTML="";
+   if(!f){msg("Selecione o arquivo FINAL (PDF, DOCX ou MD).");return}
+   const fd=new FormData();fd.append("final",f);msg("Comparando localmente com a última minuta…");barra(true);$("#b-cal-comparar").disabled=true;
+   try{const r=await api(`/api/casos/${enc(id)}/calibrar`,{method:"POST",body:fd});msg(r.mensagem||"");
+    const m=r.metricas||{},mi=m.minuta||{},fi=m.final||{};
+    const resumo=`<div class="muted">Similaridade com a minuta: ${Math.round((m.similaridade||0)*100)}% · palavras ${mi.palavras||0} → ${fi.palavras||0} · citações/1000 palavras ${mi.citacoes_por_mil||0} → ${fi.citacoes_por_mil||0} · tópicos ${mi.topicos||0} → ${fi.topicos||0}</div>`;
+    $("#cal-res").innerHTML=resumo+(r.licoes&&r.licoes.length?`<div style="margin:8px 0">${r.licoes.map(l=>`<label style="display:flex;gap:8px;align-items:flex-start;margin:4px 0"><input type="checkbox" data-lic="${esc(l.id)}" checked><span>${esc(l.texto)}</span></label>`).join("")}</div><div class="acoes"><button class="btn pri" id="b-cal-aprovar">Gravar lições aprovadas</button><span class="muted">Desmarque o que não quiser. Só a lista acima, sem dados do caso, vai para a calibração.</span></div>`:'<div class="muted" style="margin-top:8px">Nenhuma diferença relevante: nada a calibrar.</div>');
+    if($("#b-cal-aprovar"))$("#b-cal-aprovar").onclick=async()=>{const ids=$$("#cal-res [data-lic]").filter(x=>x.checked).map(x=>x.dataset.lic);
+     if(!ids.length){msg("Marque ao menos uma lição.");return}
+     if(!confirm(`Gravar ${ids.length} lição(ões) genérica(s) em calibracao\\licoes-aprendidas.md?`))return;
+     try{const a=await post("/calibrar/aprovar",{ids});toast(`Calibração registrada: ${a.gravadas.length} nova(s), ${a.ja_existentes.length} já existente(s)`);$("#cal-res").innerHTML="";msg("Lições aprovadas registradas.")}catch(x){msg("Erro: "+x.message)}}
+   }catch(x){msg("Erro: "+x.message)}finally{barra(false);$("#b-cal-comparar").disabled=false}};
+  $("#b-cal-ref").onclick=()=>{abrirAba("sistema");setTimeout(()=>{const e=$("#card-referencias");if(e)e.scrollIntoView({behavior:"smooth",block:"start"})},200)};
+ }
 
  if($("#b-salvar"))$("#b-salvar").onclick=async()=>{const d={};$$("#detalhe [data-k]").forEach(e=>{if(!e.disabled)d[e.dataset.k]=e.value});try{await post("",d);toast("Salvo");carregarCasos()}catch(x){toast(x.message)}};
 
@@ -1029,7 +1052,7 @@ async function abrirCaso(id){casoAberto=id;const j=await api("/api/casos/"+enc(i
 
  $$("#detalhe [data-word]").forEach(b=>b.onclick=()=>post("/abrir",{sub:b.dataset.word}).catch(x=>toast(x.message)));
 
- $$("#detalhe [data-final]").forEach(b=>b.onclick=async()=>{if(!confirm(`Definir ${b.dataset.final} como relatório FINAL? Isso registra a entrega e calibra o estilo.`))return;try{await post("/final",{docx:b.dataset.final});await post("/calibrar",{arquivo:b.dataset.final}).catch(()=>{});toast("Relatório FINAL definido e estilo calibrado");abrirCaso(id);carregarCasos()}catch(x){if(x.status===409&&x.data&&x.data.bloqueado){mostrarModalFinalRessalva(id,b.dataset.final,x.data);return}toast(x.message)}});
+ $$("#detalhe [data-final]").forEach(b=>b.onclick=async()=>{if(!confirm(`Definir ${b.dataset.final} como relatório FINAL? Isso registra a entrega. Depois, use Calibração do estilo para enviar o FINAL assinado.`))return;try{await post("/final",{docx:b.dataset.final});toast("Relatório FINAL definido");abrirCaso(id);carregarCasos()}catch(x){if(x.status===409&&x.data&&x.data.bloqueado){mostrarModalFinalRessalva(id,b.dataset.final,x.data);return}toast(x.message)}});
 
  atualizarIA()}
 
@@ -1056,7 +1079,6 @@ function mostrarModalFinalRessalva(id, docxNome, data){
     try{
       btnConfirmar.disabled=true;
       await api(`/api/casos/${enc(id)}/final`,{json:{docx:docxNome,forcar:true,justificativa:just}});
-      await api(`/api/casos/${enc(id)}/calibrar`,{json:{arquivo:docxNome}}).catch(()=>{});
       m.hidden=true;
       toast("Relatório FINAL definido com ressalva");
       abrirCaso(id);

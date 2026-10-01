@@ -1,0 +1,2 @@
+# Dependencias opcionais (nao exigidas pela Central). Postgres esta congelado e movido para legado/.
+psycopg[binary]>=3.2,<4
