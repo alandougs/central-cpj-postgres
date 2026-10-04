@@ -10,6 +10,8 @@ import unittest
 from pathlib import Path
 
 
+@unittest.skipUnless(os.name == "nt" and shutil.which("powershell.exe"),
+                     "Integração PowerShell/robocopy requer Windows")
 class TesteBackup(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

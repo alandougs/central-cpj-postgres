@@ -89,11 +89,11 @@ class TesteInterfaceF01(unittest.TestCase):
     def test_meta_theme_color(self):
         self.assertIn('name="theme-color"', self.html)
 
-    # ---- limite de crescimento do arquivo (regra da tarefa: no máx. +15%) ----
+    # Orçamento da interface atual, incluindo provedores, esteira e progresso.
     def test_tamanho_dentro_do_limite(self):
         tamanho = len(self.html.encode("utf-8"))
-        limite = int(85881 * 1.15)
-        self.assertLessEqual(tamanho, limite, f"index.html cresceu além de 15%: {tamanho} bytes (limite {limite})")
+        limite = 150 * 1024
+        self.assertLessEqual(tamanho, limite, f"index.html excedeu o orçamento de 150 KiB: {tamanho} bytes (limite {limite})")
 
 
 if __name__ == "__main__":

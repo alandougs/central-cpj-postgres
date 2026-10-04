@@ -9,6 +9,7 @@ Valida:
 """
 import json
 import os
+import signal
 import shutil
 import socket
 import subprocess
@@ -144,7 +145,10 @@ class TesteFullTime(unittest.TestCase):
             self.assertIsNotNone(server_pid_1, "Servidor não subiu inicialmente.")
 
             # Mata intencionalmente o processo do servidor via taskkill (simula crash)
-            subprocess.run(["taskkill", "/F", "/PID", str(server_pid_1)], capture_output=True, creationflags=SEM_JANELA)
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/F", "/PID", str(server_pid_1)], capture_output=True, creationflags=SEM_JANELA)
+            else:
+                os.kill(server_pid_1, signal.SIGKILL)
 
             # O supervisor deve detectar e subir um novo processo do servidor com PID diferente
             server_pid_2 = None

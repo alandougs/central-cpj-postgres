@@ -12,7 +12,7 @@ import unittest
 import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from tarefas import EXPORT_SCHEMA, Tarefas  # noqa: E402
+from tarefas import EXPORT_SCHEMA, ImportacaoCancelada, Tarefas  # noqa: E402
 
 
 class ImportacaoCPJ(unittest.TestCase):
@@ -43,7 +43,7 @@ class ImportacaoCPJ(unittest.TestCase):
 
     def test_recusa_escopo_invalido_antes_de_escrever(self):
         pacote = self.pacote({"config/usuarios.json": "NAO IMPORTAR"})
-        with self.assertRaisesRegex(ValueError, "fora do escopo"):
+        with self.assertRaisesRegex(ValueError, "caminho não permitido"):
             self.importar(pacote)
         self.assertFalse((self.ws / "config" / "usuarios.json").exists())
 
@@ -69,7 +69,9 @@ class ImportacaoCPJ(unittest.TestCase):
             if tarefa == tid and kw.get("etapa", "").startswith("verificando") and not cancelou:
                 cancelou = self.tarefas.cancelar(tid)
         self.tarefas.at = acompanhar
-        self.assertIsNone(self.tarefas.importar(tid, str(pacote)))
+        with self.assertRaises(ImportacaoCancelada):
+            self.tarefas.importar(tid, str(pacote))
+        self.assertEqual(self.tarefas.obter(tid)["status"], "cancelada")
         self.assertTrue(cancelou)
         self.assertFalse((self.ws / "casos" / "OS-3-2099").exists())
 

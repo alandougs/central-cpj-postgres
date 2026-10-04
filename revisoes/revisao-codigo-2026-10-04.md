@@ -19,7 +19,7 @@ Código e testes fictícios foram usados em Linux/Python 3.12, com dependências
 | P2 | Escrita de ferramenta de API truncava o arquivo existente antes de terminar a gravação. | Gravar em temporário no mesmo diretório e publicar com `os.replace`; falha conserva a versão anterior e limpa o temporário. |
 | P2 | Definir um arquivo já chamado `FINAL` novamente causava `SameFileError`. | Evitar copiar o arquivo sobre si mesmo, mantendo conferência, baixa e auditoria. |
 
-## Validação
+## Validação da primeira rodada RV17 (histórico)
 
 - `teste_relatorios_rv17.py`: 11 testes aprovados, incluindo seis requisições concorrentes, recusa de versão errada, falha do conferidor, numeração com lacunas e falha de I/O.
 - `teste_executores_rv17.py`: 6 testes aprovados, incluindo leitura/escrita por aliases, gerador DOCX, listagem, preservação do arquivo diante de falha e operações válidas.
@@ -27,7 +27,7 @@ Código e testes fictícios foram usados em Linux/Python 3.12, com dependências
 - Suítes existentes: segurança (11 testes), solo (7), modularização (6) e gate de entrega (5) aprovadas. Sintaxe dos cinco arquivos Python alterados/adicionados e `git diff --check` aprovados.
 - Suíte completa executada antes e depois em snapshots descartáveis por `python -u ferramentas/testar-tudo.py`: **30/48 antes (174,21 s)** e **32/50 depois (173,97 s)**. As duas suítes novas passaram; permanecem exatamente as mesmas 18 suítes com falha da versão-base. Nenhuma suíte que passava antes passou a falhar. O runner retornou 1 nas duas execuções, portanto a validação integral continua pendente.
 
-## Pendências anteriores à RV17
+## Diagnóstico inicial anterior à RV18 (histórico)
 
 A execução inicial do runner retornou **30/48 suítes aprovadas**. Ela não comprova validação integral da aplicação. As falhas abaixo já existiam no commit-base:
 
@@ -49,4 +49,42 @@ A execução inicial do runner retornou **30/48 suítes aprovadas**. Ela não co
 
 O E2E de navegador retorna sucesso com `SkipTest` quando Edge não está disponível; isso não é evidência de execução visual. Nenhum provedor de IA real foi chamado. O PostgreSQL é legado/experimento no estado atual do projeto: o adaptador foi inspecionado, mas nenhuma instância PostgreSQL ou stack Docker foi executada. Não houve migração de dados nem alteração do esquema.
 
-As correções desta revisão devem ser avaliadas com essas limitações; as pendências de validação integral permanecem explícitas no PR. Instalação na máquina do investigador e alinhamento da branch padrão são etapas separadas da publicação da branch de correções.
+As pendências acima registram a primeira rodada; a continuação RV18 abaixo substitui esse estado de validação. Instalação na máquina do investigador e alinhamento da branch padrão são etapas separadas da publicação da branch de correções.
+
+## Continuação RV18: correções e reconciliação
+
+O usuário pediu continuação em loop até concluir a revisão e sincronizar GitHub. A RV18 reservou o restante da revisão e repetiu reproduzir → corrigir → testar, mantendo dados fictícios e sandboxes isoladas.
+
+| Problema verificado | Resultado da RV18 |
+|---|---|
+| OCR sem opção de paralelismo | `--workers 1|2` recuperado, máximo dois bitmaps em voo; somente a thread principal acessa PDFium; imagens, páginas, textpages e documento fechados. Uma passada Tesseract por página; ordem final preservada. |
+| Correção visual não tinha checkpoint | Checkpoint visual com SHA-256 da transcrição; reaproveitar somente se intacta; edição ou remoção invalida a versão anterior. Mantidos os dois nomes de contador no relatório para compatibilidade. |
+| Reaproveitamento ignorava workspace explícito | Busca entre casos respeita `CPJ_WORKSPACE` quando não há `CPJ_WORKSPACES`. |
+| Cancelamento dependia de `taskkill` | Grupos de processo POSIX com `start_new_session`/`killpg`, árvore Windows com `taskkill`, seguido de `wait`. Perda de reserva encerra CLI silencioso; disputa temporária SQLite não desliga o vigia. |
+| Supervisor tratava zumbi como vivo | Estado `Z` no `/proc` não é considerado supervisor ativo; ciclo de início/parada e watchdog testados no Linux. |
+| Cancelamento ou transferência durante conclusão | UPDATE condicionado a agente, estado em execução e ausência de cancelamento; falha também não sobrescreve reserva alheia nem pedido encerrado. |
+| Sucesso sem entrega, arquivo antigo ou indexação falha | Verificar arquivos não vazios exigidos pela etapa e atualização dos metadados frente ao snapshot anterior; exigir minuta para relatório e revisão correspondente; erro de indexação propagado. CLI com retorno não zero é erro mesmo emitindo `success`. |
+| Logs podiam colidir no mesmo segundo | Nome inclui microssegundos e ID do pedido, com um log por sessão. |
+| Prompt do redator dizia “revisão concluída” | Removida a alegação de autorrevisão; pedido revisor separado segue sem alterar a minuta. |
+| Modelo oficial ausente no clone | Fixture DOCX sintética gerada somente nas sandboxes do runner, com cabeçalho, rodapé, campos e imagem geométrica. Sem fallback sintético no gerador de produção; teste F04 verifica preservação do modelo recebido. |
+| Calibração ausente no snapshot | Runner inclui os documentos versionados de calibração. |
+| Fontes e descoberta de executável dependiam de Windows | Fixtures usam Arial no Windows e DejaVuSans no Linux; executável fictício recebe permissão de execução antes de `which`. |
+| Testes de importação divergiam do contrato | Cancelamento deve lançar `ImportacaoCancelada` e conservar estado/ausência de arquivos; rejeição de escopo continua verificada antes de qualquer escrita. |
+| Esteira/HTTP enviavam minutas inválidas | Fixtures com as três seções e cabeçalho completos; teste HTTP usa somente afirmações apoiadas na página fictícia. Gate continua ativo, sem forçar entrega. |
+| F12 editava formato de checkpoint extinto | Edita `.checkpoint/p0001.json`; continua verificando precedência da correção visual sobre OCR duvidoso. |
+| Limite de HTML de versão antiga | Orçamento explícito de 150 KiB para a interface atual; verificações funcionais preservadas. |
+| Teste S01 usava APIs ausentes | Substituído por testes dos quatro pedidos encadeados implementados, entrega/DOCX, sessões e logs separados, prompts independentes, falha/cascata, retomada, cancelamento, reserva transferida e propagação de indexação. Não comprova análise por blocos paralelos nem ajuste automático. |
+| Runner ocultava testes pulados | Resume skips de ambiente. Integração PowerShell/robocopy e Startup exigem Windows; Edge exige navegador instalado. |
+
+### Evidências da continuação
+
+- Rodada integral intermediária: **48/50 suítes sem falhas, 92,35 s**. Duas falhas restantes: fixture L05 com fonte pequena/inadequada e cabeçalho HTTP incompleto rejeitado pelo gate; corrigidas e reexecutadas isoladamente com sucesso.
+- OCR real em português testado com tessdata do histórico do próprio repositório, materializado em pasta de dependências fora do checkout (`/workspace/scratch/tessdata`). Nenhum traineddata ou DOCX binário foi adicionado ao commit.
+- Rodada integral final: `TESSDATA_PREFIX=/workspace/scratch/tessdata python -u ferramentas/testar-tudo.py` → **50/50 suítes com retorno zero, 92,93 s**, incluindo OCR real, reconstrução de texto em uma passada, invalidação/retomada de checkpoints, 120 páginas do ensaio core, workflow HTTP DOCX/FINAL/baixa/download, concorrência, segurança e isolamento API. Os três skips divulgados pelo runner são backup PowerShell/robocopy, E2E Edge e Startup Windows. Duas suítes ficam inteiramente puladas; a full-time executa os testes portáveis e pula somente o Startup.
+- `teste_squad_claude.py`: 10 testes aprovados; sem uso de API real. Os 17 testes RV17 continuam passando dentro da rodada final.
+- AST dos 20 arquivos Python alterados/adicionados e `git diff --check` aprovados. Nenhum dado do workspace temporário, credencial de teste, PDF ou modelo binário faz parte do commit.
+- Correções reunidas na branch `codex/revisao-bugs-2026-10-04`, PR [#2](https://github.com/alandougs/central-cpj-postgres/pull/2) para `main`. A rodada final remove a pendência de falhas do core que motivava o rascunho inicial; permanecem somente os limites de ambiente abaixo.
+
+### Limites da validação
+
+Modelo DOCX oficial do operador, APIs reais e a stack PostgreSQL legada não foram executados. O modelo sintético comprova o contrato de transformação/preservação, não a fidelidade visual do timbre oficial. PowerShell/robocopy, Startup do Windows e E2E Edge são explicitamente pulados no Linux sem Edge; não contam como execuções funcionais aprovadas. Não houve autos reais, migração, alteração de rede ou instalação em produção. A publicação usa a branch `codex/revisao-bugs-2026-10-04` e PR #2 para `main`; a configuração da branch padrão e a integração desse PR são decisões separadas.
