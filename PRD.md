@@ -2,7 +2,7 @@
 
 > Documento de continuidade. Qualquer agente (Claude Code, Codex, Gemini, modelo local) deve ler **este arquivo + `AGENTS.md`** antes de alterar o sistema. Atualize a seção **9 (Estado atual)** e o **Registro de mudanças** a cada entrega.
 > Dono do produto: Alan Douglas Silva — Investigador de Polícia, Central de Polícia Judiciária (CPJ), Seccional de Presidente Prudente, DEINTER 8, PCSP.
-> Última atualização: 2026-09-28 (Revisão de Foco no Core e Operação Solo).
+> Última atualização: 2026-10-04 (Revisão RV17 de concorrência, entrega e ferramentas API).
 
 ---
 
@@ -131,6 +131,8 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 
 ## 9. Estado atual e próximos passos (atualizar sempre)
 
+**Revisão RV17 — 2026-10-04:** a revisão solicitada no GitHub usa `main` em `927c548`, que contém a consolidação de 01/10; a branch padrão `master` ainda aponta à versão anterior. Corrigidos controle concorrente de minutas (verificação e escrita na mesma trava, publicação atômica e numeração crescente), loop de reserva diante de erro de I/O, IDs `.`/`..`, conferência antiga reutilizada após falha, associação de minuta à versão do DOCX e acesso por links aos originais/arquivos externos nas ferramentas de API. A escrita dessas ferramentas agora é atômica. Repetir a definição de um FINAL existente não tenta copiar o arquivo sobre si mesmo. Os 17 testes novos passaram; segurança (11), solo (7), modularização (6) e gate de entrega (5) também passaram. A suíte completa ainda apresenta falhas preexistentes; evidências e limitações em `revisoes/revisao-codigo-2026-10-04.md`. PostgreSQL permanece em `legado/`, sem reativação ou migração. Correções preparadas em branch própria para sincronização por PR; nenhuma alteração instalada no computador de produção.
+
 **Fila aberta a todos os agentes — 2026-09-27:** `TAREFAS-COMPARTILHADAS.md` permite assumir tarefas livres por Codex, Claude, Gemini ou outro agente. L01/L02 já em andamento permanecem com Claude; as demais frentes não iniciadas ficam sem responsável até reserva. O script `ferramentas/fila-tarefas.py` lista, reserva, conclui e libera tarefas com trava exclusiva, gravação atômica, conferência de responsável, sobreposição de arquivos e dependências da integração. Ensaios em fila fictícia aprovaram reserva/devolução/conclusão, recusa de conflito e responsável incorreto, bloqueio de dependências e disputa simultânea com exatamente um vencedor. `AGENTS.md`, `CLAUDE.md` e `GEMINI.md` apontam para o mesmo procedimento.
 
 **Melhorias coordenadas Codex/Claude — 2026-09-27:** o quadro `TAREFAS-COMPARTILHADAS.md` registra responsáveis, reservas de arquivos e contratos para evitar edições simultâneas. **C01/C02 concluídas pelo Codex:** mesma autorização na edição e no cadastro repetido de O.S. (incluindo uploads), revogação de sessões após redefinição de senha/desativação/reativação/recriação, preservação da sessão atual na troca própria e proteção do último administrador ativo. Validação: **11 testes de segurança novos aprovados + 52 verificações da suíte API existente aprovadas**, somente com workspace temporário e dados fictícios; IA externa desligada. Cookies da versão anterior exigem novo login. Nenhuma conta real foi alterada. C03–C05 e as frentes disponíveis para Claude permanecem pendentes no quadro; a integração de melhorias ao sistema completo ainda não está concluída.
@@ -193,6 +195,7 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
 
 | Data | Versão | Mudança |
 |---|---|---|
+| 2026-10-04 | RV17 | Revisão da consolidação em main: correções de concorrência/numeração de minuta, conferência atual antes da entrega, vínculo da minuta à versão do DOCX, isolamento e gravação atômica das ferramentas API, erro de reserva de arquivo e IDs de diretório. 17 testes novos aprovados; relatório de falhas preexistentes e limitações do ambiente Linux em revisoes/revisao-codigo-2026-10-04.md. |
 | 2026-09-27 | 0.1.0 | Plugin inicial (skills, agentes, comandos), workspace, OCR `por`, DOCX no modelo, RAG, painel |
 | 2026-09-27 | 0.2.0 | Central CPJ v1, pasta por O.S., baixa automática/agente/central, scripts de manutenção, `portatil\`, publicação GitHub |
 | 2026-09-27 | 0.3.0 (em construção) | Login/perfis/auditoria, O.S. com prazos e pendências, IA por botão, editor de minuta, exportar/importar, bases de consulta (Muralha Paulista), pesquisa relacional, relatórios de referência por autor/peso, rede local HTTPS |

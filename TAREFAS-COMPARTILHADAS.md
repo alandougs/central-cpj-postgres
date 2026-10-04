@@ -12,6 +12,12 @@ Atualizado em 27/09/2026. Esta é a fonte da verdade da fila de melhorias. Qualq
 6. Antes de concluir, confira mudanças recentes e rode `python ferramentas/fila-tarefas.py concluir <ID> --agente <nome-da-sessao> --resultado "arquivos, comando e resultado dos testes"`. Para devolver uma tarefa, use `liberar` com o mesmo responsável e explique o ponto de retomada em `--resultado`. Os comandos serializam alterações da fila. Não altere responsável/estado manualmente nem regrave o documento inteiro a partir de uma cópia antiga.
 7. Publicação, atualização instalada do plugin, execução de IA com autos reais, contas reais e configuração de rede ficam fora desta rodada. Mudança de contrato de API exige registro aqui antes de alterar o consumidor.
 
+## Revisão solicitada em 04/10/2026
+
+| ID | Responsável | Estado | Entrega | Arquivos reservados |
+|---|---|---|---|---|
+| RV17 | Codex-Revisao-2026-10-04 | concluída | Revisar a versão consolidada em main: salvar minutas sob trava com controle de versão; impedir uso de conferência antiga ou minuta de outra versão no FINAL; preservar isolamento de arquivos nas ferramentas API. Contratos: versao_base e ultima_vista conferidos dentro da mesma trava da escrita; versão inválida recebe 400; gate usa apenas resultado da execução atual; minuta explícita ausente/incompatível recebe 400. Testar com dados fictícios e publicar branch/PR conforme pedido do usuário. | `app/rotas/relatorios.py`, `app/executores_llm.py`, `skills/base-cpj/scripts/caso.py`, `app/testes/teste_relatorios_rv17.py`, `app/testes/teste_executores_rv17.py`, `PRD.md` |
+
 ## Quadro
 
 | ID | Responsável | Estado | Entrega | Arquivos reservados |
@@ -261,3 +267,5 @@ Escolha primeiro uma correção prioritária com arquivos livres. Exemplos para 
 - 2026-10-01T16:43:08 — Claude-1: concluir FD01. Superada e entregue pela RV02 (modulo + injecao no DOCX ja existente em gerar_docx.py + testes).
 - 2026-10-01T16:43:08 — Claude-1: assumir GH07.
 - 2026-10-01T16:43:10 — Claude-1: concluir GH07. revisoes/proposta-grafo-core.md: proposta em 5 fatias (colunas opcionais estado_patrimonial/valor_devolvido, fluxograma por estado, gate, secao opcional, matriz) com condicoes; tarefas GR01-GR03 sugeridas, dependentes do merge do PR #17. Nenhum codigo do core alterado.
+- 2026-10-04T06:43:26 — Codex-Revisao-2026-10-04: assumir RV17.
+- 2026-10-04T06:53:52 — Codex-Revisao-2026-10-04: concluir RV17. Corrigidos concorrencia/numero de minuta, gate antigo, vinculo minuta-DOCX, IDs de diretorio, alias para originais, escrita atomica API, loop de reserva e copia FINAL sobre si. 17 testes novos OK; seguranca 11, solo 7, modularizacao 6 e gate 5 OK. Suite completa 30/48 antes e 32/50 depois, mesmas 18 falhas preexistentes; relatorio revisoes/revisao-codigo-2026-10-04.md. Usuario autorizou sincronizacao GitHub; branch de correcoes para PR em main.
