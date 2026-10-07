@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verifica a fidelidade do DOCX gerado ao modelo oficial CPJ com dados fictícios."""
+"""Verifica preservação do modelo DOCX recebido; runner usa fixture sintética no clone."""
 import os
 from pathlib import Path
 import subprocess

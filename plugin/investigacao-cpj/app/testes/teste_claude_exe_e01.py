@@ -41,6 +41,7 @@ class TesteClaudeExeE01(unittest.TestCase):
             exe = os.path.join(tmp, "claude.exe")
             with open(exe, "wb") as f:
                 f.write(b"ficticio")
+            os.chmod(exe, 0o700)
             # APPDATA vazio para forçar busca via PATH
             with patch.dict(os.environ, {"APPDATA": "", "USERPROFILE": "", "PATH": tmp}):
                 self.assertEqual(plantao.claude_exe(), exe)

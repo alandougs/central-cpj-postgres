@@ -81,6 +81,9 @@ try:
     ok(rc == 3 and "CANCELADO" in out, "cancelamento pela Central chega ao agente (código 3)")
     rc, out = cli("concluir", j2, "--agente", pl.pedido(j2)["agente"], "--resumo", "não deveria concluir")
     ok(rc == 3 and pl.pedido(j2)["estado"] == "cancelada", "pedido cancelado não é concluído")
+    for nome, conteudo in (("minuta-v01.md", "Minuta fictícia"), ("revisao-v01.md", "Revisão fictícia: 3 ajustes propostos.")):
+        with open(os.path.join(WS, "casos", "OS-1-2026", "03-relatorios", nome), "w", encoding="utf-8") as f:
+            f.write(conteudo)
     rc, out = cli("concluir", j1, "--agente", "Chat-A", "--resumo", "Revisão feita: 3 ajustes propostos.")
     r = pl.pedido(j1)
     ok(rc == 0 and r["estado"] == "concluida" and "3 ajustes" in json.loads(r["resultado"])["resumo"], "conclusão registrada com resumo")

@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
@@ -38,6 +39,8 @@ def _dentro(raiz, caminho):
 
 
 def _case_path(ws, caso, relativo, escrita=False):
+    if not isinstance(caso, str) or caso in (".", "..") or not re.fullmatch(r"[\w.\-]+", caso, re.A):
+        raise ValueError("Identificador de caso inválido.")
     if not isinstance(relativo, str) or not relativo or os.path.isabs(relativo) or ":" in relativo:
         raise ValueError("Informe um caminho relativo dentro da pasta do caso.")
     partes = relativo.replace("\\", "/").split("/")
@@ -54,9 +57,21 @@ def _case_path(ws, caso, relativo, escrita=False):
     if not escrita and os.path.splitext(partes[-1])[1].lower() not in (".md", ".csv", ".json", ".txt"):
         raise ValueError("O agente só pode ler Markdown, CSV, JSON e texto extraídos.")
     raiz = os.path.join(ws, "casos", caso)
+    if not _dentro(os.path.join(ws, "casos"), raiz):
+        raise ValueError("Pasta do caso fora do workspace.")
     alvo = os.path.realpath(os.path.join(raiz, *partes))
     if not _dentro(raiz, alvo):
         raise ValueError("Caminho fora da pasta do caso.")
+    # Verificar também o destino real: um alias dentro do caso pode apontar aos originais.
+    resolvido = os.path.relpath(alvo, os.path.realpath(raiz)).split(os.sep)
+    permitidos = ("02-analise", "03-relatorios") if escrita else (
+        "01-extracao", "02-analise", "03-relatorios", "caso.json", "registro-tratamento.md")
+    if resolvido[0] not in permitidos or any(p in ("00-originais", "ia-logs", ".git", "__pycache__") for p in resolvido):
+        raise ValueError("Esse destino não pode ser acessado pelo agente.")
+    if escrita and len(resolvido) < 2:
+        raise ValueError("O agente só pode gravar em análises e relatórios.")
+    if os.path.splitext(alvo)[1].lower() not in (".md", ".csv", ".json", ".txt"):
+        raise ValueError("O destino deve ser Markdown, CSV, JSON ou texto.")
     return raiz, alvo
 
 
@@ -68,7 +83,12 @@ def _listar(ws, caso):
         for nome in arquivos:
             if os.path.splitext(nome)[1].lower() in (".md", ".csv", ".json", ".txt"):
                 p = os.path.join(pasta, nome)
-                saida.append(os.path.relpath(p, raiz).replace("\\", "/"))
+                relativo = os.path.relpath(p, raiz).replace("\\", "/")
+                try:
+                    _case_path(ws, caso, relativo)
+                except ValueError:
+                    continue
+                saida.append(relativo)
                 if len(saida) >= 1500:
                     return sorted(saida)
     return sorted(saida)
@@ -94,20 +114,33 @@ def _tool(ws, caso, nome, args):
         if not isinstance(conteudo, str) or len(conteudo) > 2_000_000:
             raise ValueError("Conteúdo ausente ou maior que 2 MB.")
         os.makedirs(os.path.dirname(caminho), exist_ok=True)
-        with open(caminho, "w", encoding="utf-8", newline="\n") as f:
-            f.write(conteudo)
+        temporario = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="\n",
+                                             dir=os.path.dirname(caminho), prefix=".cpj-", suffix=".tmp",
+                                             delete=False) as f:
+                temporario = f.name
+                f.write(conteudo)
+            os.replace(temporario, caminho)
+        finally:
+            if temporario and os.path.exists(temporario):
+                os.remove(temporario)
         return {"ok": True, "caminho": os.path.relpath(caminho, os.path.join(ws, "casos", caso)).replace("\\", "/")}
     if nome == "gerar_docx":
         minuta = args.get("minuta") or ""
         if not re.fullmatch(r"minuta-v\d+\.md", minuta):
             raise ValueError("Informe o nome de uma minuta-vNN.md existente.")
         pasta = os.path.join(ws, "casos", caso, "03-relatorios")
-        fonte = os.path.join(pasta, minuta)
+        _, fonte = _case_path(ws, caso, "03-relatorios/" + minuta)
+        if os.path.dirname(fonte) != os.path.abspath(pasta):
+            raise ValueError("A pasta de relatórios não pode redirecionar a geração de DOCX.")
         if not os.path.isfile(fonte):
             raise ValueError("Minuta não encontrada em 03-relatorios.")
         from pathlib import Path
         script = Path(__file__).resolve().parents[1] / "skills" / "relatorio-ip-fraude" / "scripts" / "gerar_docx.py"
         destino = os.path.join(pasta, "RELATORIO-" + caso + "-v" + re.search(r"\d+", minuta).group() + ".docx")
+        if os.path.realpath(destino) != os.path.abspath(destino):
+            raise ValueError("O destino do DOCX não pode ser um link simbólico.")
         r = subprocess.run([sys.executable, str(script), fonte, "--saida", destino], cwd=ws, timeout=180,
                            capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=SEM_JANELA,
                            env=dict(os.environ, CPJ_WORKSPACE=ws, PYTHONIOENCODING="utf-8"))

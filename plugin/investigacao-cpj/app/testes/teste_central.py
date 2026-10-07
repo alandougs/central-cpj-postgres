@@ -118,14 +118,14 @@ ok(any(x["autor"] == "Colega Teste" and x["peso"] == 5 for x in adm.req("GET", "
 print("6. Minuta → DOCX → FINAL → baixa")
 m = adm.req("GET", "/api/casos/OS-901-2026/minuta")[1]
 ok(m["meta"]["ordem_servico"] == "901/2026", "minuta nova já vem com dados da O.S.")
-m["meta"].update(delegado="Dr. Delegado Teste", investigados="FULANO FICTICIO DE TAL", vitimas="MARIA FICTICIA DA SILVA")
-sec = {"RESUMO DOS FATOS": "Consta do boletim de ocorrência (fls. 2) que a vítima, em tese, foi induzida a erro.",
-       "DILIGÊNCIAS REALIZADAS": "### Caminho do dinheiro\n| Data | Valor | Destino | Fls. |\n|---|---|---|---|\n| 10/03/2026 | R$ 2.500,00 | FULANO FICTICIO | 4 |",
-       "CONCLUSÃO": "Foram reunidos elementos indicativos de que o valor foi destinado à conta acima."}
+m["meta"].update(delegado="Dr. Delegado Teste", delegado_genero="M", referencia="IPe nº 901/2026 / Processo nº 0000901-01.2026.8.26.0000", investigados="FULANO FICTICIO DE TAL", vitimas="MARIA FICTICIA DA SILVA", natureza="Estelionato fictício", local="Local fictício", data_fatos="10/03/2026", escrivao="Escrivão Fictício")
+sec = {"RESUMO DOS FATOS": "Consta do termo de declarações fictício o relato sobre transferência via Pix (pág. 1 do PDF; fls. 1).",
+       "DILIGÊNCIAS REALIZADAS": "Foi conferido o termo de declarações fictício, preservadas as lacunas documentais (pág. 1 do PDF; fls. 1).",
+       "CONCLUSÃO": "O documento fictício registra relato de transferência, sem permitir atribuição de autoria (pág. 1 do PDF; fls. 1)."}
 st, j = adm.req("POST", "/api/casos/OS-901-2026/minuta", {"meta": m["meta"], "secoes": sec})
 ok(st == 200 and j.get("docx") == "RELATORIO-OS-901-2026-v01.docx", f"minuta salva e DOCX gerado ({j})")
 st, j = adm.req("POST", "/api/casos/OS-901-2026/final", {"docx": "RELATORIO-OS-901-2026-v01.docx"})
-ok(st == 200, "relatório definido como FINAL")
+ok(st == 200, f"relatório definido como FINAL ({j})")
 c = adm.req("GET", "/api/casos/OS-901-2026")[1]["caso"]
 ok(c["status"] == "entregue" and c["baixa"]["origem"] == "central", "baixa registrada (origem central)")
 fin = [r for r in dlg.req("GET", "/api/casos/OS-901-2026")[1]["relatorios"]]
@@ -145,7 +145,7 @@ ok(adm.req("GET", "/painel", bruto=True)[0] == 200, "painel de estatísticas dis
 print("8. IA sem login do Claude e segurança de login")
 st, j = adm.req("POST", "/api/casos/OS-901-2026/ia", {"acao": "analisar"})
 if st == 200:
-    t = adm.esperar(j["tarefa"], 60)
+    t = adm.esperar(j["tarefa"], 1)  # sandbox sem agente embutido: verificar a espera, não aguardar execução
     if not t:
         # Sem agente de plantão ativo (fila multiagente/D01): o pedido aguarda em vez de falhar.
         t = next((x for x in adm.req("GET", "/api/tarefas")[1] if x["id"] == j["tarefa"]), None)

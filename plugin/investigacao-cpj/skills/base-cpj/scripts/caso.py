@@ -181,7 +181,7 @@ def reservar_arquivo_versao(pasta, prefixo="minuta-v", ext=".md"):
             fd = os.open(caminho_arq, flags)
             os.close(fd)
             break
-        except (FileExistsError, OSError):
+        except FileExistsError:
             i += 1
     sucesso = False
     try:
@@ -205,7 +205,7 @@ def id_de_os(os_num):
 
 
 def caminho(id_):
-    if not re.fullmatch(r"[\w.\-]+", id_ or "", flags=re.A):
+    if id_ in (".", "..") or not re.fullmatch(r"[\w.\-]+", id_ or "", flags=re.A):
         raise ValueError("ID inválido: use letras, números, ponto, hífen ou sublinhado.")
     return os.path.join(CASOS, id_)
 

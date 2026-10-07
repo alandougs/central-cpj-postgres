@@ -49,6 +49,7 @@ class TesteEsteiraCompleta(unittest.TestCase):
         self.auth = Auth(self.tmp)
         self.auth.salvar_usuario("investigador.teste", "Investigador Teste", "investigador", "SenhaForte123!")
         self.auth.salvar_usuario("delegado.teste", "Delegado Teste", "delegado", "SenhaForte123!")
+        shutil.copytree(os.path.join(RAIZ, "modelos"), os.path.join(self.tmp, "modelos"))
         self.pl = Plantao(self.tmp)
 
         # Configura cliente de teste do Flask e rotas compartilhadas
@@ -160,7 +161,7 @@ class TesteEsteiraCompleta(unittest.TestCase):
         # Cria uma minuta simples
         minuta_path = os.path.join(pasta_rel, "minuta-v01.md")
         with open(minuta_path, "w", encoding="utf-8") as f:
-            f.write("# RELATÓRIO DE INVESTIGAÇÃO\n\nResumo dos fatos.\n")
+            f.write("## RESUMO DOS FATOS\nFatos fictícios.\n## DILIGÊNCIAS REALIZADAS\nConferência fictícia.\n## CONCLUSÃO\nSem atribuição de autoria.\n")
 
         resultado = pos_processar(self.tmp, caso_id, "esteira")
         self.assertIn("minuta", resultado)

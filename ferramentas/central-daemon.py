@@ -16,6 +16,7 @@ Uso:
 import argparse
 import datetime
 import json
+from pathlib import Path
 import os
 import shutil
 import signal
@@ -87,6 +88,10 @@ def processo_vivo(pid: int) -> bool:
             return False
     else:
         try:
+            # kill(pid, 0) também encontra zumbis; eles já não supervisionam nada.
+            stat = Path(f"/proc/{pid}/stat")
+            if stat.exists() and stat.read_text().rsplit(")", 1)[1].strip().startswith("Z "):
+                return False
             os.kill(pid, 0)
             return True
         except OSError:

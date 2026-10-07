@@ -29,7 +29,7 @@ def gerar_pdf_ficticio(destino):
     """Cria páginas escaneadas determinísticas, sem dados de caso."""
     paginas = []
     try:
-        fonte = ImageFont.truetype(r"C:\Windows\Fonts\arial.ttf", 30)
+        fonte = ImageFont.truetype(r"C:\Windows\Fonts\arial.ttf" if os.name == "nt" else "DejaVuSans.ttf", 30)
     except OSError:
         fonte = ImageFont.load_default()
     for numero in range(1, 5):
@@ -50,7 +50,9 @@ class TesteDesempenhoF02(unittest.TestCase):
             gerar_pdf_ficticio(pdf)
             saidas = {}
             env = os.environ.copy()
-            env["TESSDATA_PREFIX"] = str(ROOT / "ferramentas/tessdata")
+            tessdata = ROOT / "ferramentas/tessdata"
+            if (tessdata / "por.traineddata").is_file() and (tessdata / "por.traineddata").stat().st_size > 0:
+                env["TESSDATA_PREFIX"] = str(tessdata)
             exe = tesseract_local()
             if exe:
                 env["PATH"] = str(Path(exe).parent) + os.pathsep + env.get("PATH", "")

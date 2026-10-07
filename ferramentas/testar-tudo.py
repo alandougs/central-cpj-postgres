@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import importlib.util
 import os
+import re
 from pathlib import Path
 import secrets
 import shutil
@@ -45,6 +47,13 @@ def clonar_codigo(destino: Path) -> Path:
     (raiz_teste / "plugin").mkdir(parents=True)
     shutil.copytree(PLUGIN, raiz_teste / "plugin" / "investigacao-cpj")
     shutil.copytree(ROOT / "modelos", raiz_teste / "modelos")
+    # Um clone não contém o modelo oficial ignorado pelo Git. Gere somente na sandbox.
+    spec = importlib.util.spec_from_file_location("fixtures_docx", TESTES / "fixtures_docx.py")
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    fixture.criar_modelo(raiz_teste / "modelos")
+    shutil.copytree(ROOT / "calibracao", raiz_teste / "calibracao",
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     shutil.copytree(ROOT / "ferramentas", raiz_teste / "ferramentas",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     shutil.copytree(ROOT / "portatil", raiz_teste / "portatil")
@@ -98,7 +107,7 @@ def selecionar_testes(rapido: bool, incluir: str | None) -> list[str]:
 def preparar_workspace_teste(raiz_teste: Path, codigo: Path) -> Path:
     ws = raiz_teste / "workspace"
     (ws / "config").mkdir(parents=True)
-    shutil.copytree(ROOT / "modelos", ws / "modelos")
+    shutil.copytree(codigo / "modelos", ws / "modelos")
     shutil.copytree(codigo / "casos" / "_MODELO-CASO", ws / "casos" / "_MODELO-CASO")
     return ws
 
@@ -308,6 +317,7 @@ def main() -> int:
 
     resultados: list[tuple[str, int, float]] = []
     detalhes_falha: list[tuple[str, str]] = []
+    pulados: list[tuple[str, str]] = []
     for nome in nomes:
         codigo, duracao, detalhe = rodar_suíte(nome)
         resultados.append((nome, codigo, duracao))
@@ -315,6 +325,9 @@ def main() -> int:
         print(f"{estado:6} {duracao:8.2f}s  {nome}", flush=True)
         if codigo:
             detalhes_falha.append((nome, detalhe))
+        elif re.search(r"skipped=\d+|SkipTest|SKIP|não executado", detalhe):
+            resumo = " | ".join(l.strip() for l in detalhe.splitlines() if re.search(r"skipped|SkipTest|SKIP|não executado", l))
+            pulados.append((nome, resumo))
 
     if not args.rapido:
         try:
@@ -335,6 +348,10 @@ def main() -> int:
         print("\nFalhas:")
         for nome, detalhe in detalhes_falha:
             print(f"\n--- {nome} ---\n{detalhe[-12000:]}")
+    if pulados:
+        print("\nTestes não executados (requisitos de ambiente):")
+        for nome, motivo in pulados:
+            print(f"{nome}: {motivo}")
     total = sum(d for _, _, d in resultados)
     falhas = sum(1 for _, codigo, _ in resultados if codigo)
     print(f"\n{len(resultados) - falhas}/{len(resultados)} suítes aprovadas em {total:.2f}s")
