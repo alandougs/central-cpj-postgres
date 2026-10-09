@@ -17,6 +17,10 @@ def ok(cond, msg):
 
 def ler(*partes):
     with open(os.path.join(RAIZ, *partes), encoding="utf-8") as f:
+    p = os.path.join(RAIZ, *partes)
+    if not os.path.isfile(p):
+        return ""
+    with open(p, encoding="utf-8") as f:
         return f.read()
 
 
@@ -31,6 +35,8 @@ ok('"gravado": False' in proposta, "a resposta da proposta declara gravado=False
 ok("_calibrador().registrar(" in rota[j:], "só a rota de aprovação grava (por id de lição)")
 
 ids_reais = [d for d in os.listdir(os.path.join(RAIZ, "casos")) if re.match(r"OS-.*\d", d) and not d.startswith("_")]
+pasta_casos = os.path.join(RAIZ, "casos")
+ids_reais = [d for d in os.listdir(pasta_casos) if re.match(r"OS-.*\d", d) and not d.startswith("_")] if os.path.isdir(pasta_casos) else []
 calib = ler("calibracao", "licoes-aprendidas.md") + ler("calibracao", "historico-calibracao.md")
 vazados = [d for d in ids_reais if d in calib]
 ok(not vazados, f"nenhum ID de caso real em calibracao/ ({len(ids_reais)} casos conferidos)" + (f": {vazados}" if vazados else ""))

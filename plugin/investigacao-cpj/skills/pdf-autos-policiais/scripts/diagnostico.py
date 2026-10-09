@@ -14,6 +14,14 @@ def faixas(nums):
     if ini is not None: out.append(f"{ini}-{ant}" if ini != ant else str(ini))
     return ", ".join(out)
 
+def classificar_erro_pdfium(erro):
+    mensagem = str(erro).casefold()
+    if "password" in mensagem or "encrypted" in mensagem:
+        return "senha", "O PDF está protegido por senha ou criptografia e não pôde ser aberto."
+    if "data format error" in mensagem or "file not found or corrupted" in mensagem:
+        return "corrompido", "O arquivo está corrompido, incompleto ou não é um PDF válido."
+    return "desconhecido", f"Não foi possível abrir o PDF; motivo não identificado: {erro}"
+
 def main(caminho):
     h = hashlib.sha256()
     with open(caminho, "rb") as f:
@@ -21,7 +29,8 @@ def main(caminho):
     try:
         pdf = pdfium.PdfDocument(caminho)
     except pdfium.PdfiumError as e:
-        print(json.dumps({"erro": f"Não foi possível abrir (senha/criptografia ou arquivo corrompido): {e}"}, ensure_ascii=False)); return
+        motivo, mensagem = classificar_erro_pdfium(e)
+        print(json.dumps({"erro": mensagem, "motivo_erro": motivo}, ensure_ascii=False)); return
     n = len(pdf)
     sem_texto = []
     total_chars = 0

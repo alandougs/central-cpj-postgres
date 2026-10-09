@@ -302,7 +302,15 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 
 
-<section class="aba" id="casos"><h2>Casos</h2><p class="sub">Ordenados por urgência de prazo. Pesquise por O.S., BO, IP, processo, partes ou modalidade.</p>
+<section class="aba" id="pendencias"><h2>Pendentes de Processamento</h2><p class="sub">Arquivos aguardando OCR, extração de texto e planilhas.</p>
+<div class="card" style="padding:4px 10px">
+<div class="barra"><button id="b-processar-pendentes" class="btn pri" disabled>Processar OS em Lote</button></div>
+<table><thead><tr><th style="width:30px"><input type="checkbox" id="pend-chk-todos" checked></th><th>O.S. / Caso</th><th>Arquivo</th><th>Status Anterior</th></tr></thead>
+<tbody id="t-pendencias"></tbody></table>
+<div id="pendencias-vazio" class="vazio" hidden>✅ Nenhum arquivo novo pendente de processamento.</div>
+</div></section>
+
+<section class="aba" id="casos"><h2>Casos</h2><p class="sub">Ordens de Serviço em ordem numérica crescente. Pesquise por O.S., BO, IP, processo, partes ou modalidade.</p>
 
 <div class="barra"><input id="q-casos" placeholder="Buscar…"><select id="st-casos"><option value="">todos os status</option></select>
 
@@ -519,15 +527,15 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
  <div class="acoes"><button class="btn" id="b-claude-login">Entrar no Claude</button><button class="btn sm" id="b-claude-rec">Verificar novamente</button></div></div>
 
 <div class="card" data-perm="ia" id="card-config-ia"><h3>CONFIGURAÇÕES — processamento por agente ou por API</h3>
- <p class="muted">Define quem executa os botões de IA e a esteira por padrão: <b>agente de plantão</b> (sessão de chat ou CLI local) ou <b>API</b> do provedor cadastrado abaixo. Na API, o modelo recebe como instruções o AGENTS.md, os procedimentos, os papéis dos agentes (analista-documental, analista-financeiro, revisor) e as skills do plugin, mais o texto que você escrever aqui. <b>Atenção ao sigilo:</b> na via API o conteúdo extraído do caso é enviado ao provedor escolhido (exceção autorizada à regra 6; cada uso fica na auditoria). Chaves e modelos ficam no cartão logo abaixo.</p>
+ <p class="muted">Define quem executa os botões de IA e a esteira por padrão: <b>agente de plantão</b> (sessão de chat ou CLI local) ou <b>API</b> dos provedores cadastrados abaixo. No modo automático, tenta Claude, GPT, Gemini e depois os demais provedores ativos, avançando quando uma chamada falha. Na API, cada modelo recebe como instruções o AGENTS.md, os procedimentos, os papéis dos agentes (analista-documental, analista-financeiro, revisor) e as skills do plugin, mais o texto que você escrever aqui. <b>Atenção ao sigilo:</b> o conteúdo extraído do caso pode ser enviado a mais de um provedor ativo até uma chamada funcionar (exceção autorizada à regra 6; cada uso fica na auditoria). Chaves e modelos ficam no cartão logo abaixo.</p>
  <div class="campos" style="grid-template-columns:1fr 1fr"><div><label>Modo padrão</label><select id="cfgia-modo"><option value="agente">Agente de plantão (recomendado)</option><option value="api">API do provedor</option></select></div>
- <div><label>Provedor da API</label><select id="cfgia-prov"><option value="">— selecione —</option></select></div></div>
+ <div><label>Ordem de provedores</label><select id="cfgia-prov"><option value="auto">Automático: Claude → GPT → Gemini → demais</option></select></div></div>
  <label>Instruções adicionais do investigador (prompt de sistema da via API)</label><textarea id="cfgia-prompt" rows="5" maxlength="8000" placeholder="Opcional: estilo, cautelas, prioridades. Não coloque dados de caso aqui."></textarea>
  <div class="acoes"><button class="btn pri" id="b-cfgia" data-perm="usuarios">Salvar configurações</button><span class="muted" id="msg-cfgia"></span></div></div>
 
-<div class="card" data-perm="usuarios"><h3>Chaves de API e Modelos de LLM (GPT, Claude, Gemini, DeepSeek, Copilot)</h3>
+<div class="card" data-perm="usuarios"><h3>Chaves de API e Modelos de LLM (GPT, Claude, Gemini, Groq, OpenRouter, NVIDIA e outros)</h3>
 
- <p class="muted">Cadastre as chaves de API e modelos para acionamento direto ou agentes de IA. As chaves são salvas localmente de forma segura neste computador (<code>config\chaves_llm.json</code>).</p>
+ <p class="muted">Cadastre as chaves de API e modelos para acionamento direto ou agentes de IA. As chaves são salvas localmente neste computador (<code>config\chaves_llm.json</code>).</p>
 
  <div class="g2" id="grid-llm">
 
@@ -576,6 +584,42 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
      <label style="margin-top:6px">Modelo padrão</label><input id="llm-deepseek-modelo" placeholder="ex.: deepseek-chat">
 
      <div class="acoes"><button type="button" class="btn sm pri" onclick="salvarLLM('deepseek')">Salvar DeepSeek</button><span class="muted" id="msg-llm-deepseek"></span></div>
+
+   </div>
+
+   <div class="card" style="background:var(--surface-2);border:1px solid var(--line);padding:12px">
+
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>Groq</b><label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" id="llm-groq-ativo" style="width:auto"> Ativo</label></div>
+
+     <label>Chave API</label><input type="password" id="llm-groq-chave" placeholder="Chave da Groq" autocomplete="off">
+
+     <label style="margin-top:6px">Modelo padrão</label><input id="llm-groq-modelo" placeholder="ex.: modelo habilitado na Groq">
+
+     <div class="acoes"><button type="button" class="btn sm pri" onclick="salvarLLM('groq')">Salvar Groq</button><span class="muted" id="msg-llm-groq"></span></div>
+
+   </div>
+
+   <div class="card" style="background:var(--surface-2);border:1px solid var(--line);padding:12px">
+
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>OpenRouter</b><label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" id="llm-openrouter-ativo" style="width:auto"> Ativo</label></div>
+
+     <label>Chave API</label><input type="password" id="llm-openrouter-chave" placeholder="Chave da OpenRouter" autocomplete="off">
+
+     <label style="margin-top:6px">Modelo padrão</label><input id="llm-openrouter-modelo" placeholder="ex.: provedor/modelo">
+
+     <div class="acoes"><button type="button" class="btn sm pri" onclick="salvarLLM('openrouter')">Salvar OpenRouter</button><span class="muted" id="msg-llm-openrouter"></span></div>
+
+   </div>
+
+   <div class="card" style="background:var(--surface-2);border:1px solid var(--line);padding:12px">
+
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>NVIDIA NIM</b><label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" id="llm-nvidia-ativo" style="width:auto"> Ativo</label></div>
+
+     <label>Chave API</label><input type="password" id="llm-nvidia-chave" placeholder="Chave da NVIDIA NIM" autocomplete="off">
+
+     <label style="margin-top:6px">Modelo padrão</label><input id="llm-nvidia-modelo" placeholder="ex.: modelo habilitado na NVIDIA">
+
+     <div class="acoes"><button type="button" class="btn sm pri" onclick="salvarLLM('nvidia')">Salvar NVIDIA</button><span class="muted" id="msg-llm-nvidia"></span></div>
 
    </div>
 
@@ -671,6 +715,12 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 
 
+<div class="modal" id="visualizador-relatorio" role="dialog" aria-modal="true" aria-labelledby="vis-titulo" hidden><div class="card">
+ <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><h3 id="vis-titulo" style="margin:0">Relatório</h3><div class="acoes" style="margin:0"><a class="btn sm" id="vis-original" target="_blank" rel="noopener">Abrir original</a><button type="button" class="btn sm" id="vis-fechar">Fechar</button></div></div>
+ <p class="muted" id="vis-aviso" hidden>Prévia de texto e tabelas do DOCX. Para a formatação completa, abra o original no Word.</p>
+ <iframe id="vis-frame" title="Visualização do relatório" style="width:100%;height:72vh;border:1px solid var(--line);margin-top:12px;background:white"></iframe>
+</div></div>
+
 <div class="modal" id="editor" hidden><div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><h3 style="margin:0" id="ed-tit">Editar minuta</h3>
 
 <div class="acoes" style="margin:0"><button class="btn" id="ed-cancelar">Fechar</button><button class="btn pri" id="ed-salvar">Salvar nova versão e gerar DOCX</button></div></div>
@@ -699,7 +749,7 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 <div class="acoes" style="margin-top:12px"><button type="submit" class="btn pri">Criar Vínculo</button><button type="button" class="btn" id="b-canc-mv">Cancelar</button><span class="muted" id="msg-vinc-novo"></span></div></form></div></div>
 
-<div class="modal" id="modal-final-ressalva" hidden><div class="card" style="max-width:700px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">Conferência da Minuta (Gate de Entrega)</h3><button type="button" class="btn sm" id="b-fecha-final-ressalva">✕</button></div>
+<div class="modal" id="modal-consentimento" hidden><div class="card" style="max-width:500px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">AVISO: PROCESSAMENTO FORA DO AMBIENTE LOCAL</h3></div><div style="margin-bottom:12px;padding:12px;background:var(--card,#fff);border:1px solid var(--borda,#ddd);border-radius:6px;font-size:14px;line-height:1.5">Aviso legal: O processamento desta tarefa enviará os documentos selecionados a provedores e servidores externos (<span id="cons-destinos" style="font-weight:bold"></span>). O sigilo  aplicável. Deseja prosseguir com o envio?</div><div class="acoes"><button type="button" class="btn" id="b-cons-recusar">Não aceitar</button><button type="button" class="btn pri" id="b-cons-aceitar">Aceitar</button></div></div></div><div class="modal" id="modal-final-ressalva" hidden><div class="card" style="max-width:700px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">Conferência da Minuta (Gate de Entrega)</h3><button type="button" class="btn sm" id="b-fecha-final-ressalva">✕</button></div>
 <div id="final-ressalva-aviso" style="margin-bottom:12px;padding:8px 12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:6px;font-size:13px;line-height:1.4">A conferência automática detectou apontamentos bloqueantes na minuta do relatório.</div>
 <div id="final-ressalva-lista" style="max-height:220px;overflow:auto;margin-bottom:12px;font-size:12px;border:1px solid var(--borda,#ddd);border-radius:6px;padding:8px"></div>
 <div style="margin-bottom:12px"><label style="display:block;font-weight:600;margin-bottom:4px;font-size:13px">Justificativa para entrega com ressalva (mínimo 15 caracteres):</label><textarea id="final-ressalva-texto" rows="3" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px" placeholder="Descreva a justificativa para prosseguir mesmo com as pendências acima..."></textarea></div>
@@ -783,7 +833,7 @@ $("#b-sair").onclick=async()=>{await api("/api/sair",{method:"POST"});location.h
 
 
 
-const ABAS=[["inicio","Início","casos"],["nova","Nova O.S.","os"],["casos","Casos","casos"],["fluxograma","Fluxograma","casos"],["pesquisa","Pesquisa","pesquisa"],["grafo","Grafo","pesquisa"],["estatisticas","Estatísticas","estatisticas"],["sistema","Sistema",null]];
+const ABAS=[["inicio","Início","casos"],["nova","Nova O.S.","os"],["pendencias","Pendentes","trabalho"],["casos","Casos","casos"],["fluxograma","Fluxograma","casos"],["pesquisa","Pesquisa","pesquisa"],["grafo","Grafo","pesquisa"],["estatisticas","Estatísticas","estatisticas"],["sistema","Sistema",null]];
 
 const MOD=["","falso-parente","whatsapp-clonado","falsa-central","boleto-falso","falso-vendedor","falso-intermediario","falso-investimento","falso-emprego","emprestimo-falso","golpe-afetivo","falso-sequestro","maquininha","fraude-cartao","fraude-documental","outro"];
 
@@ -813,9 +863,9 @@ function montar(){$("#u-nome").textContent=S.usuario.cargo?`${S.usuario.nome} ·
 
 function abrirAba(a){$$("#nav button").forEach(x=>x.classList.toggle("on",x.dataset.a===a));$$("section.aba").forEach(s=>s.classList.toggle("on",s.id===a));history.replaceState(null,"","#"+a);
 
- if(a==="inicio")carregarInicio();if(a==="casos")carregarCasos();if(a==="fluxograma")carregarAbaFluxograma();if(a==="nova")atualizarFila();if(a==="grafo")carregarGrafo();if(a==="estatisticas")$("#if-painel").src="/painel?t="+Date.now();if(a==="sistema")carregarSistema()}
+ if(a==="inicio")carregarInicio();if(a==="casos")carregarCasos();if(a==="pendencias")carregarPendencias();if(a==="fluxograma")carregarAbaFluxograma();if(a==="nova")atualizarFila();if(a==="grafo")carregarGrafo();if(a==="estatisticas")$("#if-painel").src="/painel?t="+Date.now();if(a==="sistema")carregarSistema()}
 
-let tc=0,nCiclo=0;async function ciclo(){clearTimeout(tc);if(!S.usuario)return;nCiclo++;try{await atualizarTarefas();if($("#nova").classList.contains("on")||$("#inicio").classList.contains("on"))await atualizarFila();if(casoAberto)await atualizarIA();
+let tc=0,nCiclo=0;async function ciclo(){clearTimeout(tc);if(!S.usuario)return;nCiclo++;try{await atualizarTarefas();if($("#nova").classList.contains("on")||$("#inicio").classList.contains("on"))await atualizarFila();if($("#pendencias").classList.contains("on"))await carregarPendencias();if(casoAberto)await atualizarIA();
 
  if(nCiclo%3===0&&$("#sistema").classList.contains("on"))await carregarAgentes()}catch(e){}tc=setTimeout(ciclo,1600)}
 
@@ -917,9 +967,14 @@ async function atualizarFila(){const j=await api("/api/fila");$("#ocr-lang").tex
 
 // ---------------- casos
 
+function compararNumeroOS(a,b){
+ const numero=c=>{const m=String(c.ordem_servico||c.id||"").match(/\d+/);return m?Number(m[0]):Infinity};
+ return numero(a)-numero(b)||String(a.ordem_servico||a.id||"").localeCompare(String(b.ordem_servico||b.id||""),"pt-BR",{numeric:true});
+}
 let tq;$("#q-casos").oninput=()=>{clearTimeout(tq);tq=setTimeout(carregarCasos,250)};$("#st-casos").onchange=carregarCasos;$("#pz-casos").onchange=carregarCasos;$("#meus-casos").onchange=carregarCasos;
 
 async function carregarCasos(){const cs=await api(`/api/casos?q=${enc($("#q-casos").value)}&status=${$("#st-casos").value}&prazo=${$("#pz-casos").value}&meus=${$("#meus-casos").checked?1:""}`);
+ cs.sort(compararNumeroOS);
 
  $("#casos-vazio").hidden=!!cs.length;$("#t-casos").innerHTML=cs.map(c=>`<tr data-id="${esc(c.id)}"><td><b>${esc(c.ordem_servico||c.id)}</b>${!c.visto&&pode("trabalho")?' <span class="badge b-wait"><i aria-hidden="true"></i>nova</span>':""}${c.prioridade&&c.prioridade!=="normal"?` <span class="badge pz-hoje">${esc(c.prioridade)}</span>`:""}</td>
 
@@ -930,6 +985,93 @@ async function carregarCasos(){const cs=await api(`/api/casos?q=${enc($("#q-caso
  $$("#t-casos tr").forEach(tr=>tr.onclick=()=>abrirCaso(tr.dataset.id,true))}
 
 let casoAberto=null;
+let origemVisualizador=null;
+function fecharVisualizadorRelatorio(){
+ $("#visualizador-relatorio").hidden=true;$("#vis-frame").removeAttribute("src");$("#vis-frame").removeAttribute("sandbox");
+ if(origemVisualizador&&origemVisualizador.isConnected)origemVisualizador.focus();origemVisualizador=null;
+}
+function visualizarRelatorio(id,arquivo,origem){
+ const caminho="03-relatorios/"+arquivo,rel=caminho.split("/").map(enc).join("/"),docx=/\.docx$/i.test(arquivo),frame=$("#vis-frame");
+ origemVisualizador=origem;$("#vis-titulo").textContent=arquivo;$("#vis-aviso").hidden=false;
+ $("#vis-aviso").textContent=docx?"Prévia de texto e tabelas do DOCX. Para a formatação completa, abra o original no Word.":"Se o navegador não exibir o PDF, clique em Abrir original.";
+ $("#vis-original").href=`/arquivo/${enc(id)}/${rel}`;
+ if(docx)frame.setAttribute("sandbox","allow-same-origin");else frame.removeAttribute("sandbox");
+ frame.src=`/${docx?"visualizar":"arquivo"}/${enc(id)}/${rel}`;$("#visualizador-relatorio").hidden=false;$("#vis-fechar").focus();
+}
+$("#vis-fechar").onclick=fecharVisualizadorRelatorio;
+$("#visualizador-relatorio").onclick=e=>{if(e.target===$("#visualizador-relatorio"))fecharVisualizadorRelatorio()};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#visualizador-relatorio").hidden)fecharVisualizadorRelatorio()});
+
+let pendenciasItens = [];
+async function carregarPendencias(){
+  if(!pode("trabalho"))return;
+  const p = await api("/api/pendencias-ocr");
+  pendenciasItens = p.pendentes || [];
+  renderPendencias();
+}
+
+function atualizarBotaoPendencias() {
+  const chks = $$(".pend-chk");
+  const numMarcados = Array.from(chks).filter(c => c.checked).length;
+  $("#b-processar-pendentes").disabled = numMarcados === 0;
+  $("#pend-chk-todos").checked = chks.length > 0 && numMarcados === chks.length;
+}
+
+function renderPendencias(){
+  const t = $("#t-pendencias");
+  if(!pendenciasItens.length){
+    t.innerHTML = "";
+    $("#pendencias-vazio").hidden = false;
+    $("#b-processar-pendentes").disabled = true;
+    $("#pend-chk-todos").disabled = true;
+    return;
+  }
+  $("#pendencias-vazio").hidden = true;
+  $("#pend-chk-todos").disabled = false;
+  
+  t.innerHTML = pendenciasItens.map((i, idx) => `
+    <tr>
+      <td><input type="checkbox" class="pend-chk" data-idx="${idx}" checked></td>
+      <td><b>${esc(i.os)}</b></td>
+      <td>${esc(i.arquivo)}</td>
+      <td>${i.status?badge(i.status):(i.erro?badge("erro"):esc("-"))}${i.erro?` <span style="color:var(--crit)">${esc(i.erro)}</span>`:""}</td>
+    </tr>
+  `).join("");
+  
+  $$(".pend-chk").forEach(c => c.onchange = atualizarBotaoPendencias);
+  atualizarBotaoPendencias();
+}
+
+$("#pend-chk-todos").onchange = e => {
+  $$(".pend-chk").forEach(c => c.checked = e.target.checked);
+  atualizarBotaoPendencias();
+};
+
+$("#b-processar-pendentes").onclick = async () => {
+  const selecionados = [];
+  $$(".pend-chk").forEach(c => {
+    if(c.checked) selecionados.push(pendenciasItens[parseInt(c.dataset.idx)]);
+  });
+  if(!selecionados.length) return;
+  
+  $("#b-processar-pendentes").disabled = true;
+  $("#b-processar-pendentes").textContent = "Processando...";
+  
+  try {
+    const r = await api("/api/pendencias-ocr/processar", { method: "POST", json: selecionados });
+    let enfileirados = 0;
+    r.resultados.forEach(res => {
+      if(res.status === "enfileirado") enfileirados++;
+    });
+    toast(`${enfileirados} arquivo(s) enviado(s) para a fila`);
+    await carregarPendencias();
+  } catch(e) {
+    toast("Erro ao processar: " + (e.message || "Erro desconhecido"));
+  } finally {
+    $("#b-processar-pendentes").textContent = "Processar OS em Lote";
+    atualizarBotaoPendencias();
+  }
+};
 
 const NOMES_OS={ordem_servico:"O.S.",bo:"BO",inquerito:"IP",processo:"Processo",natureza:"Natureza",requisitante:"Delegado requisitante",escrivao:"Escrivão do feito",prazo:"Prazo",determinacao:"Determinação"};
 
@@ -959,9 +1101,9 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
 
  const link=a=>`/arquivo/${enc(id)}/${a.split("/").map(enc).join("/")}`;
 
- const rels=j.relatorios.map(f=>{const a="03-relatorios/"+f.arquivo,dx=f.arquivo.endsWith(".docx");return `<tr><td><a class="lk" href="${link(a)}" target="_blank">${esc(f.arquivo)}</a></td><td>${esc(f.tipo)}</td><td class="muted">${esc(f.modificado.replace("T"," "))}</td>
+ const rels=j.relatorios.map(f=>{const a="03-relatorios/"+f.arquivo,dx=/\.docx$/i.test(f.arquivo),visual=dx||/\.pdf$/i.test(f.arquivo);return `<tr><td><a class="lk" href="${link(a)}" target="_blank">${esc(f.arquivo)}</a></td><td>${esc(f.tipo)}</td><td class="muted">${esc(f.modificado.replace("T"," "))}</td>
 
-  <td>${T&&f.tipo==="minuta"?`<button class="btn sm" data-edit="${esc(f.arquivo)}">editar</button> <button class="btn sm" data-gdocx="${esc(f.arquivo)}">gerar DOCX</button>`:""}${T&&dx?`<button class="btn sm" data-pdf="${esc(f.arquivo)}">PDF</button> ${j.local!==false?`<button class="btn sm" data-word="${esc(a)}">abrir no Word</button>`:""} ${f.tipo!=="final"?`<button class="btn sm" data-final="${esc(f.arquivo)}">definir FINAL</button>`:""} <button class="btn sm" data-calibrar="${esc(f.arquivo)}" title="Calibrar estilo com este relatório">calibrar estilo</button>`:""}</td></tr>`}).join("");
+  <td>${visual?`<button class="btn sm" data-visualizar="${esc(f.arquivo)}" title="Visualizar relatório no sistema">Visualizar</button> `:""}${T&&f.tipo==="minuta"?`<button class="btn sm" data-edit="${esc(f.arquivo)}">editar</button> <button class="btn sm" data-gdocx="${esc(f.arquivo)}">gerar DOCX</button>`:""}${T&&dx?`<button class="btn sm" data-pdf="${esc(f.arquivo)}">PDF</button> ${j.local!==false?`<button class="btn sm" data-word="${esc(a)}">abrir no Word</button>`:""} ${f.tipo!=="final"?`<button class="btn sm" data-final="${esc(f.arquivo)}">definir FINAL</button>`:""} <button class="btn sm" data-calibrar="${esc(f.arquivo)}" title="Calibrar estilo com este relatório">calibrar estilo</button>`:""}</td></tr>`}).join("");
 
  const baixa=c.status==="entregue"?`<div>${badge("concluido")} Baixa em <b>${dt((c.datas||{}).entregue)}</b> · origem: ${esc((c.baixa||{}).origem||"—")} ${T?'<button class="btn sm" id="b-desfazer">Desfazer baixa</button>':""}</div>`
 
@@ -971,7 +1113,7 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
 
  <div class="acoes" style="margin:0">${T?'<button class="btn sm" id="b-pasta">Abrir pasta</button><button class="btn sm" id="b-caso-ver-fluxo">Ver Fluxograma</button><a class="btn sm" id="b-caso-fluxo-csv" href="/api/casos/'+enc(id)+'/fluxo-csv" target="_blank">Planilha (CSV)</a><button class="btn sm" id="b-cruzar">Cruzar com outros casos</button>':""}${podeGestao?'<button class="btn sm pri" id="b-salvar">Salvar</button>':""}</div></div>
 
- <div class="acoes" style="margin:10px 0 0"><button class="btn sm" data-ir="nv-ficha">Ficha</button>${T?'<button class="btn sm" data-ir="nv-ia">IA</button><button class="btn sm" data-ir="nv-cal">Calibração</button>':""}</div>
+ <div class="acoes" style="margin:10px 0 0"><button class="btn sm" data-ir="nv-ficha">Ficha</button><button class="btn sm" data-ir="nv-relatorios">Relatórios</button>${T&&j.local!==false?'<button class="btn sm" id="b-pasta-relatorios" title="Abrir pasta dos relatórios de investigação">📁 Relatórios</button>':""}${T?'<button class="btn sm" data-ir="nv-ia">IA</button><button class="btn sm" data-ir="nv-cal">Calibração</button>':""}</div>
  <div class="campos" id="nv-ficha" style="margin-top:12px">${dados}</div>${c.preenchimento_os?`<div class="muted">Preenchimento automático: ${esc(ESTADO_IA_OS[c.preenchimento_os.ia]||"aguardando processamento")}. Pendentes: ${esc((c.preenchimento_os.pendentes||[]).map(k=>NOMES_OS[k]||k).join(", ")||"nenhum")}. ${Object.keys(c.preenchimento_os.conflitos||{}).length?"Dados divergentes: "+esc(Object.keys(c.preenchimento_os.conflitos).map(k=>NOMES_OS[k]||k).join(", "))+". Confira no IP antes de preencher.":""}<details><summary>Fontes dos dados preenchidos</summary>${Object.entries(c.preenchimento_os.fontes||{}).map(([k,d])=>`<p>${esc(NOMES_OS[k]||k)}: ${esc(d.documento)}, pág. ${d.pagina} — ${esc(d.trecho)} (${esc(d.metodo)})</p>`).join("")}</details></div>`:""}<label>Determinação da autoridade</label><textarea data-k="determinacao" rows="2" ${podeGestao?"":"disabled"}>${esc(c.determinacao||"")}</textarea>
 
  ${T?`<div class="card" id="nv-ia" style="margin-top:14px;background:var(--page)"><h4>Inteligência artificial</h4><div class="acoes" style="margin:0 0 8px">
@@ -990,7 +1132,7 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
 
  <div class="g2" style="margin-top:14px"><div>
 
-  <h4>Relatórios</h4>${rels?`<table><tbody>${rels}</tbody></table>`:'<div class="muted">Nenhum relatório ainda.</div>'}${T?'<div class="acoes"><button class="btn sm" id="b-nova-minuta">Escrever/editar minuta</button></div>':""}
+  <h4 id="nv-relatorios">Relatórios</h4>${rels?`<table><tbody>${rels}</tbody></table>`:'<div class="muted">Nenhum relatório ainda.</div>'}${T?'<div class="acoes"><button class="btn sm" id="b-nova-minuta">Escrever/editar minuta</button></div>':""}
 
   <h4 style="margin-top:14px">Produção</h4>${baixa}
 
@@ -1025,6 +1167,8 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
  if($("#b-salvar"))$("#b-salvar").onclick=async()=>{const d={};$$("#detalhe [data-k]").forEach(e=>{if(!e.disabled)d[e.dataset.k]=e.value});try{await post("",d);toast("Salvo");carregarCasos()}catch(x){toast(x.message)}};
 
  if($("#b-pasta"))$("#b-pasta").onclick=()=>post("/abrir",{}).catch(x=>toast(x.message));
+ if($("#b-pasta-relatorios"))$("#b-pasta-relatorios").onclick=()=>post("/abrir",{sub:"03-relatorios"}).catch(x=>toast(x.message));
+ $$("#detalhe [data-visualizar]").forEach(b=>b.onclick=()=>visualizarRelatorio(id,b.dataset.visualizar,b));
 
  if($("#b-cruzar"))$("#b-cruzar").onclick=async()=>{const r=await api("/api/cruzar/"+enc(id));$("#cruz").innerHTML=`<h4 style="margin-top:14px">Conexões com outros casos</h4>`+(r.length?`<table><tbody>${r.map(x=>`<tr><td>${esc(x.tipo)}</td><td>${esc(x.valor)}</td><td>também em <b>${esc(x.outro_caso)}</b> (págs. ${esc(x.paginas)})</td></tr>`).join("")}</tbody></table><div class="muted">Indícios de vinculação a verificar nos originais.</div>`:'<div class="muted">Nenhuma conexão encontrada.</div>')};
 
@@ -2055,15 +2199,14 @@ async function carregarConfigIA(){
   try{
     const c=await api("/api/sistema/ia-config");
     const sel=$("#cfgia-prov");
-    sel.innerHTML='<option value="">— selecione —</option>'+c.provedores_prontos.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join("");
-    modo.value=c.modo_padrao; sel.value=c.provedor_api||""; $("#cfgia-prompt").value=c.prompt_sistema||"";
+    sel.innerHTML='<option value="auto">Automático: Claude → GPT → Gemini → demais</option>'+c.provedores_prontos.map(p=>`<option value="${esc(p)}">Começar por ${esc(p)}</option>`).join("");
+    modo.value=c.modo_padrao; sel.value=c.provedor_api||"auto"; $("#cfgia-prompt").value=c.prompt_sistema||"";
     if(!c.provedores_prontos.length) $("#msg-cfgia").textContent="Nenhum provedor pronto: ative e salve chave e modelo no cartão de chaves.";
   }catch(x){}
 }
 if($("#b-cfgia"))$("#b-cfgia").onclick=async()=>{
   const modo=$("#cfgia-modo").value, prov=$("#cfgia-prov").value, msg=$("#msg-cfgia");
-  if(modo==="api"&&!prov){msg.textContent="Escolha o provedor da API.";return}
-  if(modo==="api"&&!confirm("Na via API o conteúdo dos autos extraídos será enviado ao provedor "+prov+". Confirma que isso é compatível com o sigilo do caso?"))return;
+  if(modo==="api"&&!confirm("Na via API o conteúdo dos autos extraídos será enviado aos provedores ativos, na ordem escolhida, até uma chamada funcionar. Confirma que isso é compatível com o sigilo do caso?"))return;
   msg.textContent="salvando…";
   try{await api("/api/sistema/ia-config",{json:{modo_padrao:modo,provedor_api:prov,prompt_sistema:$("#cfgia-prompt").value}});msg.textContent="Salvo!";toast("Configurações salvas");setTimeout(()=>msg.textContent="",3000)}
   catch(x){msg.textContent="Erro: "+x.message}

@@ -24,7 +24,7 @@ Não leia a transcrição inteira de uma vez. Divida em blocos de ~75–100 pág
 
 ## Procedimento
 
-0. **Escopo.** Identifique o que a Ordem de Serviço pede. Se não houver, pergunte em uma linha ou assuma "análise geral para relatório de investigação" e declare.
+0. **Escopo.** Identifique a O.S. vigente (geralmente a última) e extraia **cada solicitação do Delegado de Polícia**, gravando em `02-analise\solicitacoes-os.md` (item, trecho com pág./fls.). O relatório será feito principalmente para atendê-las (`AGENTS.md` regra 17). Se não localizar a O.S., avise o operador em CAIXA ALTA e pergunte; só assuma "análise geral para relatório de investigação" se o operador confirmar, e declare.
 1. **Inventário.** Arquivos lidos, páginas cobertas, páginas pendentes/ilegíveis (de `relatorio_extracao.json`), tabelas disponíveis. Não afirme ter lido o que não leu.
 2. **Ficha do caso** → `02-analise\ficha-caso.md`: referência (BO/IP/processo), natureza como consta, **modalidade** do golpe (ver tipologia em `references\tipologia-golpes.md`), vítima(s) e investigado(s) **como constam**, período dos fatos, prejuízo declarado × prejuízo documentado, meio (Pix, TED, boleto, cartão, cripto).
 3. **Cronologia** → `02-analise\cronologia.md`: `| data/hora | fato | fonte (peça, pág., fls.) | natureza |` (fato documentado / relato da vítima / informação de terceiro / dado bancário).

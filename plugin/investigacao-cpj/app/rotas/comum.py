@@ -402,6 +402,8 @@ def processar(trab, app_logger=None):
         if os.path.exists(os.path.join(dest, "transcricao.md")):
             etapa("dados críticos", progresso=94)
             rodar([PY, os.path.join(S_PDF, "entidades.py"), os.path.join(dest, "transcricao.md")], env, log)
+        etapa("consolidação JSON", progresso=95)
+        rodar([PY, os.path.join(S_PDF, "dados_json.py"), dest], env, log)
         etapa("registro", progresso=96)
         rel = os.path.join(dest, "relatorio_extracao.json")
         if os.path.exists(rel):

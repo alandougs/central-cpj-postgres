@@ -48,6 +48,8 @@ def clonar_codigo(destino: Path) -> Path:
     shutil.copytree(ROOT / "ferramentas", raiz_teste / "ferramentas",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     shutil.copytree(ROOT / "portatil", raiz_teste / "portatil")
+    if (ROOT / "calibracao").is_dir():
+        shutil.copytree(ROOT / "calibracao", raiz_teste / "calibracao")
     agentes = raiz_teste / ".agents" / "skills"
     agentes.mkdir(parents=True)
     for skill in (ROOT / ".agents" / "skills").glob("cpj-*"):
@@ -283,9 +285,13 @@ def rodar_central() -> tuple[int, float, str]:
                     encoding="utf-8", errors="replace", timeout=600,
                 )
                 detalhe = proc_teste.stdout + proc_teste.stderr
+                detalhe = f"=== Saída de teste_central.py (código {proc_teste.returncode}) ===\n{proc_teste.stdout}{proc_teste.stderr}\n"
                 if proc_teste.returncode:
                     log.flush()
                     detalhe += "\n--- log da Central ---\n" + log_path.read_text(encoding="utf-8", errors="replace")[-12000:]
+                    log_texto = log_path.read_text(encoding="utf-8", errors="replace")
+                    linhas_log = log_texto.splitlines()[-40:]
+                    detalhe += "\n=== Log da Central (últimas 40 linhas) ===\n" + "\n".join(linhas_log)
                 return proc_teste.returncode, time.monotonic() - inicio, detalhe
             finally:
                 proc.terminate()
@@ -335,6 +341,11 @@ def main() -> int:
         print("\nFalhas:")
         for nome, detalhe in detalhes_falha:
             print(f"\n--- {nome} ---\n{detalhe[-12000:]}")
+            if len(detalhe) > 12000:
+                detalhe_exibir = detalhe[:6000] + "\n... [truncado] ...\n" + detalhe[-6000:]
+            else:
+                detalhe_exibir = detalhe
+            print(f"\n--- {nome} ---\n{detalhe_exibir}")
     total = sum(d for _, _, d in resultados)
     falhas = sum(1 for _, codigo, _ in resultados if codigo)
     print(f"\n{len(resultados) - falhas}/{len(resultados)} suítes aprovadas em {total:.2f}s")

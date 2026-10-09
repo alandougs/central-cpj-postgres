@@ -65,14 +65,33 @@ def api_ia(id_):
     d = request.get_json(force=True) or {}
     if not C.existe(id_):
         abort(404)
-    agente = (d.get("agente") or "").strip() or None  # vazio = qualquer agente ocioso e aprovado
+    agente = (d.get("agente") or "").strip() or None
+    
+    import executores_llm as EL
+    import json
+    ag_res = agente or EL.agente_padrao(WS)
+    if ag_res and ag_res.startswith("api"):
+        if "consentimento_externo" not in d:
+            destinos = [p for p, _ in EL.provedores_api_configurados(WS, ag_res)]
+            return jsonify({"requer_consentimento": True, "destinos": destinos, "escopo": "api_ia"})
+        cons = d["consentimento_externo"]
+        if cons.get("recusado"):
+            auditar("consentimento_recusado", f"{id_}: recusa para api_ia")
+            comum.registrar_tratamento(id_, [f"- Consentimento externo: Usuário recusou envio para nuvem em {comum.agora()}."])
+            return jsonify({"ok": True, "mensagem": "Envio recusado pelo usuário."})
+        auditar("consentimento_aceito", f"{id_}: aceite para {cons.get('destinos')}")
+        comum.registrar_tratamento(id_, [f"- Consentimento externo: Usuário {cons.get('usuario')} autorizou envio para {cons.get('destinos')} em {cons.get('data_hora')}."])
+
     if agente and not any(a["nome"] == agente and a["aprovado"] for a in tarefas.plantao.agentes()):
         return jsonify({"erro": f"Agente '{agente}' não existe ou não está aprovado."}), 400
     try:
         tid = tarefas.enfileirar_ia(id_, d.get("acao"), request.usuario["login"], d.get("observacoes") or "", agente)
+        if ag_res and ag_res.startswith("api") and "consentimento_externo" in d:
+            with tarefas.plantao._c() as c:
+                c.execute("UPDATE pedidos SET consentimento=? WHERE id=?", (json.dumps(d["consentimento_externo"]), tid))
     except ValueError as e:
         return jsonify({"erro": str(e)}), 400
-    auditar("ia_acionada", f"{id_}: {d.get('acao')}" + (f" → {agente}" if agente else ""))
+    auditar("ia_acionada", f"{id_}: {d.get('acao')}" + (f" -> {agente}" if agente else ""))
     return jsonify({"tarefa": tid})
 
 
@@ -245,6 +264,8 @@ def _carregar_cfg_llm():
         "deepseek": {"nome": "DeepSeek API", "chave": "", "modelo": "", "ativo": False},
         "xai": {"nome": "xAI API (Grok)", "chave": "", "modelo": "", "ativo": False},
         "openrouter": {"nome": "OpenRouter", "chave": "", "modelo": "", "ativo": False},
+        "groq": {"nome": "Groq API", "chave": "", "modelo": "", "ativo": False},
+        "nvidia": {"nome": "NVIDIA NIM API", "chave": "", "modelo": "", "ativo": False},
         "copilot": {"nome": "GitHub Copilot CLI", "chave": "", "modelo": "", "ativo": False}
     }
     if os.path.isfile(CONFIG_LLM):
@@ -315,6 +336,12 @@ def _consultar_modelos(provedor, chave):
     elif provedor == "openrouter":
         url = "https://openrouter.ai/api/v1/models?output_modalities=text&sort=newest"
         headers["Authorization"] = "Bearer " + chave
+    elif provedor == "groq":
+        url = "https://api.groq.com/openai/v1/models"
+        headers["Authorization"] = "Bearer " + chave
+    elif provedor == "nvidia":
+        url = "https://integrate.api.nvidia.com/v1/models"
+        headers["Authorization"] = "Bearer " + chave
     else:
         raise ValueError("Provedor não reconhecido.")
 
@@ -333,7 +360,7 @@ def _consultar_modelos(provedor, chave):
             # As APIs OpenAI-compatible também listam áudio, embeddings e imagem;
             # este seletor é para os pedidos textuais do plantão.
             low = mid.lower()
-            if provedor in ("openai", "deepseek", "xai") and any(x in low for x in
+            if provedor in ("openai", "deepseek", "xai", "groq", "nvidia") and any(x in low for x in
                     ("embedding", "moderation", "whisper", "tts", "transcribe", "realtime", "image", "audio", "sora")):
                 continue
             if provedor == "openrouter":

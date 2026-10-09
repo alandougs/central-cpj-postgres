@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Rotas de geração e gestão de relatórios: minuta, DOCX, PDF e relatório FINAL."""
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -8,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import unicodedata
 from flask import Blueprint, abort, jsonify, request
 from rotas.comum import (
@@ -301,6 +303,7 @@ def conferir_minuta_gate(id_, minuta_nome):
 
     env = dict(os.environ, CPJ_WORKSPACE=getattr(C, "WS", WS), PYTHONIOENCODING="utf-8")
     sem_janela = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    inicio = time.time() - 2  # folga para a granularidade de data do sistema de arquivos
     proc = subprocess.run(
         cmd,
         capture_output=True,
@@ -316,28 +319,38 @@ def conferir_minuta_gate(id_, minuta_nome):
     nome_json = f"conferencia-v{versao}.json" if versao else f"conferencia-{os.path.splitext(minuta_nome)[0]}.json"
     caminho_json = os.path.join(d_rel, nome_json)
 
-    if os.path.isfile(caminho_json):
-        try:
-            with open(caminho_json, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
+    def bloqueio(codigo, detalhe):
+        return {
+            "aprovado": False,
+            "resumo": {"BLOQUEIA": 1, "REVISAR": 0},
+            "achados": [{"nivel": "BLOQUEIA", "codigo": codigo, "linha": 1, "dado": "", "detalhe": detalhe}],
+            "conferidos": [],
+        }
 
-    bloqueios = 1 if proc.returncode != 0 else 0
-    return {
-        "aprovado": proc.returncode == 0,
-        "resumo": {"BLOQUEIA": bloqueios, "REVISAR": 0},
-        "achados": [
-            {
-                "nivel": "BLOQUEIA",
-                "codigo": "ERRO_EXECUCAO",
-                "linha": 1,
-                "dado": "",
-                "detalhe": (proc.stderr or proc.stdout).strip() or "Erro na execução da conferência da minuta.",
-            }
-        ] if proc.returncode != 0 else [],
-        "conferidos": [],
-    }
+    # Falha fechado: só vale resultado gerado NESTA execução, em modo entrega, da minuta como está agora.
+    if proc.returncode not in (0, 1):
+        return bloqueio("ERRO_EXECUCAO", (proc.stderr or proc.stdout).strip() or "Erro na execução da conferência da minuta.")
+    if not os.path.isfile(caminho_json) or os.path.getmtime(caminho_json) < inicio:
+        return bloqueio("CONFERENCIA_DESATUALIZADA", "A conferência não gerou resultado novo para esta minuta; rode de novo.")
+    try:
+        with open(caminho_json, "r", encoding="utf-8") as f:
+            conf = json.load(f)
+    except (OSError, ValueError):
+        return bloqueio("ERRO_EXECUCAO", "O resultado da conferência está ilegível; rode de novo.")
+    if not isinstance(conf, dict):
+        return bloqueio("ERRO_EXECUCAO", "O resultado da conferência está ilegível; rode de novo.")
+    try:
+        with open(caminho_minuta, "rb") as f:
+            sha_atual = hashlib.sha256(f.read()).hexdigest()
+    except OSError:
+        return bloqueio("ERRO_EXECUCAO", "Não foi possível reler a minuta conferida.")
+    if (conf.get("schema") != "cpj-conferencia/1" or conf.get("modo") != "entrega"
+            or conf.get("minuta") != minuta_nome or conf.get("sha256_minuta") != sha_atual):
+        return bloqueio("CONFERENCIA_DESATUALIZADA", "A conferência não corresponde à versão atual da minuta em modo entrega; rode de novo.")
+    achados = conf.get("achados") if isinstance(conf.get("achados"), list) else []
+    bloqueios = sum(1 for a in achados if isinstance(a, dict) and a.get("nivel") == "BLOQUEIA")
+    conf["aprovado"] = proc.returncode == 0 and bloqueios == 0 and conf.get("aprovado") is True
+    return conf
 
 
 @bp_relatorios.post("/api/casos/<id_>/final")
@@ -358,6 +371,7 @@ def api_final(id_):
 
     minuta_req = os.path.basename(dados.get("minuta") or "")
     minuta_nome = None
+    sha_minuta = ""
     if minuta_req and os.path.isfile(os.path.join(d, minuta_req)):
         minuta_nome = minuta_req
     else:
@@ -390,6 +404,7 @@ def api_final(id_):
             }), 409
     else:
         conf = conferir_minuta_gate(id_, minuta_nome)
+        sha_minuta = str(conf.get("sha256_minuta") or "")
         achados = conf.get("achados", [])
         bloqueios = sum(1 for a in achados if a.get("nivel") == "BLOQUEIA")
         if (bloqueios > 0 or not conf.get("aprovado", True)) and not forcar:
@@ -419,9 +434,9 @@ def api_final(id_):
             if "baixa" in caso_dict:
                 caso_dict["baixa"]["ressalva"] = justificativa
         c = C.atualizar(id_, _set_ressalva)
-        auditar("relatorio_final_ressalva", f"{id_}/{nome}: {justificativa}")
+        auditar("relatorio_final_ressalva", f"{id_}/{nome}: {justificativa}" + (f" [minuta sha256 {sha_minuta[:16]}]" if sha_minuta else ""))
     else:
-        auditar("relatorio_final", f"{id_}/{nome}")
+        auditar("relatorio_final", f"{id_}/{nome}" + (f" [minuta sha256 {sha_minuta[:16]}]" if sha_minuta else ""))
 
     versoes = len([f for f in os.listdir(d) if re.match(r"minuta-v\d+\.md$", f)])
     C.registrar_relatorio(id_, os.path.basename(final), data=c["datas"]["entregue"], versoes=versoes or None)

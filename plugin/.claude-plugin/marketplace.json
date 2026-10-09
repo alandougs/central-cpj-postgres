@@ -11,7 +11,7 @@
       "name": "investigacao-cpj",
       "source": "./investigacao-cpj",
       "description": "IP de fraude/estelionato em PDF ou Markdown → OCR/extração (MD + CSV) → análise rastreável → relatório de investigação no modelo CPJ (DOCX) → produção e painel.",
-      "version": "0.2.0"
+      "version": "0.2.1"
     }
   ]
 }

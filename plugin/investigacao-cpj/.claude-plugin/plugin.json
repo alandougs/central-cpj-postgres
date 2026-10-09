@@ -1,6 +1,6 @@
 {
   "name": "investigacao-cpj",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Ambiente de investigação de Alan Douglas Silva (CPJ Presidente Prudente): processamento de IP (OCR, Markdown, CSV), análise de fraude/estelionato com rastreabilidade por página, relatório de investigação no modelo CPJ em DOCX, calibração contínua e painel de produção.",
   "author": {
     "name": "Alan Douglas Silva"

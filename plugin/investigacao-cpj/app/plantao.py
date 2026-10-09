@@ -16,9 +16,10 @@ PLUGIN = os.path.dirname(AQUI)
 S_BASE = os.path.join(PLUGIN, "skills", "base-cpj", "scripts")
 SEM_JANELA = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 TIPOS = ("claude", "codex", "gemini", "antigravity", "gpt", "copilot", "deepseek", "outro", "simulado",
-         "openai-api", "anthropic-api", "gemini-api", "deepseek-api", "xai-api", "openrouter-api")
+         "openai-api", "anthropic-api", "gemini-api", "deepseek-api", "xai-api", "openrouter-api", "groq-api", "nvidia-api")
 TIPOS_API = {"openai-api": "openai", "anthropic-api": "anthropic", "gemini-api": "gemini",
-             "deepseek-api": "deepseek", "xai-api": "xai", "openrouter-api": "openrouter"}
+             "deepseek-api": "deepseek", "xai-api": "xai", "openrouter-api": "openrouter",
+             "groq-api": "groq", "nvidia-api": "nvidia"}
 TIPOS_CLI_AUTO = ("claude", "codex", "gemini", "copilot")
 MODOS = ("chat", "auto")
 SILENCIO_MAX = {"auto": 45, "chat": 20 * 60}   # segundos sem sinal de vida até considerar o agente fora do ar
@@ -179,7 +180,7 @@ class Plantao:
               criado_em TEXT, iniciado_em TEXT, fim TEXT);
             CREATE INDEX IF NOT EXISTS ix_ped_estado ON pedidos(estado, criado_em);
             """)
-            for coluna in ("grupo TEXT", "ordem INTEGER", "depende_de TEXT"):
+            for coluna in ("grupo TEXT", "ordem INTEGER", "depende_de TEXT", "consentimento TEXT"):
                 try: c.execute("ALTER TABLE pedidos ADD COLUMN " + coluna)
                 except sqlite3.OperationalError: pass
 
@@ -227,7 +228,7 @@ class Plantao:
         return out
 
     # ---------------------------------------------------------------- pedidos
-    def enfileirar(self, caso, acao, solicitante, observacoes="", preferido=None):
+    def enfileirar(self, caso, acao, solicitante, observacoes="", preferido=None, consentimento=None):
         if acao not in ACOES: raise ValueError("Ação de IA inválida.")
         with self._c() as c:
             c.execute("BEGIN IMMEDIATE")
@@ -238,9 +239,9 @@ class Plantao:
             grupo, anterior, pid = "fluxo-" + uuid.uuid4().hex[:10], None, None
             for ordem, etapa in enumerate(etapas, 1):
                 atual = "ia-" + uuid.uuid4().hex[:10]
-                c.execute("INSERT INTO pedidos(id,caso,acao,observacoes,solicitante,preferido,estado,etapa,criado_em,grupo,ordem,depende_de) "
-                          "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", (atual, caso, etapa, (observacoes or "")[:2000], solicitante, preferido or None,
-                          "pendente", "aguardando etapa anterior" if anterior else "aguardando agente de plantão", agora(), grupo, ordem, anterior))
+                c.execute("INSERT INTO pedidos(id,caso,acao,observacoes,solicitante,preferido,estado,etapa,criado_em,grupo,ordem,depende_de,consentimento) "
+                          "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", (atual, caso, etapa, (observacoes or "")[:2000], solicitante, preferido or None,
+                          "pendente", "aguardando etapa anterior" if anterior else "aguardando agente de plantão", agora(), grupo, ordem, anterior, consentimento))
                 pid, anterior = pid or atual, atual
             c.execute("COMMIT")
         return pid
@@ -463,9 +464,11 @@ def executar_pedido(pl, job, nome, tipo):
     if tipo in TIPOS_API:
         import executores_llm as EL
         prov = TIPOS_API[tipo]
-        cfg = EL.configuracao(ws, prov)
-        if not cfg: raise RuntimeError(f"Provedor {prov} sem chave/modelo ou desativado na configuração.")
-        return EL.executar(ws, job, nome, prov, cfg, pl)
+        def tentar(provedor, cfg):
+            if provedor != prov:
+                pl.progresso(job["id"], nome, detalhe=f"{prov} indisponível; tentando {provedor}")
+            return EL.executar(ws, job, nome, provedor, cfg, pl)
+        cons_str = job.get("consentimento"); import json; dest = json.loads(cons_str).get("destinos") if cons_str else None; return EL.executar_com_fallback(ws, prov, tentar, dest)
     prompt = montar_prompt(job, ws, "auto")
     dlog = os.path.join(ws, "casos", id_, "ia-logs"); os.makedirs(dlog, exist_ok=True)
     log = os.path.join(dlog, f"{datetime.datetime.now():%Y%m%d-%H%M%S}-{acao}-{tipo}.jsonl")

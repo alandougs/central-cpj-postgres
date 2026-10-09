@@ -23,6 +23,7 @@ Monte `fluxo-financeiro.csv` com as colunas:
 `seq;data;hora;valor;meio;id_transacao;origem_titular;origem_banco;origem_ag_conta;origem_chave;destino_titular;destino_banco;destino_ag_conta;destino_chave;camada;fonte_pag;fls;status_conferencia`
 
 - `camada` 1 = saída da vítima para o 1º recebedor; 2 = repasse do 1º recebedor; e assim por diante — só quando o repasse estiver **documentado** (mesmo valor/data não basta sem registro que ligue as contas).
+- Preencha sempre `camada` e, quando constarem nos autos, `origem_ag_conta`/`destino_ag_conta`: o fluxograma separa titulares homônimos e contas distintas do mesmo titular por esses campos e, sem `camada`, marca a posição de cada nó como **calculada** (não como vítima nem repasse documentado). Campo ausente fica vazio; não complete por dedução.
 - Valores em formato numérico (`1234.56`) na coluna `valor`; o valor original fica na tabela do passo 1.
 - `status_conferencia` = `pendente` por padrão.
 

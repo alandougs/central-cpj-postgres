@@ -31,7 +31,7 @@ Dois caminhos:
 - **Scripts:** `$S = "plugin\investigacao-cpj\skills\pdf-autos-policiais\scripts"`.
 - **Caso:** `casos\<ID>\`, onde `<ID>` deriva da **Ordem de Serviço** (O.S. `123/2026` → `OS-123-2026`).
   - `00-originais\` — arquivos originais (somente leitura), **nunca modificados**.
-  - `01-extracao\<documento>\` — uma pasta por arquivo original (nome do arquivo sem extensão): `transcricao.md`, `tabelas\`, `entidades.csv`, `relatorio_extracao.json`, `diagnostico.json`, `processamento.log`.
+  - `01-extracao\<documento>\` — uma pasta por arquivo original (nome do arquivo sem extensão): `transcricao.md`, `tabelas\`, `entidades.csv`, `dados_extraidos.json`, `relatorio_extracao.json`, `diagnostico.json`, `processamento.log`.
   - `02-analise\`, `03-relatorios\` — etapas seguintes.
   - `caso.json`, `processamento.json`, `registro-tratamento.md`.
 - **Central CPJ** (`http://127.0.0.1:8765`, atalho `Central CPJ.bat`): o usuário normalmente envia os PDFs por ela, e ela já executa diagnóstico, extração/OCR, tabelas, entidades e indexação. **Antes de processar, verifique `processamento.json`**: se o documento já está `concluido`, não refaça — vá direto à transcrição visual das páginas pendentes/⚠ (se houver) e à análise.
@@ -143,7 +143,15 @@ python "$S\entidades.py" "$E\transcricao.md"
 
 Gera `$E\entidades.csv` (CPF, CNPJ, placa, telefone, valor, data, e-mail, fls. por página). São candidatos por padrão de texto: status "pendente de conferência" até alguém confrontar com a imagem da página.
 
-5. **Estruturar** a partir da transcrição (não do PDF bruto), em `$E\estrutura.md`:
+5. **JSON consolidado da extração:**
+
+```powershell
+python "$S\dados_json.py" $E
+```
+
+Gera `$E\dados_extraidos.json`, reunindo as páginas da transcrição com o método usado, as linhas dos CSVs de tabelas e os candidatos de `entidades.csv`. Ele preserva página, arquivo de origem e status de conferência; não substitui o Markdown, os CSVs nem `relatorio_extracao.json`.
+
+6. **Estruturar** a partir da transcrição (não do PDF bruto), em `$E\estrutura.md`:
    - **Índice de peças:** peça, data, págs. do PDF, fls. dos autos (quando legíveis), síntese de uma linha.
    - **Pessoas:** nome como consta, qualificação como consta, condição (vítima, testemunha, investigado, indiciado, comunicante), páginas.
    - **Cronologia:** data/hora, fato, fonte (peça e página), natureza (fato documentado / relato / informação de terceiro).
@@ -165,7 +173,7 @@ A análise e o relatório seguem nas skills `analise-ip-fraude` e `relatorio-ip-
 
 ## Output
 
-- **B:** `transcricao.md`, `estrutura.md`, `entidades.csv`, `tabelas\*.csv` + `indice_tabelas.csv`, `relatorio_extracao.json`.
+- **B:** `transcricao.md`, `estrutura.md`, `entidades.csv`, `dados_extraidos.json`, `tabelas\*.csv` + `indice_tabelas.csv`, `relatorio_extracao.json`.
 - **A:** partes `NOME_parteXXdeYY_pagsINICIO-FIM.pdf` + `MANIFESTO.json` + modelo de Ficha da Parte.
 
 Atualize `registro-tratamento.md` do caso e feche com o quadro:

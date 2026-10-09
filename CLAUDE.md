@@ -22,6 +22,10 @@ Base: `acervo\repo-ia-alandougs\governanca\seguranca-e-dados.md` e `AGENTS.md`.
 12. **Um agente por O.S.:** antes de trabalhar numa O.S. de `E:\ORDENS DE SERVIÇO CPJ`, `python ferramentas\fila-os.py listar` e `assumir <nº> --agente <nome-da-sessão>`; ao fim `concluir ... --docx`, ao parar `liberar ... --motivo`. Não refaça O.S. `concluida`/`com_relatorio` sem pedido (`AGENTS.md` §1.14).
 13. **Numeração no cabeçalho (determinação do delegado, 30/09/2026):** no campo `Referência:` na parte superior do relatório, colocar **SOMENTE o número do IPe (Inquérito Policial Eletrônico) e do Processo Judicial** (ex.: `Referência: IPe nº <número> / Processo nº <número>`). NUNCA colocar número de Boletim de Ocorrência (BO) nem de IP local. Válido para relatórios elaborados daqui para frente (`AGENTS.md` §1.15).
 
+14. **Limites e sem extras (02/10/2026):** skills `scope-guard` (não saia dos limites do pedido, da tarefa reservada na fila e do caso/O.S.; parar e pedir antes de ultrapassá-los) e `no-gold-plating` (não invente melhorias que ninguém pediu). Valem para todos os agentes: `AGENTS.md` regra 16; arquivos em `.claude\skills\` e `.agents\skills\`.
+
+15. **A O.S. manda no relatório (05/10/2026):** o relatório atende principalmente às solicitações da Ordem de Serviço (geralmente a última). Identificar a O.S. vigente, extrair cada solicitação do Delegado, gravar em `02-analise\solicitacoes-os.md` e responder a todas no relatório; item não atendido → ressalva na Conclusão + aviso em CAIXA ALTA; sem O.S. localizada, parar e avisar antes de redigir (`AGENTS.md` regra 17). Cumprir todas as solicitações possíveis, fazer no mais as análises de fraude/estelionato pelas regras, **escrever sempre de forma humanizada** e, se faltar CNPJ nos autos, obtê-lo por OSINT de empresa (`osint-empresas.md`) e usá-lo no contexto adequado.
+
 ## Estrutura
 
 | Pasta | Conteúdo |

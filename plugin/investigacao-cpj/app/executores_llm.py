@@ -8,13 +8,15 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
 import urllib.request
 
 
-PROVEDORES_API = {"openai", "anthropic", "gemini", "deepseek", "xai", "openrouter"}
+ORDEM_PROVEDORES_API = ("anthropic", "openai", "gemini", "deepseek", "xai", "openrouter", "groq", "nvidia")
+PROVEDORES_API = set(ORDEM_PROVEDORES_API)
 SEM_JANELA = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
@@ -60,6 +62,26 @@ def _case_path(ws, caso, relativo, escrita=False):
     return raiz, alvo
 
 
+def _gravar_atomico(caminho, conteudo):
+    """Grava em temporário no mesmo diretório e troca com os.replace: uma falha no meio nunca deixa o arquivo
+    do caso pela metade nem apaga a versão anterior."""
+    pasta = os.path.dirname(caminho)
+    os.makedirs(pasta, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".gravando-", suffix=".tmp", dir=pasta)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+            f.write(conteudo)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, caminho)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def _listar(ws, caso):
     raiz = os.path.join(ws, "casos", caso)
     saida = []
@@ -89,14 +111,12 @@ def _tool(ws, caso, nome, args):
         return {"total_linhas": len(linhas), "linha_inicial": inicio,
                 "conteudo": "".join(f"{inicio+i}: {s}" for i, s in enumerate(trecho))}
     if nome == "gravar_arquivo":
-        _, caminho = _case_path(ws, caso, args.get("caminho"), escrita=True)
+        raiz, caminho = _case_path(ws, caso, args.get("caminho"), escrita=True)
         conteudo = args.get("conteudo")
         if not isinstance(conteudo, str) or len(conteudo) > 2_000_000:
             raise ValueError("Conteúdo ausente ou maior que 2 MB.")
-        os.makedirs(os.path.dirname(caminho), exist_ok=True)
-        with open(caminho, "w", encoding="utf-8", newline="\n") as f:
-            f.write(conteudo)
-        return {"ok": True, "caminho": os.path.relpath(caminho, os.path.join(ws, "casos", caso)).replace("\\", "/")}
+        _gravar_atomico(caminho, conteudo)
+        return {"ok": True, "caminho": os.path.relpath(caminho, os.path.realpath(raiz)).replace("\\", "/")}
     if nome == "gerar_docx":
         minuta = args.get("minuta") or ""
         if not re.fullmatch(r"minuta-v\d+\.md", minuta):
@@ -119,7 +139,7 @@ def _tool(ws, caso, nome, args):
 
 
 PLUGIN = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CONFIG_IA_PADRAO = {"modo_padrao": "agente", "provedor_api": "", "prompt_sistema": ""}
+CONFIG_IA_PADRAO = {"modo_padrao": "agente", "provedor_api": "auto", "prompt_sistema": ""}
 AGENTES_POR_ACAO = {
     "analisar": ["analista-documental"], "financeiro": ["analista-financeiro"], "revisar": ["revisor-de-relatorio"],
     "relatorio": [], "completo": ["analista-documental", "analista-financeiro"],
@@ -151,9 +171,9 @@ def salvar_config_ia(ws, dados):
         cfg["modo_padrao"] = dados["modo_padrao"]
     if "provedor_api" in dados:
         prov = str(dados["provedor_api"] or "").strip().lower()
-        if prov and prov not in PROVEDORES_API:
+        if prov and prov not in PROVEDORES_API and prov != "auto":
             raise ValueError("Provedor de API desconhecido.")
-        cfg["provedor_api"] = prov
+        cfg["provedor_api"] = prov or "auto"
     if "prompt_sistema" in dados:
         cfg["prompt_sistema"] = str(dados["prompt_sistema"] or "")[:8000]
     os.makedirs(os.path.join(ws, "config"), exist_ok=True)
@@ -163,12 +183,161 @@ def salvar_config_ia(ws, dados):
 
 
 def agente_padrao(ws):
-    """Agente de API a usar quando o modo padrão é 'api' e o provedor está pronto; senão None (qualquer agente)."""
     cfg = config_ia(ws)
-    prov = cfg["provedor_api"]
-    if cfg["modo_padrao"] == "api" and prov in PROVEDORES_API and configuracao(ws, prov):
-        return "Central-" + prov.capitalize() + " API"
+    if cfg["modo_padrao"] == "api":
+        candidatos = provedores_api_configurados(ws, cfg["provedor_api"])
+        if candidatos:
+            return "Central-" + candidatos[0][0].capitalize() + " API"
     return None
+
+
+def provedores_api_configurados(ws, preferido=None):
+    """Retorna provedores ativos e configurados na ordem de preferência/fallback."""
+    ordem = list(ORDEM_PROVEDORES_API)
+    preferido = str(preferido or "").strip().lower()
+    if preferido in PROVEDORES_API:
+        ordem.remove(preferido)
+        ordem.insert(0, preferido)
+    return [(prov, cfg) for prov in ordem if (cfg := configuracao(ws, prov))]
+
+
+
+CAPACIDADES_PROVEDOR = {
+    "openai": {"text", "vision", "json", "structured_output"},
+    "anthropic": {"text", "vision", "json", "pdf"},
+    "gemini": {"text", "vision", "json", "structured_output", "pdf"},
+    "deepseek": {"text", "json"},
+    "xai": {"text", "vision", "json"},
+    "openrouter": {"text", "vision", "json", "structured_output", "pdf"},
+    "groq": {"text", "json", "structured_output"},
+    "nvidia": {"text", "vision", "json", "structured_output"}
+}
+
+_saude_cache = {}
+
+def verificar_saude(provedor, chave):
+    import time
+    import urllib.request
+    agora = time.time()
+    if provedor in _saude_cache:
+        val, ts = _saude_cache[provedor]
+        if agora - ts < 300:
+            return val
+            
+    headers = {"Accept": "application/json", "User-Agent": "Central-CPJ/0.4"}
+    if provedor == "openai":
+        url = "https://api.openai.com/v1/models"
+        headers["Authorization"] = "Bearer " + chave
+    elif provedor == "anthropic":
+        url = "https://api.anthropic.com/v1/models?limit=1"
+        headers.update({"x-api-key": chave, "anthropic-version": "2023-06-01"})
+    elif provedor == "gemini":
+        url = "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1"
+        headers["x-goog-api-key"] = chave
+    elif provedor == "deepseek":
+        url = "https://api.deepseek.com/models"
+        headers["Authorization"] = "Bearer " + chave
+    elif provedor == "xai":
+        url = "https://api.x.ai/v1/models"
+        headers["Authorization"] = "Bearer " + chave
+    elif provedor == "openrouter":
+        url = "https://openrouter.ai/api/v1/models"
+        headers["Authorization"] = "Bearer " + chave
+    elif provedor == "groq":
+        url = "https://api.groq.com/openai/v1/models"
+        headers["Authorization"] = "Bearer " + chave
+    elif provedor == "nvidia":
+        url = "https://integrate.api.nvidia.com/v1/models"
+        headers["Authorization"] = "Bearer " + chave
+    else:
+        _saude_cache[provedor] = (True, agora)
+        return True
+
+    req = urllib.request.Request(url, headers=headers, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            resp.read(1)
+            ok = True
+    except Exception:
+        ok = False
+        
+    _saude_cache[provedor] = (ok, agora)
+    return ok
+
+def rotear(ws, capacidades=None, executor=None, destinos_aceitos=None, preferido=None):
+    import json
+    import time
+    candidatos = provedores_api_configurados(ws, preferido)
+    if not candidatos:
+        raise RuntimeError("Nenhum provedor de API esta ativo com chave e modelo configurados.")
+        
+    try:
+        with open(os.path.join(ws, "config", "ia.json"), encoding="utf-8") as f:
+            cfg_ia = json.load(f)
+    except Exception:
+        cfg_ia = {}
+    
+    ordem_config = cfg_ia.get("ordem_fallback") or cfg_ia.get("ordem_provedores")
+    timeout = cfg_ia.get("timeout", 90)
+    
+    if ordem_config:
+        ordem_map = {p: i for i, p in enumerate(ordem_config)}
+        candidatos.sort(key=lambda x: (ordem_map.get(x[0], 999), x[0]))
+
+    if capacidades:
+        caps_req = set(capacidades)
+        def tem_cap(prov):
+            return caps_req.issubset(CAPACIDADES_PROVEDOR.get(prov, {"text"}))
+        candidatos = [c for c in candidatos if tem_cap(c[0])]
+        if not candidatos:
+            raise RuntimeError(f"Nenhum provedor com visao configurado")
+
+    saudaveis = []
+    doentes = []
+    for prov, cfg in candidatos:
+        cfg["timeout"] = timeout
+        if verificar_saude(prov, cfg.get("chave")):
+            saudaveis.append((prov, cfg))
+        else:
+            doentes.append((prov, cfg))
+            
+    candidatos_finais = saudaveis + doentes
+    
+    falhas = []
+    for provedor, cfg in candidatos_finais:
+        if destinos_aceitos is not None and provedor not in destinos_aceitos:
+            falhas.append(f"{provedor}: destino recusado pelo usuario")
+            continue
+            
+        tentativas = 0
+        while tentativas < 2:
+            try:
+                return executor(provedor, cfg)
+            except Exception as e:
+                tentativas += 1
+                mensagem = str(e) if isinstance(e, RuntimeError) else f"falha inesperada ({type(e).__name__})"
+                
+                retryable = False
+                if "HTTP 429" in mensagem or "HTTP 5" in mensagem or "Timeout" in mensagem or isinstance(e, TimeoutError):
+                    retryable = True
+                    
+                if tentativas < 2 and retryable:
+                    time.sleep(2)
+                    continue
+                    
+                chave = str(cfg.get("chave") or "")
+                if chave:
+                    mensagem = mensagem.replace(chave, "[chave ocultada]")
+                if "cancelado pela central" in mensagem.casefold():
+                    raise
+                falhas.append(f"{provedor}: {mensagem[:180]}")
+                break
+                
+    raise RuntimeError("Todos os provedores configurados falharam. " + " | ".join(falhas))
+
+def executar_com_fallback(ws, preferido, executor, destinos_aceitos=None):
+    return rotear(ws, capacidades=None, executor=executor, destinos_aceitos=destinos_aceitos, preferido=preferido)
+
 
 
 def _ler(caminho):
@@ -279,6 +448,14 @@ def executar(ws, job, nome, provedor, config, pl):
         headers = {"Authorization": "Bearer " + key, "Content-Type": "application/json",
                    "HTTP-Referer": "http://127.0.0.1:8765", "X-Title": "Central CPJ"}
         estilo = "openai"
+    elif provedor == "groq":
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {"Authorization": "Bearer " + key, "Content-Type": "application/json"}
+        estilo = "openai"
+    elif provedor == "nvidia":
+        url = "https://integrate.api.nvidia.com/v1/chat/completions"
+        headers = {"Authorization": "Bearer " + key, "Content-Type": "application/json"}
+        estilo = "openai"
     elif provedor == "anthropic":
         url = "https://api.anthropic.com/v1/messages"
         headers = {"x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
@@ -326,7 +503,7 @@ def executar(ws, job, nome, provedor, config, pl):
                 payload = {"model": model, "instructions": prompt, "input": entrada, "tools": _responses_tools(),
                            "tool_choice": "auto", "max_output_tokens": 12000}
                 if previous: payload["previous_response_id"] = previous
-                r = _http_json(url, headers, payload)
+                r = _http_json(url, headers, payload, timeout=config.get("timeout", 90))
                 previous = r.get("id")
                 itens = r.get("output") or []
                 calls = [x for x in itens if x.get("type") == "function_call"]
@@ -348,7 +525,7 @@ def executar(ws, job, nome, provedor, config, pl):
             for _ in range(80):
                 if cancelado.is_set() or (pl.pedido(job["id"]) or {}).get("cancelar"):
                     raise RuntimeError("Cancelado pela Central.")
-                r = _http_json(url, headers, {"model": model, "messages": messages, "tools": _openai_tools(),
+                r = _http_json(url, headers, timeout=config.get("timeout", 90), body={"model": model, "messages": messages, "tools": _openai_tools(),
                                                "tool_choice": "auto", "max_tokens": 12000})
                 msg = r["choices"][0]["message"]
                 messages.append(msg)
@@ -371,7 +548,7 @@ def executar(ws, job, nome, provedor, config, pl):
             for _ in range(80):
                 if cancelado.is_set() or (pl.pedido(job["id"]) or {}).get("cancelar"):
                     raise RuntimeError("Cancelado pela Central.")
-                r = _http_json(url, headers, {"model": model, "max_tokens": 12000, "system": prompt,
+                r = _http_json(url, headers, timeout=config.get("timeout", 90), body={"model": model, "max_tokens": 12000, "system": prompt,
                                                "messages": messages, "tools": anth_tools})
                 blocks = r.get("content", []); messages.append({"role": "assistant", "content": blocks})
                 calls = [b for b in blocks if b.get("type") == "tool_use"]
@@ -392,7 +569,7 @@ def executar(ws, job, nome, provedor, config, pl):
             for _ in range(80):
                 if cancelado.is_set() or (pl.pedido(job["id"]) or {}).get("cancelar"):
                     raise RuntimeError("Cancelado pela Central.")
-                r = _http_json(url, headers, {"systemInstruction": {"parts": [{"text": prompt}]}, "contents": contents,
+                r = _http_json(url, headers, timeout=config.get("timeout", 90), body={"systemInstruction": {"parts": [{"text": prompt}]}, "contents": contents,
                                                "tools": [{"functionDeclarations": declarations}],
                                                "generationConfig": {"maxOutputTokens": 12000}})
                 cand = (r.get("candidates") or [{}])[0].get("content") or {"parts": []}
