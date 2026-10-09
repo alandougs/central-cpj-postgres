@@ -3,10 +3,12 @@
 import json
 import os
 import re
+import sqlite3
 import threading
 import time
 from flask import Blueprint, abort, jsonify, request
 from rotas.comum import (
+    C,
     Q,
     R,
     RF,
@@ -78,21 +80,78 @@ def api_vinculos():
     return jsonify(g)
 
 
+def _ordens_servico_grafo():
+    ordens = [{"id": c["id"], "ordem_servico": c.get("ordem_servico") or c["id"]}
+              for c in C.listar() if c.get("id")]
+
+    def ordem(c):
+        numeros = re.findall(r"\d+", str(c["ordem_servico"]))
+        return (0, tuple(int(n) for n in numeros), c["id"]) if numeros else (1, (), c["id"])
+
+    return sorted(ordens, key=ordem)
+
+
+def _arestas_busca_grafo(db, termo, caso):
+    # Resolva apenas nós existentes; nomes continuam candidatos, com registros PESSOA separados.
+    tipos = [t for t in R.TIPOS_NO if t != "CASO" and (t != "PESSOA" or termo.startswith("P:"))]
+    numerico = bool(re.fullmatch(r"[\d.\-/() +]+", termo))
+    tipos = [t for t in tipos if t not in ("CPF", "CNPJ", "TELEFONE", "RG", "PROCESSO", "BO", "CONTA")
+             or numerico or (t == "CONTA" and "|" in termo)]
+    chaves = [(t, R.chave_no(t, termo)) for t in tipos]
+    chaves = [(t, v.lower()) for t, v in chaves if v]
+    filtros = " OR ".join("(n.tipo=? AND instr(lower(n.valor),?)>0)" for _ in chaves)
+    parametros = [v for par in chaves for v in par]
+    escopo = "WHERE fonte=? OR (a_tipo='CASO' AND a_valor=?) OR (b_tipo='CASO' AND b_valor=?)" if caso else ""
+    escopo_par = [caso] * 6 if caso else []
+    seeds = db.execute(f"""
+        WITH nos AS (
+            SELECT a_tipo AS tipo,a_valor AS valor FROM arestas {escopo}
+            UNION SELECT b_tipo,b_valor FROM arestas {escopo}
+        )
+        SELECT n.tipo,n.valor FROM nos n LEFT JOIN rotulos r ON r.tipo=n.tipo AND r.valor=n.valor
+        WHERE ({filtros or '0'}) OR (n.tipo!='CASO' AND instr(lower(coalesce(r.rotulo,'')),?)>0)
+        ORDER BY n.tipo,n.valor LIMIT 30
+    """, escopo_par + parametros + [termo.lower()]).fetchall()
+    arestas = []
+    vistas = set()
+    for tipo, valor in seeds:
+        for a in R.vinculos(tipo, valor, niveis=2, limite=300).get("arestas", []):
+            if caso and not (a["fonte"] == caso or (a["a_tipo"] == "CASO" and a["a_valor"] == caso)
+                             or (a["b_tipo"] == "CASO" and a["b_valor"] == caso)):
+                continue
+            chave = (a["a_tipo"], a["a_valor"], a["b_tipo"], a["b_valor"], a["relacao"])
+            if chave not in vistas:
+                vistas.add(chave)
+                arestas.append(a)
+                if len(arestas) >= 400:
+                    return arestas
+    return arestas
+
+
 @bp_consulta.get("/api/grafo")
 @requer("pesquisa")
 def api_grafo():
     caso = request.args.get("caso") or ""
     termo = (request.args.get("q") or "").strip()
+    ordens = _ordens_servico_grafo()
+    casos_disp = [c["id"] for c in ordens]
+    vazio = {"nos": [], "arestas": [], "casos": casos_disp, "ordens_servico": ordens,
+             "indice_disponivel": False}
     try:
         db = R.conectar()
     except FileNotFoundError:
-        return jsonify({"nos": [], "arestas": [], "casos": []})
-
-    casos_rows = db.execute("SELECT DISTINCT b_valor FROM arestas WHERE b_tipo='CASO' UNION SELECT DISTINCT a_valor FROM arestas WHERE a_tipo='CASO'").fetchall()
-    casos_disp = sorted([r[0] for r in casos_rows if r[0]])
+        return jsonify(vazio)
+    try:
+        db.execute("SELECT 1 FROM arestas LIMIT 1")
+        db.execute("SELECT 1 FROM rotulos LIMIT 1")
+    except sqlite3.OperationalError:
+        db.close()
+        return jsonify(vazio)
 
     arestas = []
-    if caso:
+    if termo:
+        arestas = _arestas_busca_grafo(db, termo, caso)
+    elif caso:
         p_rows = db.execute("""
             SELECT DISTINCT a_tipo, a_valor, b_tipo, b_valor, relacao, origem, fonte, localizador
             FROM arestas
@@ -127,17 +186,6 @@ def api_grafo():
         """, (caso, caso, caso)).fetchall()
         arestas.extend([dict(zip(("a_tipo", "a_valor", "b_tipo", "b_valor", "relacao", "origem", "fonte", "localizador"), r)) for r in man_rows])
 
-    elif termo:
-        g = R.vinculos("PESSOA", termo, niveis=2, limite=300)
-        if not g.get("nos"):
-            g = R.vinculos("NOME", termo, niveis=2, limite=300)
-        if not g.get("nos"):
-            g = R.vinculos("CPF", termo, niveis=2, limite=300)
-        if not g.get("nos"):
-            g = R.vinculos("CONTA", termo, niveis=2, limite=300)
-        if not g.get("nos"):
-            g = R.vinculos("CHAVE_PIX", termo, niveis=2, limite=300)
-        arestas = g.get("arestas", [])
     else:
         rows = db.execute("""
             SELECT DISTINCT a_tipo, a_valor, b_tipo, b_valor, relacao, origem, fonte, localizador
@@ -172,7 +220,8 @@ def api_grafo():
 
     db.close()
     nos_saida = [{"tipo": t, "valor": v, "nivel": 0, "rotulo": rot.get((t, v), v)} for t, v in vistos_nos]
-    g = {"nos": nos_saida, "arestas": unicas, "casos": casos_disp}
+    g = {"nos": nos_saida, "arestas": unicas, "casos": casos_disp, "ordens_servico": ordens,
+         "indice_disponivel": True}
     auditar("grafo_consultado", f"caso={caso}; q={termo}")
     return jsonify(g)
 

@@ -394,7 +394,7 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
   <div class="barra" style="margin:0;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
 
-    <select id="gr-caso" style="width:230px"><option value="">Todos os casos (conexões gerais)</option></select>
+    <select id="gr-caso" aria-label="Selecionar O.S. para o grafo" style="width:230px"><option value="">Todos os casos (conexões gerais)</option></select>
 
     <input id="gr-busca" placeholder="Buscar no grafo (nome, CPF, conta, Pix)…" style="width:230px">
 
@@ -434,7 +434,8 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
   <div class="card" style="padding:0;position:relative;overflow:hidden;background:#080e1a;border-color:#1e3250;display:flex;flex-direction:column">
 
-    <canvas id="cv-grafo" style="width:100%;height:100%;cursor:grab;display:block"></canvas>
+    <canvas id="cv-grafo" aria-label="Grafo de vínculos da O.S." style="width:100%;height:100%;cursor:grab;display:block"></canvas>
+    <div id="gr-mensagem" role="status" aria-live="polite" hidden style="position:absolute;inset:35% 12% auto;text-align:center;padding:20px;border:1px solid var(--line);border-radius:8px;background:var(--surface);pointer-events:none"></div>
 
     <div style="position:absolute;bottom:10px;left:10px;background:rgba(9,17,30,0.85);border:1px solid #1e3250;border-radius:6px;padding:5px 10px;font-size:11.5px;color:var(--muted);pointer-events:none">
 
@@ -1432,6 +1433,8 @@ let grDraggingNode=null, grHoveredNode=null, grSelectedNode=null;
 let grIsPanning=false, grStartPan={x:0,y:0}, grMouseDownPos={x:0,y:0};
 
 let grAnimId=null, grEnergy=1.0, grInitialized=false;
+let grCarga=0, grEstado="pronto", grErro="";
+let grAjustarAoEstabilizar=false;
 
 
 
@@ -1497,36 +1500,48 @@ function grResizeCanvas(){
 
 }
 
+function grAtualizarCasos(data, selecionado){
+  const sel=$("#gr-caso");if(!sel)return;
+  const ordens=Array.isArray(data.ordens_servico)?data.ordens_servico:
+    (data.casos||[]).map(id=>({id,ordem_servico:id}));
+  const lista=ordens.slice().sort(compararNumeroOS);
+  sel.innerHTML='<option value="">Todas as O.S. (conexões gerais)</option>'+lista.map(c=>{
+    const os=c.ordem_servico||c.id;
+    return `<option value="${esc(c.id)}">${esc(os===c.id?os:"O.S. "+os)}</option>`;
+  }).join("");
+  sel.value=lista.some(c=>c.id===selecionado)?selecionado:"";
+}
+
+function grAtualizarEstado(visNodes, conexoes){
+  const msg=$("#gr-mensagem"),status=$("#gr-status");let texto="";
+  if(grEstado==="carregando")texto="Carregando vínculos e lista de O.S.…";
+  else if(grEstado==="erro")texto="Não foi possível carregar o grafo: "+grErro+". Clique em Buscar para tentar novamente.";
+  else if(grDados.indice_disponivel===false)texto="O índice de vínculos ainda não está disponível. As O.S. cadastradas continuam disponíveis no seletor.";
+  else if(!grNodes.length){
+    const q=$("#gr-busca").value.trim(),caso=$("#gr-caso").value;
+    texto=q?"Nenhum vínculo encontrado para esta busca"+(caso?" nesta O.S.":"")+". Experimente outro nome ou identificador, ou limpe a busca.":
+      caso?"Esta O.S. ainda não possui vínculos disponíveis no índice. O cadastro da O.S. pode ser consultado na aba Casos.":
+      "Ainda não há vínculos disponíveis no índice. Selecione uma O.S. ou consulte o cadastro na aba Casos.";
+  }else if(!visNodes.length)texto="Todos os nós estão ocultos pelos filtros. Marque um dos tipos acima para exibir o grafo.";
+  if(msg){msg.textContent=texto;msg.hidden=!texto}
+  if(status)status.textContent=grEstado==="carregando"?"Carregando…":grEstado==="erro"?"Falha no carregamento":`${visNodes.length} nós visíveis · ${conexoes} conexões`;
+}
+
 async function carregarGrafo(){
-
   grInitEvents();
-
-  const caso=$("#gr-caso")?$("#gr-caso").value:"",q=$("#gr-busca")?$("#gr-busca").value.trim():"";
-
-  $("#gr-status").textContent="Carregando rede relacional…";
-
+  const carga=++grCarga,caso=$("#gr-caso").value,q=$("#gr-busca").value.trim();
+  grEstado="carregando";grErro="";grAtualizarEstado([],0);
   try{
-
     const data=await api(`/api/grafo?caso=${enc(caso)}&q=${enc(q)}`);
-
-    grDados=data;
-
-    if($("#gr-caso")&&$("#gr-caso").options.length<=1&&data.casos&&data.casos.length){
-
-      const selVal=$("#gr-caso").value;
-
-      let h='<option value="">Todos os casos (conexões gerais)</option>';
-
-      for(const c of data.casos)h+=`<option value="${esc(c)}">${esc(c)}</option>`;
-
-      $("#gr-caso").innerHTML=h;$("#gr-caso").value=selVal;
-
-    }
-
-    grMontarGrafo();
-
-  }catch(x){$("#gr-status").textContent="Erro: "+x.message}
-
+    if(carga!==grCarga)return;
+    grDados=data;grAtualizarCasos(data,caso);grEstado="pronto";
+    grInspecionarNo(null);grHoveredNode=null;grDraggingNode=null;
+    grMontarGrafo();grDesenhar();
+  }catch(x){
+    if(carga!==grCarga)return;
+    grDados={nos:[],arestas:[]};grNodes=[];grEdges=[];grNodeMap.clear();
+    grEstado="erro";grErro=x.message;grInspecionarNo(null);grDesenhar();
+  }
 }
 
 function grMontarGrafo(){
@@ -1578,6 +1593,7 @@ function grMontarGrafo(){
   grResetView();
 
   grEnergy=1.0;
+  grAjustarAoEstabilizar=true;
 
   grStartLoop();
 
@@ -1631,7 +1647,7 @@ function grTickPhysics(){
 
     if(a!==grDraggingNode){a.vx+=fx;a.vy+=fy;}
 
-    if(b!==grDraggingNode){b.vx+=fx;b.vy+=fy;}
+    if(b!==grDraggingNode){b.vx-=fx;b.vy-=fy;}
 
   }
 
@@ -1739,7 +1755,7 @@ function grDesenhar(){
 
   ctx.restore();ctx.restore();
 
-  $("#gr-status").textContent=`${visNodes.length} nós visíveis · ${grEdges.length} conexões`;
+  grAtualizarEstado(visNodes,grEdges.filter(e=>visSet.has(e.source)&&visSet.has(e.target)).length);
 
 }
 
@@ -1757,7 +1773,7 @@ function grStartLoop(){
 
       grDesenhar();grAnimId=requestAnimationFrame(step);
 
-    }else{grDesenhar();grAnimId=null}
+    }else{if(grAjustarAoEstabilizar){grAjustarAoEstabilizar=false;grResetView()}else grDesenhar();grAnimId=null}
 
   }
 
@@ -1916,6 +1932,7 @@ function grInitEvents(){
   cv.addEventListener("wheel",e=>{
 
     e.preventDefault();
+    grAjustarAoEstabilizar=false;
 
     const rect=cv.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;
 
@@ -1930,6 +1947,7 @@ function grInitEvents(){
   },{passive:false});
 
   cv.addEventListener("mousedown",e=>{
+    grAjustarAoEstabilizar=false;
 
     const pt=grScreenToWorld(e.clientX,e.clientY);grMouseDownPos={x:e.clientX,y:e.clientY};
 
@@ -2591,4 +2609,3 @@ async function grRemoverVinculo(aTipo,aVal,bTipo,bVal,rel){
 iniciar();
 
 </script></body></html>
-

@@ -143,6 +143,9 @@ Origem: auditoria do pipeline em 07/10/2026, aprovada pelo investigador. **Instr
 
 | PUB01 | Codex-Senior-20261009 | concluída | Sincronizar código e procedimentos com a branch existente no GitHub, generalizando exemplos operacionais identificáveis antes da publicação; registrar limitações da validação atual | `ferramentas/fila-os.py`, `revisoes/entrega-ux-2026-10-09.md` |
 
+| GF01 | Codex-GF01-backend | concluída | Corrigir a API do grafo: listar O.S. cadastradas independentemente de vínculos, buscar nomes parciais e identificadores, respeitar filtro de caso e registrar ausência do índice; testes fictícios sem alterar dados operacionais | `plugin/investigacao-cpj/app/rotas/consulta.py`, `plugin/investigacao-cpj/app/testes/teste_grafo_api_gf01.py` |
+| GF02 | Codex-Grafo-20261009 | concluída | Corrigir a interface do grafo: seletor de O.S. em ordem numérica, carga/seleção preservada e mensagens de vazio/erro; testar a renderização e registrar a entrega | `plugin/investigacao-cpj/app/static/index.html`, `plugin/investigacao-cpj/app/testes/teste_grafo_interface_gf02.py`, `revisoes/grafo-correcao-2026-10-09.md` |
+
 ## Como pegar a próxima tarefa
 
 ```powershell
@@ -363,3 +366,7 @@ Escolha primeiro uma correção prioritária com arquivos livres. Exemplos para 
 - 2026-10-09T19:19:43 — Codex-Visualizador-20261009: concluir UX02. Implementada GET /visualizar/<id>/<rel> com previa local de texto e tabelas DOCX, ordem dos blocos e negrito/italico, escaping e limites ZIP. Autorizacao compartilhada com /arquivo e containment realpath/commonpath nas rotas de arquivo e abrir pasta; sub03-relatorios confirmado. 12 testes UX02, 11 seguranca e 7 modo solo aprovados em workspace ficticio, sem servidor de rede, IA ou abertura real de pastas. Arquivos alterados: rotas/casos.py e teste_visualizador_relatorios_ux02.py. PRD preservado por reserva DJ01; espelhamento E fica para integracao UX01.
 - 2026-10-09T19:22:50 — Codex-Senior-20261009: concluir UX01. Ordem numerica e ficha com pasta/previa sob demanda;6 testes UX01,6 navegacao,15 interface aprovados;ensaio visual DOCX e PDF no Chrome em workspace ficticio;PRD reservado DJ01, registro em revisoes/entrega-ux-2026-10-09.md
 - 2026-10-09T19:27:22 — Codex-Senior-20261009: concluir PUB01. 59 arquivos genericos auditados;commit63ab7de enviado e SHA confirmado em origin/consolidacao-2026-10-01;exemplos identificaveis generalizados;3 arquivos vazios e dados operacionais excluidos;pendencias gerais registradas em revisoes/entrega-ux-2026-10-09.md
+- 2026-10-09T19:40:51 — Codex-Grafo-20261009: assumir GF02.
+- 2026-10-09T19:42:55 — Codex-GF01-backend: assumir GF01.
+- 2026-10-09T19:46:48 — Codex-GF01-backend: concluir GF01. API grafo corrigida: OS do cadastro em ordem numerica e disponiveis sem arestas/indice; busca parcial nome/identificadores e q+caso; homonimos permanecem registros separados. 11 testes ficticios API e 6 modularizacao aprovados, diff check limpo. Alterados apenas rotas/consulta.py e teste_grafo_api_gf01.py; nenhuma reindexacao ou dado real alterado.
+- 2026-10-09T19:50:43 — Codex-Grafo-20261009: concluir GF02. Seletor completo e numerico, mensagens de carga/vazio/erro, respostas obsoletas descartadas, contagem visivel e calculo de posicionamento corrigido. 10 testes ficticios GF02 e 6 UX01 aprovados; Chrome confirmou selecao, busca parcial, desenho estavel e inspetor de fontes. Registro em revisoes/grafo-correcao-2026-10-09.md; PRD reservado DJ01, consolidacao CL04. Backend atualizado no daemon oficial sem tarefas ativas.
