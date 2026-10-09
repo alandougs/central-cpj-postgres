@@ -106,7 +106,8 @@ def nome_seguro(n):
 def rede_cfg():
     d = {"compartilhar": False, "porta": 8765, "https": True}
     if os.path.exists(REDE_ARQ):
-        d.update(json.load(open(REDE_ARQ, encoding="utf-8")))
+        with open(REDE_ARQ, encoding="utf-8") as f:
+            d.update(json.load(f))
     return d
 
 
@@ -142,7 +143,7 @@ def pasta_usuario(login):
 def ambiente_ocr():
     env = dict(os.environ, CPJ_WORKSPACE=WS, PYTHONIOENCODING="utf-8", PYTHONWARNINGS="ignore")
     if os.path.isdir(TESS_DIR) and TESS_DIR not in env.get("PATH", ""):
-        env["PATH"] = env.get("PATH", "") + ";" + TESS_DIR
+        env["PATH"] = env.get("PATH", "") + os.pathsep + TESS_DIR
     if os.path.exists(os.path.join(TESSDATA_LOCAL, "por.traineddata")):
         env["TESSDATA_PREFIX"] = TESSDATA_LOCAL
     return env
@@ -158,6 +159,8 @@ def assinatura_arquivo(p):
 
 def idioma_ocr(env):
     exe = os.path.join(TESS_DIR, "tesseract.exe")
+    if not os.path.isfile(exe) and os.path.isfile(os.path.join(TESS_DIR, "tesseract")):
+        exe = os.path.join(TESS_DIR, "tesseract")  # Linux/Docker
     tessdata = env.get("TESSDATA_PREFIX") or os.path.join(TESS_DIR, "tessdata")
     chave = (
         exe,
@@ -230,6 +233,11 @@ def requer(*perms):
                 return jsonify({"erro": "Troque a senha temporária para continuar.", "trocar_senha": True}), 428
             if perms and not any(auth.pode(u["perfil"], p) for p in perms):
                 return jsonify({"erro": "Sem permissão."}), 403
+            if "id_" in k:
+                try:
+                    C.caminho(k["id_"])  # rejeita "..", "." e afins antes de qualquer rota montar caminhos
+                except ValueError:
+                    return jsonify({"erro": "Caso inexistente."}), 404
             request.usuario = u
             return fn(*a, **k)
         return w
@@ -337,7 +345,8 @@ def processar(trab, app_logger=None):
             saida_diag = rodar([PY, os.path.join(S_PDF, "diagnostico.py"), orig], env, log)
             json_str = saida_diag[saida_diag.find("{") : saida_diag.rfind("}") + 1]
             diag = json.loads(json_str)
-            json.dump(diag, open(os.path.join(dest, "diagnostico.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            with open(os.path.join(dest, "diagnostico.json"), "w", encoding="utf-8") as f:
+                json.dump(diag, f, ensure_ascii=False, indent=2)
             if "erro" in diag:
                 raise RuntimeError(diag["erro"])
             lang = idioma_ocr(env) or "por"
@@ -369,7 +378,8 @@ def processar(trab, app_logger=None):
         rel = os.path.join(dest, "relatorio_extracao.json")
         if os.path.exists(rel):
             C.importar_ip(id_, rel)
-            r = json.load(open(rel, encoding="utf-8"))
+            with open(rel, encoding="utf-8") as f:
+                r = json.load(f)
             registrar_tratamento(
                 id_,
                 [
@@ -381,12 +391,13 @@ def processar(trab, app_logger=None):
                 ],
             )
         else:
-            c = C.carregar(id_)
-            c["documentos"] = [d for d in c.get("documentos", []) if d.get("arquivo") != arq] + [{"arquivo": arq, "pasta": doc, "tipo": ext.lstrip(".")}]
-            if c["status"] == "recebido":
-                c["status"] = "extraido"
-                c["datas"]["extraido"] = C.hoje()
-            C.salvar(c)
+            def _registrar_documento(c):
+                c["documentos"] = [d for d in c.get("documentos", []) if d.get("arquivo") != arq] + [{"arquivo": arq, "pasta": doc, "tipo": ext.lstrip(".")}]
+                if c["status"] == "recebido":
+                    c["status"] = "extraido"
+                    c["datas"]["extraido"] = C.hoje()
+
+            C.atualizar(id_, _registrar_documento)
             registrar_tratamento(id_, [f"### {agora()} — {arq} (importado pela Central CPJ, SHA-256 `{sha256(orig)}`)"])
         transcricao = os.path.join(dest, "transcricao.md")
         if os.path.isfile(transcricao):
@@ -397,16 +408,24 @@ def processar(trab, app_logger=None):
         rodar([PY, os.path.join(S_BASE, "indexar.py")], env, log)
         atualizar_trabalho(id_, doc, status="concluido", etapa="concluído", fim=agora(), progresso=100)
     except Exception as e:
-        atualizar_trabalho(id_, doc, status="erro", erro=str(e), fim=agora())
         with open(log, "a", encoding="utf-8") as lg:
             lg.write(f"\n[{agora()}] ERRO: {e}\n")
+        atualizar_trabalho(id_, doc, status="erro", erro=str(e), fim=agora())
 
 
 def trabalhador():
+    """Thread única da fila de OCR. Nenhuma exceção pode encerrá-la: se encerrar, a fila para em silêncio."""
     while True:
         trab = fila.get()
         try:
             processar(trab)
+        except Exception:
+            # ex.: processamento.json ilegível ao registrar o erro; o próximo documento segue normalmente
+            try:
+                import logging
+                logging.getLogger("central-cpj").exception("Falha ao processar %s/%s", trab.get("caso"), trab.get("doc"))
+            except Exception:
+                pass
         finally:
             fila.task_done()
 
@@ -474,9 +493,12 @@ def arvore(base):
     for raiz, dirs, arqs in os.walk(base):
         dirs[:] = sorted(d for d in dirs if d not in ("paginas_visao", "ia-logs"))
         for a in sorted(arqs):
-            if a.endswith(".tmp") or a.startswith("~$"):
+            # internos: trava do caso (.caso.lock), uploads em curso (.upload-*), temporários
+            if a.endswith(".tmp") or a.startswith(("~$", ".")):
                 continue
             p = os.path.join(raiz, a)
+            if not os.path.isfile(p):  # removido entre o walk e a leitura (ex.: temporário já renomeado)
+                continue
             out.append({"caminho": os.path.relpath(p, base).replace("\\", "/"), "tamanho": os.path.getsize(p)})
     return out
 

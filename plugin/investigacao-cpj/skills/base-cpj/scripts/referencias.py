@@ -85,7 +85,9 @@ def listar(autor=None):
 
 
 def atualizar(ref_id, **campos):
-    p = os.path.join(REFS, ref_id, "meta.json")
+    d = os.path.normpath(os.path.join(REFS, ref_id))
+    if not d.startswith(os.path.normpath(REFS) + os.sep): raise FileNotFoundError(ref_id)  # mesma regra de remover()
+    p = os.path.join(d, "meta.json")
     if not os.path.exists(p): raise FileNotFoundError(ref_id)
     m = json.load(open(p, encoding="utf-8"))
     for k in ("autor", "modalidade", "natureza", "obs"):

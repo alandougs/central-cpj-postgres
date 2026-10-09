@@ -61,7 +61,8 @@ def plantao_config(ws):
     cfg = {"agente_embutido": True, "tipo_embutido": "claude"}
     p = os.path.join(ws, "config", "plantao.json")
     if os.path.exists(p):
-        try: cfg.update(json.load(open(p, encoding="utf-8")))
+        try:
+            with open(p, encoding="utf-8") as f: cfg.update(json.load(f))
         except ValueError: pass
     return cfg
 
@@ -307,14 +308,17 @@ class Tarefas:
         if t["tipo"] == "importacao" and t["etapa"] == "confirmando importação": return False
         self.at(tid, status="cancelada", etapa="cancelada", fim=agora())
         p = self.procs.get(tid)
-        if p: subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True, creationflags=SEM_JANELA)
+        if p: PL._matar(p)
         return True
 
 
 # ------------------------------------------------------------ relatório: DOCX / PDF
 def gerar_docx(ws, id_, minuta_nome, sem_assinatura=False):
     d = os.path.join(ws, "casos", id_, "03-relatorios")
-    v = re.findall(r"\d+", minuta_nome)[0]
+    m = re.fullmatch(r"minuta-v(\d+)\.md", os.path.basename(minuta_nome or ""), re.I)
+    if not m or not os.path.isfile(os.path.join(d, os.path.basename(minuta_nome))):
+        raise RuntimeError(f"Minuta não encontrada: {minuta_nome} (use minuta-vNN.md de 03-relatorios).")
+    minuta_nome, v = os.path.basename(minuta_nome), m.group(1)
     saida = os.path.join(d, f"RELATORIO-{id_}-v{v}.docx")
     cmd = [PY, os.path.join(S_REL, "gerar_docx.py"), os.path.join(d, minuta_nome), "--saida", saida]
     if sem_assinatura: cmd.append("--sem-assinatura")
@@ -328,7 +332,7 @@ def gerar_docx(ws, id_, minuta_nome, sem_assinatura=False):
 def soffice():
     for p in (r"C:\Program Files\LibreOffice\program\soffice.exe", r"C:\Program Files (x86)\LibreOffice\program\soffice.exe"):
         if os.path.exists(p): return p
-    return None
+    return shutil.which("soffice") or shutil.which("libreoffice")  # LibreOffice no PATH (portátil, Linux/Docker)
 
 
 def gerar_pdf(ws, id_, docx_nome):

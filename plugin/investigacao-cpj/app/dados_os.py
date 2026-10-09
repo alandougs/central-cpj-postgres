@@ -178,8 +178,18 @@ def aplicar(C, id_, texto, documento, usar_ia=False):
         encontrados.update(ia)
     elif usar_ia:
         estado = "dispensada"
-    # Releitura protege alterações manuais feitas enquanto a IA estava executando.
-    c = C.carregar(id_)
+    # Releitura sob a trava do caso protege alterações manuais feitas enquanto a IA estava executando
+    # e gravações concorrentes da Central (ex.: marcar "visto", editar a ficha).
+    saida = {}
+
+    def _mutar(c):
+        saida["registro"] = _aplicar_no_caso(c, encontrados, conflitos, estado)
+
+    C.atualizar(id_, _mutar)
+    return saida["registro"]
+
+
+def _aplicar_no_caso(c, encontrados, conflitos, estado):
     registro = c.setdefault("preenchimento_os", {"fontes": {}, "conflitos": {}})
     registro.setdefault("fontes", {})
     registro.setdefault("conflitos", {})
@@ -201,5 +211,4 @@ def aplicar(C, id_, texto, documento, usar_ia=False):
     registro["pendentes"] = [k for k in CAMPOS if not c.get(k)]
     registro["ia"] = estado
     c["referencia"] = " / ".join(f"{rotulo} {c[k]}" for k, rotulo in (("bo", "BO"), ("inquerito", "IP"), ("processo", "Processo")) if c.get(k))
-    C.salvar(c)
     return registro

@@ -46,11 +46,13 @@ def buscar(q, caso=None, tipo=None, modalidade=None, n=10, fts=False):
         except sqlite3.OperationalError as e: raise ValueError(f"Consulta inválida: {e}")
 
     aviso = None
-    res = roda(q if fts else " ".join(termos))
-    if not res and not fts and len(termos) > 1:
-        res = roda(" OR ".join(termos))
-        if res: aviso = "Nenhum trecho contém todos os termos; mostrando trechos com parte deles (o OCR pode ter unido/alterado palavras)."
-    db.close()
+    try:
+        res = roda(q if fts else " ".join(termos))
+        if not res and not fts and len(termos) > 1:
+            res = roda(" OR ".join(termos))
+            if res: aviso = "Nenhum trecho contém todos os termos; mostrando trechos com parte deles (o OCR pode ter unido/alterado palavras)."
+    finally:
+        db.close()  # também na consulta inválida: conexão esquecida prende cpj.sqlite no Windows
     return [dict(zip(("caso", "arquivo", "tipo", "pagina", "fls", "secao", "trecho"), r)) for r in res], aviso
 
 

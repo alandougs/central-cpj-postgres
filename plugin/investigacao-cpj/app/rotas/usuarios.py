@@ -246,6 +246,7 @@ def api_rede_salvar():
     cfg = rede_cfg()
     cfg.update(compartilhar=bool(d.get("compartilhar")), https=bool(d.get("https", True)))
     os.makedirs(os.path.dirname(REDE_ARQ), exist_ok=True)
-    json.dump(cfg, open(REDE_ARQ, "w", encoding="utf-8"), indent=2)
+    with open(REDE_ARQ, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2)
     auditar("rede_alterada", json.dumps(cfg))
     return jsonify(cfg | {"reiniciar": True})

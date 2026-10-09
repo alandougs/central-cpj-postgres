@@ -6,7 +6,7 @@ import os
 import re
 import shutil
 import threading
-from flask import Blueprint, abort, jsonify, request
+from flask import Blueprint, abort, current_app, jsonify, request
 from rotas.comum import (
     C,
     RF,
@@ -71,7 +71,8 @@ def api_minuta(id_):
         dp = {}
         pp = os.path.join(WS, "modelos", "dados-padrao.json")
         if os.path.exists(pp):
-            dp = json.load(open(pp, encoding="utf-8"))
+            with open(pp, encoding="utf-8") as f:
+                dp = json.load(f)
         hoje = datetime.date.today()
         meses = [
             "janeiro", "fevereiro", "março", "abril", "maio", "junho",
@@ -100,7 +101,8 @@ def api_minuta(id_):
     p = os.path.join(C.caminho(id_), "03-relatorios", os.path.basename(nome))
     if not os.path.exists(p):
         abort(404)
-    meta, sec = ler_minuta(open(p, encoding="utf-8").read())
+    with open(p, encoding="utf-8") as f:
+        meta, sec = ler_minuta(f.read())
     m_v = re.findall(r"\d+", os.path.basename(nome))
     versao_num = int(m_v[0]) if m_v else 1
     return jsonify({"arquivo": os.path.basename(nome), "versao_num": versao_num, "meta": meta, "secoes": sec})
@@ -114,7 +116,7 @@ def api_minuta_salvar(id_):
     if versao_base is not None:
         try:
             versao_base = int(versao_base)
-        except ValueError:
+        except (TypeError, ValueError):
             versao_base = None
     meta_in = {k: str((d.get("meta") or {}).get(k) or "").replace("\n", " ").strip() for k in CAMPOS_MINUTA}
     sec = d.get("secoes") or {}
@@ -190,7 +192,8 @@ def api_final(id_):
     if not nome.endswith(".docx") or not os.path.exists(p):
         return jsonify({"erro": "DOCX não encontrado."}), 400
     final = os.path.join(d, f"RELATORIO-{id_}-FINAL.docx")
-    shutil.copyfile(p, final)
+    if os.path.normcase(os.path.abspath(p)) != os.path.normcase(os.path.abspath(final)):
+        shutil.copyfile(p, final)  # escolher o próprio FINAL (redefinir) não deve dar SameFileError/500
     try:
         texto = RF.extrair_texto(final)
         c = C.carregar(id_)
@@ -199,10 +202,12 @@ def api_final(id_):
                 f"---\ncaso: {id_}\ntipo: relatorio-final\nmodalidade: {c.get('modalidade') or ''}\norigem_docx: {nome}\n---\n\n{texto}"
             )
     except Exception:
-        pass
+        current_app.logger.exception("FINAL.md não gerado para %s (o DOCX FINAL foi mantido)", id_)
     c = C.status(id_, "entregue", origem="central", arquivo=os.path.basename(final))
     versoes = len([f for f in os.listdir(d) if re.match(r"minuta-v\d+\.md$", f)])
-    C.registrar_relatorio(id_, os.path.basename(final), data=c["datas"]["entregue"], versoes=versoes or None)
+    # Redefinir o FINAL não duplica a entrada em relatorios[] (que alimenta a produção)
+    if not any(r.get("arquivo") == os.path.basename(final) for r in c.get("relatorios", [])):
+        C.registrar_relatorio(id_, os.path.basename(final), data=c["datas"]["entregue"], versoes=versoes or None)
     criador = c.get("criado_por")
     if criador and auth.obter(criador):
         shutil.copyfile(final, os.path.join(pasta_usuario(criador), "relatorios", f"RELATORIO-{id_}-FINAL.docx"))

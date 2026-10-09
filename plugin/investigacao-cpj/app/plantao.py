@@ -34,7 +34,8 @@ def expediente(ws):
     Fora do expediente nenhum agente reserva pedido sozinho; o pedido espera na fila e o usuário aciona pelo chat."""
     cfg = dict(EXPEDIENTE_PADRAO)
     try:
-        j = json.load(open(os.path.join(ws, "config", "plantao.json"), encoding="utf-8"))
+        with open(os.path.join(ws, "config", "plantao.json"), encoding="utf-8") as f:
+            j = json.load(f)
         cfg.update({k: v for k, v in (j.get("expediente") or {}).items() if k in EXPEDIENTE_PADRAO})
     except (OSError, ValueError, AttributeError):
         pass
@@ -389,7 +390,14 @@ def provedor_pronto(tipo):
 
 
 def _matar(p):
-    subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True, creationflags=SEM_JANELA)
+    """Encerra o processo do agente e seus filhos (taskkill no Windows; kill no Linux/Docker)."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True, creationflags=SEM_JANELA)
+        return
+    try:
+        p.kill()
+    except OSError:
+        pass
 
 
 def executar_pedido(pl, job, nome, tipo):
@@ -423,10 +431,18 @@ def executar_pedido(pl, job, nome, tipo):
         while p.poll() is None:
             pct, etapa = None, None
             if os.path.exists(pfile):
-                try: pj = json.load(open(pfile, encoding="utf-8")); pct, etapa = int(pj["pct"]), pj["etapa"]
+                try:
+                    with open(pfile, encoding="utf-8") as f: pj = json.load(f)
+                    pct, etapa = int(pj["pct"]), pj["etapa"]
                 except Exception: pass
             det = f"{acoes} ações · {int(time.time() - inicio) // 60} min" + (f" · última: {ultimo}" if ultimo else "")
-            if not pl.progresso(job["id"], nome, pct, etapa, det):
+            try:
+                ativo = pl.progresso(job["id"], nome, pct, etapa, det)
+            except ValueError:   # pedido devolvido à fila/reatribuído: este agente não é mais o dono
+                ativo = False
+            except sqlite3.Error:  # banco ocupado por instantes: tenta de novo no próximo ciclo
+                ativo = True
+            if not ativo:
                 cancelado[0] = True; _matar(p); return
             time.sleep(4)
     threading.Thread(target=vigia, daemon=True).start()
@@ -486,25 +502,35 @@ def trabalhar(ws, nome, tipo, parar=None, aprovado=None, intervalo=3):
     pl = Plantao(ws)
     pl.registrar(nome, tipo, "auto", aprovado=aprovado)
     ultimo_teste, pronto, motivo = 0, False, ""
+    espera = lambda s: (parar.wait(s) if parar else time.sleep(s))
     while not (parar and parar.is_set()):
-        if not em_expediente(ws):   # não reserva nada fora do horário (um pedido já iniciado termina normalmente)
-            pl.sinal(nome, "fora do expediente", aviso_fora_expediente(ws))
-            (parar.wait(max(intervalo, 30)) if parar else time.sleep(max(intervalo, 30)))
+        # Nenhuma falha pode encerrar este laço: o agente embutido roda numa thread daemon e,
+        # se ela morrer, os botões de IA ficam "na fila" para sempre sem aviso.
+        try:
+            if not em_expediente(ws):   # não reserva nada fora do horário (um pedido já iniciado termina normalmente)
+                pl.sinal(nome, "fora do expediente", aviso_fora_expediente(ws))
+                espera(max(intervalo, 30))
+                continue
+            if time.time() - ultimo_teste > 60:
+                pronto, motivo = provedor_pronto(tipo); ultimo_teste = time.time()
+            job = None
+            if pronto:
+                pl.sinal(nome, "ocioso", "")
+                job = pl.reivindicar(nome)
+            else:
+                pl.sinal(nome, "indisponível", motivo)
+            if job:
+                try:
+                    res = executar_pedido(pl, job, nome, tipo)
+                    res.update(pos_processar(ws, job["caso"], job["acao"]))
+                    pl.concluir(job["id"], nome, res)
+                except Exception as e:
+                    try:
+                        pl.falhar(job["id"], nome, str(e))
+                    except ValueError:
+                        pass  # o pedido já foi devolvido à fila ou está com outro agente
+                continue
+        except Exception:
+            espera(max(intervalo, 10))  # banco ocupado/erro transitório: tenta de novo
             continue
-        if time.time() - ultimo_teste > 60:
-            pronto, motivo = provedor_pronto(tipo); ultimo_teste = time.time()
-        job = None
-        if pronto:
-            pl.sinal(nome, "ocioso", "")
-            job = pl.reivindicar(nome)
-        else:
-            pl.sinal(nome, "indisponível", motivo)
-        if job:
-            try:
-                res = executar_pedido(pl, job, nome, tipo)
-                res.update(pos_processar(ws, job["caso"], job["acao"]))
-                pl.concluir(job["id"], nome, res)
-            except Exception as e:
-                pl.falhar(job["id"], nome, str(e))
-            continue
-        (parar.wait(intervalo) if parar else time.sleep(intervalo))
+        espera(intervalo)

@@ -206,7 +206,8 @@ class Auth:
         m = {k: set(v) for k, v in PERMISSOES.items()}
         if os.path.exists(p):
             try:
-                for perfil, perms in json.load(open(p, encoding="utf-8")).items():
+                with open(p, encoding="utf-8") as f: dados = json.load(f)
+                for perfil, perms in dados.items():
                     if perfil in m: m[perfil] = set(perms) & TODAS
             except ValueError:
                 pass
@@ -216,7 +217,7 @@ class Auth:
         limpo = {perfil: sorted(set(perms) & (TODAS - {"usuarios", "rede"})) for perfil, perms in dados.items() if perfil in PERMISSOES}
         with _trava:
             tmp = os.path.join(self.dir, "perfis.json.tmp")
-            json.dump(limpo, open(tmp, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            with open(tmp, "w", encoding="utf-8") as f: json.dump(limpo, f, ensure_ascii=False, indent=2)
             os.replace(tmp, os.path.join(self.dir, "perfis.json"))
         return limpo
 
@@ -234,5 +235,9 @@ class Auth:
 
     def auditoria(self, n=200):
         if not os.path.exists(self.log): return []
-        linhas = open(self.log, encoding="utf-8").read().splitlines()[-n:]
-        return [json.loads(x) for x in reversed(linhas)]
+        with open(self.log, encoding="utf-8") as f: linhas = f.read().splitlines()[-n:]
+        out = []
+        for x in reversed(linhas):
+            try: out.append(json.loads(x))
+            except ValueError: continue  # linha truncada (queda de energia) não derruba a tela de auditoria
+        return out

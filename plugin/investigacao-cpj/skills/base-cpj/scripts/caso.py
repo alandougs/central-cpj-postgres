@@ -130,9 +130,15 @@ def id_de_os(os_num):
 
 
 def caminho(id_):
-    if not re.fullmatch(r"[\w.\-]+", id_ or "", flags=re.A):
+    # Começa com letra/número/sublinhado: "." e ".." (e nomes ocultos) apontariam para fora da pasta do caso.
+    if not isinstance(id_, str) or not re.fullmatch(r"\w[\w.\-]*", id_, flags=re.A):
         raise ValueError("ID inválido: use letras, números, ponto, hífen ou sublinhado.")
     return os.path.join(CASOS, id_)
+
+
+def _ler_json(p):
+    with open(p, encoding="utf-8") as f:  # handle fechado na hora: no Windows, arquivo aberto bloqueia os.replace
+        return json.load(f)
 
 
 def existe(id_): return os.path.exists(os.path.join(caminho(id_), "caso.json"))
@@ -141,7 +147,7 @@ def existe(id_): return os.path.exists(os.path.join(caminho(id_), "caso.json"))
 def carregar(id_):
     p = os.path.join(caminho(id_), "caso.json")
     if not os.path.exists(p): raise FileNotFoundError(f"Caso {id_} não existe.")
-    c = json.load(open(p, encoding="utf-8"))
+    c = _ler_json(p)
     for k, v in (("bo", ""), ("inquerito", ""), ("processo", ""), ("documentos", []), ("prazo", None),
                  ("requisitante", ""), ("escrivao", ""), ("prioridade", "normal"), ("determinacao", ""), ("criado_por", ""),
                  ("responsavel", ""), ("visto", True)):
@@ -161,7 +167,7 @@ def salvar(c, revisao_esperada=None):
     with trava_caso(c["id"]):
         p = os.path.join(caminho(c["id"]), "caso.json")
         if revisao_esperada is not None and os.path.exists(p):
-            atual = json.load(open(p, encoding="utf-8"))
+            atual = _ler_json(p)
             rev_atual = atual.get("revisao", 1)
             if rev_atual != revisao_esperada:
                 raise ConcorrenciaErro(
@@ -208,7 +214,7 @@ def novo(os_num="", bo="", inquerito="", processo="", natureza="Estelionato", re
     d = caminho(id_)
     if os.path.exists(d): raise FileExistsError(id_)
     shutil.copytree(MODELO, d)
-    c = json.load(open(os.path.join(d, "caso.json"), encoding="utf-8"))
+    c = _ler_json(os.path.join(d, "caso.json"))
     c.update(id=id_, ordem_servico=os_num, bo=bo, inquerito=inquerito, processo=processo, natureza=natureza,
              status="recebido", documentos=[], criado_em=datetime.datetime.now().isoformat(timespec="seconds"))
     c["referencia"] = " / ".join(x for x in (f"BO {bo}" if bo else "", f"IP {inquerito}" if inquerito else "",
@@ -291,7 +297,7 @@ def set_campos(id_, pares, revisao_esperada=None):
 
 def importar_ip(id_, rel_json):
     def _mutar(c):
-        r = json.load(open(rel_json, encoding="utf-8"))
+        r = _ler_json(rel_json)
         doc = {"arquivo": r.get("arquivo"), "paginas": r.get("paginas"), "sha256": r.get("sha256_original"),
                "metodos": r.get("metodos", {}), "pendentes": len(r.get("pendentes_transcricao_visual", [])),
                "conferir": len(r.get("conferir_visualmente", [])), "pasta": os.path.basename(os.path.dirname(rel_json))}

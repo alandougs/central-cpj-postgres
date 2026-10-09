@@ -112,8 +112,8 @@ def api_caso(id_):
     u = request.usuario
     trabalho = auth.pode(u["perfil"], "trabalho")
     if trabalho and not c.get("visto"):
-        c["visto"] = True
-        C.salvar(c)
+        # atualizar() relê sob a trava do caso: o GET não sobrescreve o que a fila de OCR gravou nesse meio-tempo
+        c = C.atualizar(id_, lambda atual: atual.update(visto=True))
     rels = arquivos_relatorio(id_)
     out = {
         "caso": (
@@ -155,20 +155,23 @@ def api_caso_salvar(id_):
         if revisao_esperada is not None:
             try:
                 revisao_esperada = int(revisao_esperada)
-            except ValueError:
+            except (TypeError, ValueError):
                 revisao_esperada = None
         novo_status = d.pop("status", None) if auth.pode(u["perfil"], "trabalho") else None
         pares = {k: v for k, v in d.items() if k in permitidos}
         if pares:
             C.set_campos(id_, pares, revisao_esperada=revisao_esperada)
-            c_manual = C.carregar(id_)
-            if "preenchimento_os" in c_manual:
-                registro = c_manual["preenchimento_os"]
-                for k in pares:
-                    registro.get("fontes", {}).pop(k, None)
-                    registro.get("conflitos", {}).pop(k, None)
-                registro["pendentes"] = [k for k in D_OS.CAMPOS if not c_manual.get(k)]
-                C.salvar(c_manual)
+
+            def _limpar_fontes(c_manual):
+                if "preenchimento_os" in c_manual:
+                    registro = c_manual["preenchimento_os"]
+                    for k in pares:
+                        registro.get("fontes", {}).pop(k, None)
+                        registro.get("conflitos", {}).pop(k, None)
+                    registro["pendentes"] = [k for k in D_OS.CAMPOS if not c_manual.get(k)]
+
+            if "preenchimento_os" in C.carregar(id_):
+                C.atualizar(id_, _limpar_fontes)
         if novo_status and novo_status != c.get("status"):
             C.status(id_, novo_status, origem="central")
         auditar("caso_editado", f"{id_}: {', '.join(pares) or ''}{' status→' + novo_status if novo_status else ''}")
@@ -316,19 +319,21 @@ def api_os():
                 upd["natureza"] = f.get("natureza", "").strip()
         if upd:
             C.set_campos(id_, upd)
-        c_atual = C.carregar(id_)
-        if "preenchimento_os" in c_atual:
-            registro = c_atual["preenchimento_os"]
-            for k in upd:
-                registro.get("fontes", {}).pop(k, None)
-                registro.get("conflitos", {}).pop(k, None)
-            registro["pendentes"] = [k for k in D_OS.CAMPOS if not c_atual.get(k)]
-            c_atual["referencia"] = " / ".join(
-                f"{rotulo} {c_atual[k]}"
-                for k, rotulo in (("bo", "BO"), ("inquerito", "IP"), ("processo", "Processo"))
-                if c_atual.get(k)
-            )
-            C.salvar(c_atual)
+        def _limpar_fontes(c_atual):
+            if "preenchimento_os" in c_atual:
+                registro = c_atual["preenchimento_os"]
+                for k in upd:
+                    registro.get("fontes", {}).pop(k, None)
+                    registro.get("conflitos", {}).pop(k, None)
+                registro["pendentes"] = [k for k in D_OS.CAMPOS if not c_atual.get(k)]
+                c_atual["referencia"] = " / ".join(
+                    f"{rotulo} {c_atual[k]}"
+                    for k, rotulo in (("bo", "BO"), ("inquerito", "IP"), ("processo", "Processo"))
+                    if c_atual.get(k)
+                )
+
+        if "preenchimento_os" in C.carregar(id_):
+            C.atualizar(id_, _limpar_fontes)
         if u["perfil"] != "investigador":
             C.set_campos(id_, {"visto": "false"})
     orig_dir = os.path.join(C.caminho(id_), "00-originais")
@@ -399,9 +404,14 @@ def api_baixa(id_):
 def api_abrir(id_):
     if not eh_local():
         return jsonify({"erro": "Disponível apenas no computador da Central."}), 403
-    sub = (request.get_json(silent=True) or {}).get("sub", "")
-    alvo = os.path.normpath(os.path.join(C.caminho(id_), sub))
-    if not alvo.startswith(os.path.normpath(C.caminho(id_))) or not os.path.exists(alvo):
+    sub = str((request.get_json(silent=True) or {}).get("sub") or "")
+    try:
+        base = os.path.abspath(C.caminho(id_))
+    except ValueError:
+        abort(404)
+    alvo = os.path.abspath(os.path.join(base, sub))
+    # commonpath (e não startswith): "OS-1-2026" não pode abrir a pasta irmã "OS-1-20260"
+    if os.path.commonpath([os.path.normcase(base), os.path.normcase(alvo)]) != os.path.normcase(base) or not os.path.exists(alvo):
         abort(404)
     if hasattr(os, "startfile"):
         os.startfile(alvo)
