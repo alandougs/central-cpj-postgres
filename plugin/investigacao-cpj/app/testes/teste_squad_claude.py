@@ -1,185 +1,133 @@
-#!/usr/bin/env python3
-"""Teste da tarefa S01: squad do produto no executor automático — etapas separadas (blocos em paralelo, caminho do dinheiro,
-consolidação, redação, revisão independente, ajuste condicional), conferência da saída de cada etapa, registro, retomada e
-cancelamento. Somente agente SIMULADO e workspace temporário com dados fictícios — nenhuma IA real é chamada.
+"""CL02: SQLite e orquestracao reais; somente sessoes IA simuladas."""
+import json, os, subprocess, sys, tempfile, threading, time, unittest
+from pathlib import Path
+from unittest.mock import patch
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import plantao as PL
+import executores_llm as EL
 
-Uso: python -X utf8 plugin/investigacao-cpj/app/testes/teste_squad_claude.py
-"""
-import json, os, shutil, sys, tempfile, threading, time
+class Squad(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(prefix='cpj-cl02-')
+        self.addCleanup(self.tmp.cleanup)
+        self.ws, self.caso = self.tmp.name, 'OS-1-2026'
+        self.base = Path(self.ws) / 'casos' / self.caso
+        self.pl = PL.Plantao(self.ws)
+        self.pl.registrar('Teste', 'simulado', 'auto', aprovado=True)
+        self.calls, self.omitir, self.limpa, self.barreira = [], None, False, None
+        self.mock = patch.object(PL, '_executar_sessao', side_effect=self.simular)
+        self.mock.start(); self.addCleanup(self.mock.stop)
+    def gravar(self, rel, texto='ficticio'):
+        p = self.base / rel; p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(texto, encoding='utf-8')
+    def documento(self, nome, n):
+        self.gravar('01-extracao/' + nome + '/transcricao.md', '\n'.join(f'## Página {i}\nFicticio' for i in range(1,n+1)))
+    def simular(self, pl, job, nome, tipo):
+        e = job['_etapa']; self.calls.append(e['id'])
+        if e['tipo'] == 'blocos' and self.barreira: self.barreira.wait(timeout=5)
+        if e['tipo'] != self.omitir:
+            for saida in e['saidas']:
+                texto = 'ficticio'
+                if e['tipo'] == 'revisao':
+                    texto = 'Resultado: 9 sustentadas · 0 parciais · 0 não localizadas · 0 contraditórias' if self.limpa else 'Resultado: 7 sustentadas · 1 parciais · 1 não localizadas · 0 contraditórias'
+                self.gravar(saida, texto)
+        return {'resumo': 'simulado', 'log': 'ia-logs/' + e['id'] + '.jsonl'}
+    def pedido(self, acao='analisar'):
+        self.pl.enfileirar(self.caso, acao, 'teste', consentimento=json.dumps(EL.criar_consentimento('teste',sorted(EL.DESTINOS_EXTERNOS))))
+        return self.pl.reivindicar('Teste')
+    def executar(self, job):
+        r = PL.executar_pedido(self.pl, job, 'Teste', 'simulado')
+        self.pl.concluir(job['id'], 'Teste', r)
+        return r
+    def test_blocos_paralelos_e_cadeia_completa(self):
+        self.documento('a',150); self.documento('b',60)
+        self.barreira = threading.Barrier(3)
+        job = self.pedido('completo'); grupo = job['grupo']
+        while job:
+            self.executar(job); job = self.pl.reivindicar('Teste')
+        ps = sorted((p for p in self.pl.pedidos() if p['grupo']==grupo), key=lambda p:p['ordem'])
+        self.assertEqual([p['acao'] for p in ps], ['analisar','financeiro','relatorio','revisar'])
+        self.assertTrue(all(p['estado']=='concluida' for p in ps))
+        et = self.pl.etapas(ps[0]['id'])
+        self.assertEqual([(e['arg']['doc'],e['arg']['ini'],e['arg']['fim']) for e in et[:3]], [('a',1,90),('a',91,150),('b',1,60)])
+        self.assertEqual(self.calls[3:], ['financeiro','consolidacao','financeiro','redacao','revisao','ajuste','revisao'])
+        for p in ps:
+            for e in self.pl.etapas(p['id']):
+                self.assertEqual(e['estado'],'concluida')
+                self.assertTrue(e['inicio'] and e['fim'] and e['log'])
+            self.assertEqual(len(self.pl.como_tarefa(p)['etapas']),len(self.pl.etapas(p['id'])))
+    def test_saida_ausente_interrompe_cadeia(self):
+        self.documento('ip',40); self.omitir='consolidacao'; job=self.pedido('esteira')
+        with self.assertRaisesRegex(RuntimeError,'ficha-caso.md') as erro: self.executar(job)
+        self.pl.falhar(job['id'],'Teste',erro.exception)
+        self.assertEqual([e['estado'] for e in self.pl.etapas(job['id'])],['concluida','erro'])
+        self.assertIsNone(self.pl.reivindicar('Teste'))
+        self.assertTrue(all(p['estado'] in ('erro','cancelada') for p in self.pl.pedidos()))
+    def test_arquivo_antigo_nao_comprova_entrega(self):
+        self.documento('ip',40); self.gravar('02-analise/ficha-caso.md','antigo'); self.gravar('02-analise/pessoas.csv','antigo')
+        self.omitir='consolidacao'
+        with self.assertRaisesRegex(RuntimeError,'não atualizado'): self.executar(self.pedido())
+    def test_retomada_preserva_checkpoint(self):
+        self.documento('ip',40); job=self.pedido(); plano=PL.plano_etapas(self.ws,job)
+        self.simular(self.pl,dict(job,_etapa=plano[0]),'Teste','simulado')
+        plano[0].update(estado='concluida',inicio=PL.agora(),fim=PL.agora(),log='anterior')
+        self.pl.gravar_etapas(job['id'],plano); self.calls.clear(); self.executar(job)
+        self.assertEqual(self.calls,['consolidacao'])
+    def test_retomada_refaz_saida_perdida(self):
+        self.documento('ip',40); job=self.pedido(); plano=PL.plano_etapas(self.ws,job); plano[0].update(estado='concluida')
+        self.pl.gravar_etapas(job['id'],plano); self.executar(job)
+        self.assertEqual(self.calls,['financeiro','consolidacao'])
+    def test_revisao_limpa_dispensa_ajuste(self):
+        for saida in PL.SAIDAS_CONSOLIDACAO: self.gravar(saida)
+        self.gravar('03-relatorios/minuta-v01.md'); self.limpa=True
+        job=self.pedido('relatorio'); self.executar(job)
+        self.assertEqual(self.calls,['redacao','revisao'])
+        self.assertEqual(self.pl.etapas(job['id'])[-1]['estado'],'dispensada')
+        self.assertTrue((self.base/'03-relatorios/minuta-v02.md').is_file())
+    def test_cancelamento_impede_etapas(self):
+        self.documento('ip',40); job=self.pedido(); self.pl.cancelar(job['id'])
+        with self.assertRaisesRegex(RuntimeError,'Cancelado'): self.executar(job)
+        self.assertEqual(self.calls,[])
+    def test_cancelado_nao_pode_concluir(self):
+        self.documento('ip',40); job=self.pedido(); self.pl.cancelar(job['id'])
+        with self.assertRaisesRegex(ValueError,'cancelado'):
+            self.pl.concluir(job['id'],'Teste',{'resumo':'antigo'})
+    def test_indexacao_com_erro_impede_conclusao(self):
+        with patch.object(PL.subprocess,'run',return_value=subprocess.CompletedProcess([],1,'','falha ficticia')):
+            with self.assertRaisesRegex(RuntimeError,'Indexação falhou'):
+                PL.pos_processar(self.ws,self.caso,'analisar')
+    def test_api_recebe_prompt_etapa(self):
+        import executores_llm as EL
+        self.mock.stop()
+        self.documento('ip',40); job=self.pedido(); recebido=[]
+        def api(ws,j,nome,prov,cfg,pl):
+            recebido.append(PL.montar_prompt(j,ws,'api',nome)); return self.simular(pl,j,nome,'simulado')
+        with patch.object(EL,'executar',side_effect=api), patch.object(EL,'executar_com_fallback',side_effect=lambda ws,prov,fn,dest:fn(prov,{})):
+            PL.executar_pedido(self.pl,job,'Teste','openai-api')
+        self.assertEqual(len(recebido),2)
+        self.assertIn('Analista financeiro',recebido[0]); self.assertIn('Consolidação',recebido[1]); self.assertIn('NÃO são fonte',recebido[1])
+    def test_cancelamento_interrompe_processos_blocos(self):
+        self.mock.stop(); self.documento('ip',210); job=self.pedido()
+        script = "import os,time,json;from pathlib import Path;p=Path(os.environ['CPJ_WORKSPACE'])/('start-'+str(json.loads(os.environ['CPJ_ETAPA_ARG'])['n']));p.write_text('inicio');time.sleep(30);p.with_suffix('.fim').write_text('fim')"
+        erros=[]
+        def executar():
+            try: PL.executar_pedido(self.pl,job,'Teste','simulado')
+            except Exception as e: erros.append(str(e))
+        with patch.dict(os.environ, {'CPJ_PLANTAO_SIMULADO_CMD':script}):
+            th=threading.Thread(target=executar); th.start()
+            limite=time.monotonic()+10
+            while len(list(Path(self.ws).glob('start-*')))<3 and th.is_alive() and time.monotonic()<limite: time.sleep(.05)
+            self.assertEqual(len(list(Path(self.ws).glob('start-*'))),3,erros)
+            self.pl.cancelar(job['id']); th.join(12)
+            self.assertFalse(th.is_alive()); self.assertTrue(any('Cancelado' in e for e in erros))
+            self.assertEqual(list(Path(self.ws).glob('*.fim')),[])
+    def test_logs_api_blocos_independentes(self):
+        import executores_llm as EL
+        self.documento('ip',210); job=self.pedido(); plano=PL.plano_etapas(self.ws,job)
+        resposta={'id':'ficticio','output':[{'type':'message','content':[{'type':'output_text','text':'feito'}]}]}
+        with patch.object(EL,'_http_json',return_value=resposta), patch.object(EL.time,'time',return_value=1000):
+            a=EL.executar(self.ws,dict(job,_etapa=plano[0]),'Teste','openai',{'modelo':'ficticio','chave':'ficticia'},self.pl)
+            b=EL.executar(self.ws,dict(job,_etapa=plano[1]),'Teste','openai',{'modelo':'ficticio','chave':'ficticia'},self.pl)
+        self.assertNotEqual(a['log'],b['log'])
 
-AQUI = os.path.dirname(os.path.abspath(__file__))
-APP = os.path.normpath(os.path.join(AQUI, ".."))
-RAIZ = os.path.normpath(os.path.join(APP, "..", "..", ".."))
-WS = tempfile.mkdtemp(prefix="cpj-s01-")
-os.environ.update(CPJ_WORKSPACE=WS, CPJ_PLANTAO_SIMULADO="1")
-sys.path.insert(0, APP)
-import plantao as PL  # noqa: E402
-
-REG = os.path.join(WS, "registro-sim.jsonl")
-SIM = os.path.join(WS, "sim.py")
-falhas = []
-
-
-def ok(cond, msg):
-    print(("  OK    " if cond else "  FALHA ") + msg)
-    if not cond: falhas.append(msg)
-
-
-# Agente simulado: faz o papel da etapa recebida em CPJ_ETAPA e registra início/fim (para medir paralelismo e ordem).
-open(SIM, "w", encoding="utf-8").write(r'''
-import json, os, time
-ws, caso, etapa = os.environ["CPJ_WORKSPACE"], os.environ["CPJ_CASO"], os.environ["CPJ_ETAPA"]
-arg, modo = json.loads(os.environ.get("CPJ_ETAPA_ARG") or "{}"), os.environ.get("CPJ_SIM_MODO", "ok")
-c = os.path.join(ws, "casos", caso); an, rel = os.path.join(c, "02-analise"), os.path.join(c, "03-relatorios")
-os.makedirs(os.path.join(an, "blocos"), exist_ok=True); os.makedirs(rel, exist_ok=True)
-def reg(**k):   # uma escrita por linha, com o arquivo fechado em seguida (sessões paralelas)
-    with open(os.path.join(ws, "registro-sim.jsonl"), "a", encoding="utf-8") as f: f.write(json.dumps(k) + "\n")
-reg(etapa=etapa, arg=arg, t0=time.time())
-time.sleep(float(os.environ.get("CPJ_SIM_ESPERA", "1")))
-w = lambda p, t: open(p, "w", encoding="utf-8").write(t)
-if etapa == "blocos": w(os.path.join(an, "blocos", "bloco-%02d.md" % arg["n"]), "achados do bloco %s" % arg["n"])
-if etapa == "financeiro": w(os.path.join(an, "fluxo-financeiro.md"), "sem dados financeiros nos autos fictícios")
-if etapa == "consolidacao" and modo != "falha-consolidacao":
-    w(os.path.join(an, "ficha-caso.md"), "ficha"); w(os.path.join(an, "pessoas.csv"), "nome;mae\n")
-if etapa == "redacao": w(os.path.join(rel, "minuta-v%02d.md" % arg["proxima"]), "---\ncaso: x\n---\n## RESUMO DOS FATOS\n")
-if etapa == "revisao":
-    res = "Resultado: 9 sustentadas · 0 parciais · 0 não localizadas · 0 contraditórias" if modo == "revisao-limpa" else \
-          "Resultado: 7 sustentadas · 1 parciais · 1 não localizadas · 0 contraditórias"
-    w(os.path.join(rel, "revisao-v%02d.md" % arg["versao"]), "# Revisão\n" + res + "\n")
-reg(etapa=etapa, arg=arg, t1=time.time())
-print(json.dumps({"type": "result", "subtype": "success", "result": "etapa %s feita" % etapa}))
-''')
-os.environ["CPJ_PLANTAO_SIMULADO_CMD"] = f"exec(open(r'{SIM}', encoding='utf-8').read())"
-
-
-def novo_caso(id_, docs):
-    """docs: {nome_documento: nº de páginas} com transcrição fictícia."""
-    for d, n in docs.items():
-        p = os.path.join(WS, "casos", id_, "01-extracao", d); os.makedirs(p, exist_ok=True)
-        open(os.path.join(p, "transcricao.md"), "w", encoding="utf-8").write(
-            "\n".join(f"---\n## Página {i}\n\ntexto fictício {i}\n" for i in range(1, n + 1)))
-    os.makedirs(os.path.join(WS, "casos", id_, "03-relatorios"), exist_ok=True)
-
-
-def registro():
-    if not os.path.exists(REG): return []
-    out = []
-    for l in open(REG, encoding="utf-8"):   # sessões paralelas gravam ao mesmo tempo: ignora linha incompleta
-        try: out.append(json.loads(l))
-        except ValueError: pass
-    return out
-
-
-def rodar(caso, acao, espera_max=90):
-    """Pedido executado pelo laço automático (trabalhar) com o agente simulado."""
-    if os.path.exists(REG): os.remove(REG)
-    j = pl.enfileirar(caso, acao, "investigador.teste")
-    parar = threading.Event()
-    th = threading.Thread(target=PL.trabalhar, args=(WS, "Squad-Sim", "simulado"),
-                          kwargs={"parar": parar, "aprovado": True, "intervalo": 1}, daemon=True)
-    th.start()
-    for _ in range(espera_max * 2):
-        if pl.pedido(j)["estado"] in ("concluida", "erro", "cancelada"): break
-        time.sleep(0.5)
-    parar.set(); th.join(30)
-    return j
-
-
-shutil.copytree(os.path.join(RAIZ, "modelos"), os.path.join(WS, "modelos"))   # DOCX gerado no pós-processamento
-os.makedirs(os.path.join(WS, "config"), exist_ok=True)
-json.dump({"expediente": {"ativo": False}}, open(os.path.join(WS, "config", "plantao.json"), "w", encoding="utf-8"))
-pl = PL.Plantao(WS)
-try:
-    print("S01.1 Plano de etapas")
-    novo_caso("OS-1-2026", {"ip": 40})
-    novo_caso("OS-2-2026", {"ip-volume1": 150, "ip-volume2": 60})
-    nomes = lambda plano: [e["id"] for e in plano]
-    ok(nomes(PL.plano_etapas(WS, {"caso": "OS-1-2026", "acao": "analisar"})) == ["financeiro", "consolidacao"],
-       "IP pequeno (40 págs.): sem blocos")
-    grande = PL.plano_etapas(WS, {"caso": "OS-2-2026", "acao": "completo"})
-    ok(nomes(grande) == ["blocos-01", "blocos-02", "blocos-03", "financeiro", "consolidacao", "redacao", "revisao", "ajuste"],
-       "IP grande (210 págs. em 2 volumes): 3 blocos + análise + relatório")
-    ok([(b["arg"]["doc"], b["arg"]["ini"], b["arg"]["fim"]) for b in grande[:3]] ==
-       [("ip-volume1", 1, 90), ("ip-volume1", 91, 150), ("ip-volume2", 1, 60)], "blocos de até 90 páginas por documento")
-    ok(nomes(PL.plano_etapas(WS, {"caso": "OS-1-2026", "acao": "revisar"})) == ["revisao"], "revisar = só a revisão")
-    txt = PL.prompt_etapa({"id": "ia-x", "caso": "OS-2-2026", "acao": "completo"}, WS, dict(grande[6], arg={"versao": 3}))
-    ok("REVISOR INDEPENDENTE" in txt and "Não altere a minuta" in txt and "NÃO são fonte" in txt,
-       "prompt da revisão: papel independente, sem alterar a minuta, regra das bases de consulta")
-    txt = PL.prompt_etapa({"id": "ia-x", "caso": "OS-2-2026", "acao": "completo"}, WS, dict(grande[5], arg={"proxima": 2}))
-    ok("NÃO revise a própria minuta" in txt and "minuta-v02.md" in txt, "prompt da redação proíbe autorrevisão e fixa a versão")
-
-    print("S01.2 Pedido completo em IP grande")
-    os.environ["CPJ_SIM_ESPERA"] = "2"
-    j = rodar("OS-2-2026", "completo")
-    p = pl.pedido(j); r = registro()
-    ok(p["estado"] == "concluida", f"pedido concluído ({p['estado']}: {p.get('erro')})")
-    ordem = [x["etapa"] for x in r if "t0" in x]
-    ok(ordem[3:] == ["financeiro", "consolidacao", "redacao", "revisao", "ajuste"] and sorted(ordem[:3]) == ["blocos"] * 3,
-       f"cada etapa numa sessão própria, na ordem da squad ({ordem})")
-    t_blocos = [x for x in r if x["etapa"] == "blocos"]
-    ini, fim = max(x["t0"] for x in t_blocos if "t0" in x), min(x["t1"] for x in t_blocos if "t1" in x)
-    ok(ini < fim, "os 3 blocos rodaram em paralelo (sessões simultâneas)")
-    et = pl.etapas(j)
-    ok([e["estado"] for e in et] == ["concluida"] * 8, "todas as etapas registradas como concluídas (ajuste feito: revisão com pendências)")
-    ok(all(e.get("inicio") and e.get("fim") and e.get("log") for e in et), "cada etapa registra início, fim e log próprio")
-    res = json.loads(p["resultado"])
-    ok("Revisão independente" in res["resumo"] and "3 bloco(s)" in res["resumo"], "resumo final por etapa")
-    ok(res.get("docx", "").startswith("RELATORIO-OS-2-2026-v01"), f"DOCX gerado pela Central ({res.get('docx')})")
-    t = pl.como_tarefa(p)
-    ok(len(t["etapas"]) == 8 and t["etapas"][6]["etapa"] == "Revisão independente", "barra da Central recebe as etapas")
-    ok(len(os.listdir(os.path.join(WS, "casos", "OS-2-2026", "ia-logs"))) >= 8, "um log por sessão de etapa")
-
-    print("S01.3 Revisão sem pendências dispensa o ajuste; relatório reaproveita a análise existente")
-    os.environ.update(CPJ_SIM_ESPERA="0.2", CPJ_SIM_MODO="revisao-limpa")
-    j = rodar("OS-2-2026", "relatorio")
-    et = pl.etapas(j)
-    ok([e["id"] for e in et] == ["redacao", "revisao", "ajuste"], "com ficha-caso.md existente, 'relatório' não refaz a análise")
-    ok(pl.pedido(j)["estado"] == "concluida" and et[2]["estado"] == "dispensada", "ajuste dispensado quando a revisão não aponta problema")
-    ok(os.path.exists(os.path.join(WS, "casos", "OS-2-2026", "03-relatorios", "minuta-v02.md")), "nova versão da minuta (v02)")
-
-    print("S01.4 Etapa que não entrega a saída falha com motivo claro")
-    novo_caso("OS-3-2026", {"ip": 30})
-    os.environ.update(CPJ_SIM_MODO="falha-consolidacao")
-    j = rodar("OS-3-2026", "analisar")
-    p, et = pl.pedido(j), pl.etapas(j)
-    ok(p["estado"] == "erro" and "Consolidação da análise" in p["erro"] and "ficha-caso.md" in p["erro"],
-       f"erro indica a etapa e o arquivo faltante ({p['erro'][:90]})")
-    ok([e["estado"] for e in et] == ["concluida", "erro"], "etapas anteriores ficam registradas como concluídas")
-
-    print("S01.5 Retomada: etapas já concluídas não são refeitas")
-    os.environ.update(CPJ_SIM_MODO="ok")
-    if os.path.exists(REG): os.remove(REG)
-    j = pl.enfileirar("OS-3-2026", "analisar", "investigador.teste")
-    pl.registrar("Squad-Retoma", "simulado", "auto", aprovado=True)
-    job = pl.reivindicar("Squad-Retoma")
-    plano = PL.plano_etapas(WS, job); plano[0].update(estado="concluida", resumo="feito antes da queda")
-    pl.gravar_etapas(j, plano)
-    PL.executar_pedido(pl, pl.pedido(j), "Squad-Retoma", "simulado")
-    ok([x["etapa"] for x in registro() if "t0" in x] == ["consolidacao"], "só a etapa pendente foi executada")
-    ok([e["estado"] for e in pl.etapas(j)] == ["concluida", "concluida"], "pedido retomado completo")
-    pl.concluir(j, "Squad-Retoma", {"resumo": "ok"})
-
-    print("S01.6 Cancelar durante os blocos em paralelo")
-    novo_caso("OS-4-2026", {"ip": 300})
-    os.environ.update(CPJ_SIM_ESPERA="30")
-    if os.path.exists(REG): os.remove(REG)
-    j = pl.enfileirar("OS-4-2026", "analisar", "investigador.teste")
-    parar = threading.Event()
-    th = threading.Thread(target=PL.trabalhar, args=(WS, "Squad-Sim", "simulado"),
-                          kwargs={"parar": parar, "aprovado": True, "intervalo": 1}, daemon=True)
-    th.start()
-    for _ in range(40):
-        if len([x for x in registro() if "t0" in x]) >= 3: break
-        time.sleep(0.5)
-    t0 = time.time(); pl.cancelar(j)
-    for _ in range(40):
-        if pl.pedido(j)["estado"] != "executando": break
-        time.sleep(0.5)
-    ok(pl.pedido(j)["estado"] == "cancelada" and time.time() - t0 < 20, f"cancelado em {time.time() - t0:.1f}s")
-    ok(not any("t1" in x for x in registro()), "as sessões dos blocos foram interrompidas (nenhuma terminou)")
-    parar.set(); th.join(30)
-finally:
-    time.sleep(0.5); shutil.rmtree(WS, ignore_errors=True)
-
-print(f"\n{'TUDO OK' if not falhas else str(len(falhas)) + ' FALHA(S)'}")
-sys.exit(1 if falhas else 0)
+if __name__=='__main__': unittest.main(verbosity=2)

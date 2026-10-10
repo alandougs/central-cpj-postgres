@@ -30,6 +30,7 @@ from rotas.comum import (
     ler_proc,
     nome_seguro,
     pode_alterar_os,
+    preparar_modo,
     requer,
     resumo,
     sha256,
@@ -281,6 +282,29 @@ def api_os():
         except ValueError:
             return jsonify({"erro": "Identificador de cadastro inválido."}), 400
     id_ = id_informado or (C.id_de_os(os_num) if os_num else "RECEBIDO-" + os.urandom(12).hex())
+    modo = f.get("modo_processamento", "inteligente")
+    cons, limitacao = None, None
+    if not somente_cadastro and arquivos:
+        if C.existe(id_) and not pode_alterar_os(u, C.carregar(id_)):
+            return jsonify({"erro": "Só quem cadastrou a O.S. (ou o delegado) pode alterá-la."}), 403
+        try:
+            cons_cliente = json.loads(f["consentimento_externo"]) if "consentimento_externo" in f else None
+            with tempfile.TemporaryDirectory(prefix="cpj-previa-pdf-") as tmp:
+                pdfs = []
+                if modo != "rapido":
+                    for i, a in enumerate(arquivos):
+                        if os.path.splitext(a.filename)[1].lower() == ".pdf":
+                            p = os.path.join(tmp, f"p{i}.pdf"); a.save(p); a.stream.seek(0); pdfs.append(p)
+                cons, limitacao, aviso = preparar_modo(modo, u, pdfs, cons_cliente)
+            if aviso:
+                if aviso.get("recusado"):
+                    auditar("consentimento_recusado", f"{id_}: PDF {modo}")
+                    if C.existe(id_):
+                        from rotas.comum import registrar_tratamento
+                        registrar_tratamento(id_, [f"- Processamento {modo}: envio externo recusado em {datetime.datetime.now().isoformat(timespec='seconds')}; não iniciado."])
+                return jsonify(aviso)
+        except (ValueError, OSError, RuntimeError) as e:
+            return jsonify({"erro": str(e)}), 400
     criado = False
     extras = {
         "prazo": f.get("prazo") or None,
@@ -339,6 +363,7 @@ def api_os():
     orig_dir = os.path.join(C.caminho(id_), "00-originais")
     os.makedirs(orig_dir, exist_ok=True)
     recebidos, ignorados = [], []
+    grupo_ia = "pdf-" + os.urandom(12).hex() if cons else None
     for a in arquivos:
         base, ext = nome_seguro(a.filename)
         if ext not in EXT_OK:
@@ -363,10 +388,12 @@ def api_os():
             os.chmod(os.path.join(orig_dir, nome), 0o444)
         except Exception:
             pass
-        enfileirar(id_, os.path.splitext(nome)[0], nome)
+        enfileirar(id_, os.path.splitext(nome)[0], nome, modo=modo, usuario=u["login"], consentimento=cons,
+                   grupo_ia=grupo_ia, limitacao=limitacao)
         recebidos.append(nome)
     auditar("os_cadastrada" if criado else "os_atualizada", f"{id_}: {len(recebidos)} arquivo(s)")
-    return jsonify({"caso": id_, "criado": criado, "recebidos": recebidos, "ignorados": ignorados})
+    if cons: auditar("consentimento_aceito", f"{id_}: PDF {modo}; {cons['destinos']}")
+    return jsonify({"caso": id_, "criado": criado, "recebidos": recebidos, "ignorados": ignorados, "modo": modo, "limitacao": limitacao})
 
 
 @bp_casos.post("/api/casos/<id_>/reprocessar/<doc>")
@@ -375,9 +402,26 @@ def api_reprocessar(id_, doc):
     t = next((t for t in ler_proc(id_).get("trabalhos", []) if t["doc"] == doc), None)
     if not t:
         abort(404)
-    enfileirar(id_, doc, t["arquivo"])
+    d = request.get_json(silent=True) or {}
+    if not isinstance(d, dict): return jsonify({"erro": "Pedido inválido."}), 400
+    modo = d.get("modo", "inteligente")
+    try:
+        arq = t["arquivo"]
+        if os.path.basename(arq) != arq: raise ValueError("Arquivo inválido.")
+        original = os.path.join(C.caminho(id_), "00-originais", arq)
+        cons, limitacao, aviso = preparar_modo(modo, request.usuario, [original] if arq.lower().endswith(".pdf") else [], d.get("consentimento_externo"))
+    except (ValueError, OSError, RuntimeError) as e: return jsonify({"erro": str(e)}), 400
+    if aviso:
+        if aviso.get("recusado"):
+            auditar("consentimento_recusado", f"{id_}/{doc}: {modo}")
+            from rotas.comum import registrar_tratamento
+            registrar_tratamento(id_, [f"- Reprocessamento {modo}: envio externo recusado; não iniciado."])
+        return jsonify(aviso)
+    enfileirar(id_, doc, arq, modo=modo, usuario=request.usuario["login"], consentimento=cons,
+               grupo_ia="pdf-" + os.urandom(12).hex() if cons else None, limitacao=limitacao)
+    if cons: auditar("consentimento_aceito", f"{id_}/{doc}: {modo}; {cons['destinos']}")
     auditar("reprocessar", f"{id_}/{doc}")
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "modo": modo, "limitacao": limitacao})
 
 
 @bp_casos.post("/api/casos/<id_>/baixa")

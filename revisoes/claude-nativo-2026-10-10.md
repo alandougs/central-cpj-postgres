@@ -1,0 +1,9 @@
+# ENV03 — descoberta da instalação nativa do Claude
+
+Reserva `Codex-Loop-ENV03-20261010`, em 10/10/2026. O binário `C:/Users/alan_/.local/bin/claude.exe` existia, mas `claude_exe()` retornava None em processos que herdaram PATH anterior à instalação. A busca cobria Desktop/APPDATA, npm, extensão VS Code e PATH, sem o diretório do instalador nativo do perfil.
+
+TDD: os oito testes E01 produziram duas falhas antes da alteração. As regressões criam executáveis fictícios não executados em USERPROFILE/APPDATA temporários, com PATH vazio ou simulado, e verificam descoberta sem PATH, prioridade das opções legadas e instalação nativa antes do fallback PATH. Após o patch, oito testes passaram em 0,689 s. Nenhuma configuração de conta, login, inferência ou executor padrão foi alterada.
+
+O patch acrescenta somente a procura de `USERPROFILE/.local/bin/claude.exe`, usando `isfile`, após todas as opções legadas e antes de `shutil.which`. USERPROFILE vazio não causa busca relativa no diretório corrente. A conferência real isolou apenas a função com AST, sem importar módulos do aplicativo nem ler configurações/casos; encontrou o caminho nativo citado acima. O executável não foi acionado. Conferência de diff retornou zero.
+
+Verificação final: regressão rápida incluindo E01 passou nas cinco suítes em 120,30 s; plantão executado isoladamente pelo runner de sandbox retornou zero em 36,50 s, incluindo aprovação/reserva concorrente, instruções, progresso, cancelamento, conclusão, abandono e executor simulado. O argumento `--incluir` do runner aceita um teste por execução; o plantão foi executado separadamente para assegurar sua cobertura sem repetir a regressão inteira. Nenhum login ou chamada de inferência ocorreu. A instalação/cache final CL05 deve incluir esta alteração depois de liberada a reserva.

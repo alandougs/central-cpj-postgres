@@ -16,6 +16,29 @@ import plantao
 
 
 class TesteClaudeExeE01(unittest.TestCase):
+    def test_localiza_instalacao_local_bin_sem_path_atualizado(self):
+        with tempfile.TemporaryDirectory(prefix="cpj-env03-perfil-") as tmp:
+            exe = os.path.join(tmp, ".local", "bin", "claude.exe")
+            os.makedirs(os.path.dirname(exe))
+            with open(exe, "wb") as f:
+                f.write(b"executavel ficticio; nao executar")
+            with patch.dict(os.environ, {"APPDATA": "", "USERPROFILE": tmp, "PATH": ""}):
+                self.assertEqual(plantao.claude_exe(), exe)
+
+    def test_instalacao_local_bin_antes_path_preserva_prioridade_legada(self):
+        with tempfile.TemporaryDirectory(prefix="cpj-env03-prioridades-") as tmp:
+            native = os.path.join(tmp, ".local", "bin", "claude.exe")
+            legacy = os.path.join(tmp, "Claude", "claude-code", "v2.1.0", "claude.exe")
+            for exe in (native, legacy):
+                os.makedirs(os.path.dirname(exe), exist_ok=True)
+                with open(exe, "wb") as f:
+                    f.write(b"ficticio")
+            with patch.dict(os.environ, {"APPDATA": tmp, "USERPROFILE": tmp, "PATH": ""}), patch("shutil.which", return_value="PATH-FICTICIO/claude.exe") as which:
+                self.assertEqual(plantao.claude_exe(), legacy)
+                os.unlink(legacy)
+                self.assertEqual(plantao.claude_exe(), native)
+                which.assert_not_called()
+
     def test_localiza_via_appdata_claude_nativo(self):
         with tempfile.TemporaryDirectory(prefix="cpj-claude-nativo-") as tmp:
             nativo_dir = os.path.join(tmp, "Claude", "claude-code", "v1.2.3")

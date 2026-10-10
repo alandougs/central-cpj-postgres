@@ -68,7 +68,6 @@ ok(adm.req("POST", "/api/usuarios", {"login": "x"}, csrf=False)[0] == 403, "POST
 print("2. Delegado cadastra O.S. com prazo vencido e envia o PDF")
 ok(dlg.entrar("delegado"), "delegado entrou")
 ontem = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
-st, j = dlg.req("POST", "/api/os", campos={"os": "901/2026", "bo": "AB0001/2026", "inquerito": "0001/2026", "prazo": ontem,
 st, j = dlg.req("POST", "/api/os", campos={"os": "901/2026", "bo": "AB0001/2026", "inquerito": "0001/2026", "processo": "0001/2026",
                                              "natureza": "Estelionato", "prazo": ontem,
                                              "requisitante": "Dr. Delegado Teste", "determinacao": "Identificar o titular da chave Pix."},

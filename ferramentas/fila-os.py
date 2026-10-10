@@ -73,10 +73,6 @@ def numeros_os(nome):
 
 
 def numero_os(nome):
-    m = re.search(r"(\d{3,5})\s*[-./]\s*(\d{2,4})", nome)
-    if not m: return None
-    ano = m.group(2)
-    return m.group(1), ("20" + ano if len(ano) == 2 else ano)
     achados = numeros_os(nome)
     return achados[0] if achados else None
 
@@ -107,14 +103,6 @@ def inventario():
     itens = {}
     if not PASTA_OS.is_dir(): raise SystemExit(f"Pasta das O.S. não encontrada: {PASTA_OS} (defina CPJ_PASTA_OS)")
     for pasta in sorted(p for p in PASTA_OS.iterdir() if p.is_dir() and not p.name.startswith(".")):
-        chave = numero_os(pasta.name)
-        if not chave: continue
-        num, ano = chave
-        item = itens.setdefault(num, {"os": num, "ano": ano, "pastas": [], "pdfs": [], "relatorios": []})
-        item["pastas"].append(str(pasta))
-        item["pdfs"] += [str(p) for p in pasta.iterdir() if p.suffix.lower() == ".pdf" and "ocred" not in p.name.lower()
-                         and not re.search(r"relat", p.name, re.I)]
-        item["relatorios"] += [str(p) for p in relatorios_na_pasta(pasta)]
         chaves = numeros_os(pasta.name)
         if not chaves: continue
         pdfs_pasta = [str(p) for p in pasta.iterdir() if p.suffix.lower() == ".pdf" and "ocred" not in p.name.lower()

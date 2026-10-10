@@ -412,6 +412,9 @@ if not os.path.exists(caminho_modelo):
     raise SystemExit(f"Modelo não encontrado: {caminho_modelo}")
 doc = docx.Document(caminho_modelo)
 pars = list(doc.paragraphs)
+# A opção sem assinatura se aplica às imagens já presentes no modelo,
+# não às imagens de conteúdo inseridas depois a partir da minuta.
+imagens_modelo = {p._element for p in pars if p._element.xpath(".//pic:pic") and not p.text.strip()}
 pendentes = []
 
 for chave, rotulo in CAMPOS_CABECALHO:
@@ -439,10 +442,10 @@ for chave, rotulo in CAMPOS_CABECALHO:
 # ---------- descoberta e preparo do fluxograma financeiro (RF23 / FD01) ----------
 fluxo_png = a.fluxograma
 if not fluxo_png and not a.sem_fluxograma:
+    pasta_minuta = os.path.dirname(os.path.abspath(a.minuta))
+    pasta_caso = os.path.dirname(pasta_minuta)
     csv_candidato = a.fluxo_csv
     if not csv_candidato:
-        pasta_minuta = os.path.dirname(os.path.abspath(a.minuta))
-        pasta_caso = os.path.dirname(pasta_minuta)
         csv_caso = os.path.join(pasta_caso, "02-analise", "fluxo-financeiro.csv")
         if os.path.isfile(csv_caso):
             csv_candidato = csv_caso
@@ -550,7 +553,7 @@ if meta.get("data_rodape"):
 
 for i, p in enumerate(doc.paragraphs):
     if p._element.xpath(".//pic:pic") and not p.text.strip():
-        if a.sem_assinatura:
+        if a.sem_assinatura and p._element in imagens_modelo:
             if i + 1 < len(doc.paragraphs):
                 doc.paragraphs[i + 1].paragraph_format.page_break_before = True
             remove(p)

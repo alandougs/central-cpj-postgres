@@ -4,7 +4,7 @@
 python ferramentas/fila-tarefas.py listar
 python ferramentas/fila-tarefas.py assumir RV14 --agente Gemini-1
 python ferramentas/fila-tarefas.py concluir RV14 --agente Gemini-1 --resultado "Arquivos e testes"
-    # recusa se um arquivo reservado estiver com 0 bytes; exceção: --sem-conferir-arquivos "motivo (15+ caracteres)"
+    # recusa arquivo reservado ausente ou com 0 bytes; exceção: --sem-conferir-arquivos "motivo (15+ caracteres)"
 python ferramentas/fila-tarefas.py liberar RV14 --agente Gemini-1 --resultado "Onde parou"
 python ferramentas/fila-tarefas.py reabrir FT01 --agente Gemini-1 --motivo "Entrega com 0 bytes"
 python ferramentas/fila-tarefas.py proxima [--prefixo RV|GH] # loop: 0 = ID livre; 3 = fila concluída; 4 = só bloqueadas
@@ -212,12 +212,16 @@ def atualizar(arquivo, acao, id_, agente, resultado, sem_conferir=None):
                 if vazios and not sem_conferir:
                     raise ValueError(f"Entrega com arquivo(s) vazio(s) (0 bytes): {', '.join(vazios)}. Conclua a entrega ou use "
                                      "--sem-conferir-arquivos \"motivo\" (15+ caracteres) se o arquivo vazio for intencional.")
+                if ausentes and not sem_conferir:
+                    raise ValueError(f"Entrega com arquivo(s) reservado(s) ausente(s): {', '.join(ausentes)}. Conclua a entrega ou use "
+                                     "--sem-conferir-arquivos \"motivo\" (15+ caracteres) se a ausência for intencional.")
                 if sem_conferir is not None and len(motivo) < 15:
                     raise ValueError("--sem-conferir-arquivos exige justificativa de 15 caracteres ou mais.")
-                if vazios:
-                    nota_entrega = f" Conferência de arquivos dispensada ({motivo}); vazios: {', '.join(vazios)}."
-                elif ausentes:
-                    nota_entrega = f" Aviso: arquivos reservados ausentes: {', '.join(ausentes)}."
+                if vazios or ausentes:
+                    lacunas = []
+                    if vazios: lacunas.append(f"vazios: {', '.join(vazios)}")
+                    if ausentes: lacunas.append(f"ausentes: {', '.join(ausentes)}")
+                    nota_entrega = f" Conferência de arquivos dispensada ({motivo}); {'; '.join(lacunas)}."
             campos[2] = "concluída" if acao == "concluir" else "disponível"
             if acao == "liberar": campos[1] = "—"
         linhas = texto.splitlines()
@@ -254,7 +258,7 @@ def main():
         p.add_argument("--resultado", required=acao != "assumir")
         if acao == "concluir":
             p.add_argument("--sem-conferir-arquivos", dest="sem_conferir", default=None, metavar="MOTIVO",
-                           help="Conclui mesmo com arquivo reservado vazio (0 bytes); o motivo vai para o registro")
+                           help="Conclui mesmo com arquivo reservado ausente ou vazio (0 bytes); o motivo vai para o registro")
     p_reabrir = sub.add_parser("reabrir", help="Reabre tarefa concluída cuja entrega se perdeu")
     p_reabrir.add_argument("id")
     p_reabrir.add_argument("--agente", required=True)

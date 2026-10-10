@@ -9,6 +9,10 @@ APP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, APP)
 import executores_llm as EL  # noqa: E402
 
+# A saúde dos provedores é uma fronteira externa; o fallback é exercitado
+# com todos disponíveis, sem consultar catálogos reais com chaves fictícias.
+EL.verificar_saude = lambda provedor, chave: True
+
 
 falhas = []
 
@@ -46,7 +50,7 @@ with tempfile.TemporaryDirectory(dir=APP) as ws:
             raise RuntimeError("provedor indisponível (HTTP 402)")
         return {"provedor": provedor, "modelo": cfg["modelo"]}
 
-    resultado = EL.executar_com_fallback(ws, "", executar_falso)
+    resultado = EL.executar_com_fallback(ws, "", executar_falso, destinos_aceitos=list(provedores))
     ok(tentativas == ["anthropic", "openai", "gemini"],
        "falha sem créditos avança até o primeiro provedor funcional")
     ok(resultado == {"provedor": "gemini", "modelo": "modelo-ficticio-gemini"},
@@ -56,14 +60,14 @@ with tempfile.TemporaryDirectory(dir=APP) as ws:
         raise RuntimeError(f"resposta recusada para {cfg['chave']}")
 
     try:
-        EL.executar_com_fallback(ws, "", falhar_com_chave)
+        EL.executar_com_fallback(ws, "", falhar_com_chave, destinos_aceitos=list(provedores))
         ok(False, "falha de todos os provedores deve ser informada")
     except RuntimeError as e:
         ok(all(cfg["chave"] not in str(e) for _, cfg in EL.provedores_api_configurados(ws)),
            "erro consolidado não expõe nenhuma chave de API")
 
     tentativas.clear()
-    resultado = EL.executar_com_fallback(ws, "openrouter", executar_falso)
+    resultado = EL.executar_com_fallback(ws, "openrouter", executar_falso, destinos_aceitos=list(provedores))
     ok(tentativas == ["openrouter"], "provedor escolhido explicitamente é tentado primeiro")
     ok(resultado["provedor"] == "openrouter", "provedor explícito funcional conclui sem tentativas extras")
 
@@ -94,7 +98,7 @@ with tempfile.TemporaryDirectory(dir=APP) as ws:
         for provedor, endpoint in (("groq", "https://api.groq.com/openai/v1/chat/completions"),
                                    ("nvidia", "https://integrate.api.nvidia.com/v1/chat/completions")):
             resultado_api = EL.executar(ws, {"id": "ia-ficticia", "caso": "OS-FICTICIA-2026", "acao": "analisar",
-                                              "solicitante": "teste"}, "Central-Teste API", provedor,
+                                              "solicitante": "teste", "consentimento": EL.criar_consentimento("teste", list(provedores))}, "Central-Teste API", provedor,
                                        {"chave": "chave-ficticia", "modelo": "modelo-ficticio"}, PlantaoFalso())
             ok(resultado_api["provedor"] == provedor, f"executor identifica o provedor {provedor}")
             ok(chamadas[-1][0] == endpoint and chamadas[-1][1]["Authorization"] == "Bearer chave-ficticia",

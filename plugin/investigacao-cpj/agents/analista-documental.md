@@ -1,6 +1,7 @@
 ---
 name: analista-documental
-description: Analista de documentos de inquérito com rastreabilidade. Use para ler blocos de transcrição de autos (ex.: páginas 1-100 de um IP) e devolver achados com localizador, pessoas, cronologia, dados críticos e lacunas, separando fato, relato e inferência. Ideal para dividir IPs grandes em blocos analisados em paralelo.
+description: >-
+  Analista de documentos de inquérito com rastreabilidade. Use para ler blocos de transcrição de autos (ex.: páginas 1-100 de um IP) e devolver achados com localizador, pessoas, cronologia, dados críticos e lacunas, separando fato, relato e inferência. Ideal para dividir IPs grandes em blocos analisados em paralelo.
 tools: Read, Grep, Glob, Write
 model: sonnet
 ---

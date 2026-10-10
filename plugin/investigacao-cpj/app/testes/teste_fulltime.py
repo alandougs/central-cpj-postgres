@@ -33,18 +33,30 @@ def achar_porta_livre():
 
 class TesteFullTime(unittest.TestCase):
     def setUp(self):
+        self.ambiente_anterior = {chave: os.environ.get(chave)
+                                 for chave in ("CPJ_WORKSPACE", "APPDATA")}
         self.tmp = tempfile.mkdtemp(prefix="cpj-teste-ft01-")
         os.environ["CPJ_WORKSPACE"] = self.tmp
+        os.environ["APPDATA"] = os.path.join(self.tmp, "appdata-ficticio")
+        os.makedirs(os.path.join(os.environ["APPDATA"], "Microsoft", "Windows",
+                                 "Start Menu", "Programs", "Startup"), exist_ok=True)
         self.porta = achar_porta_livre()
 
     def tearDown(self):
         # Garante parada do daemon se ficou ativo
-        subprocess.run(
-            [sys.executable, DAEMON_PY, "parar", "--workspace", self.tmp],
-            capture_output=True,
-            creationflags=SEM_JANELA,
-        )
-        shutil.rmtree(self.tmp, ignore_errors=True)
+        try:
+            subprocess.run(
+                [sys.executable, DAEMON_PY, "parar", "--workspace", self.tmp],
+                capture_output=True,
+                creationflags=SEM_JANELA,
+            )
+        finally:
+            shutil.rmtree(self.tmp, ignore_errors=True)
+            for chave, valor in self.ambiente_anterior.items():
+                if valor is None:
+                    os.environ.pop(chave, None)
+                else:
+                    os.environ[chave] = valor
 
     def test_01_arquivos_existentes(self):
         """Utilitários do supervisor e scripts batch devem existir na pasta ferramentas."""

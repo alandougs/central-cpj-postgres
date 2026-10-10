@@ -170,7 +170,7 @@ def main():
             w, h = pag.get_size()
             maior = 0.0
             for obj in pag.get_objects(filter=[pdfium.raw.FPDF_PAGEOBJ_IMAGE], max_depth=2):
-                l, b, r, t = obj.get_bounds()
+                l, b, r, t = obj.get_pos()
                 maior = max(maior, abs((r - l) * (t - b)) / (max(1, w * h)))
             if maior >= MIN_FRACAO_IMAGEM:
                 tem_imagem = True

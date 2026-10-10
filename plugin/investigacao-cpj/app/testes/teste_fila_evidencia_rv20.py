@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """RV20 — `fila-tarefas.py concluir` confere a entrega: arquivo reservado com 0 bytes impede a conclusão
-(causa das reaberturas FT01/FD01/SD01/RV03–RV05); ausente só avisa; exceção exige justificativa registrada."""
+(causa das reaberturas FT01/FD01/SD01/RV03–RV05); ausente impede conclusão; exceção exige justificativa registrada."""
 import importlib
 import io
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -63,12 +65,13 @@ class ConferenciaDeEntrega(unittest.TestCase):
         self.concluir()  # __init__.py vazio, src/pacote/ e src/gerados/*.csv não geram erro
         self.assertEqual(self.estado("T01"), "concluída")
 
-    def test_04_arquivo_ausente_conclui_mas_registra_aviso(self):
-        self.concluir("T02")
-        self.assertEqual(self.estado("T02"), "concluída")
-        texto = self.quadro.read_text(encoding="utf-8")
-        self.assertIn("docs/ausente.md", texto.splitlines()[-1])
-        self.assertIn("ausente", texto.splitlines()[-1].lower())
+    def test_04_arquivo_ausente_recusa_sem_alterar_quadro(self):
+        antes = self.quadro.read_bytes()
+        with self.assertRaisesRegex(ValueError, "docs/ausente.md"):
+            self.concluir("T02")
+        self.assertEqual(self.estado("T02"), "em andamento")
+        self.assertEqual(self.quadro.read_bytes(), antes)
+        self.assertFalse(self.quadro.with_name(self.quadro.name + ".lock").exists())
 
     def test_05_excecao_exige_justificativa_de_15_caracteres(self):
         (self.raiz / "src" / "b.py").write_text("", encoding="utf-8")
@@ -84,6 +87,57 @@ class ConferenciaDeEntrega(unittest.TestCase):
         ultima = self.quadro.read_text(encoding="utf-8").splitlines()[-1]
         self.assertIn("src/b.py", ultima)
         self.assertIn("placeholder intencional", ultima)
+
+    def test_09_ausente_excecao_exige_motivo_e_registra_ambas_lacunas(self):
+        (self.raiz / "src" / "a.py").write_text("", encoding="utf-8")
+        antes = self.quadro.read_bytes()
+        for curta in ("", "   ", "curta"):
+            with self.assertRaises(ValueError):
+                self.concluir("T02", sem_conferir=curta)
+            self.assertEqual(self.quadro.read_bytes(), antes)
+        self.concluir("T02", sem_conferir="Entrega parcial autorizada no teste ficticio")
+        ultima = self.quadro.read_text(encoding="utf-8").splitlines()[-1]
+        self.assertIn("Entrega parcial autorizada", ultima)
+        self.assertIn("vazios: src/a.py", ultima)
+        self.assertIn("ausentes: docs/ausente.md", ultima)
+
+    def test_10_alias_de_arquivo_ausente_e_preservado(self):
+        campos = ["T03", "Agente-A", "em andamento", "Alias", "`app/rotas/ficticio.py`"]
+        with self.quadro.open("a", encoding="utf-8") as f:
+            f.write("| " + " | ".join(campos) + " |\n")
+        antes = self.quadro.read_bytes()
+        with self.assertRaisesRegex(ValueError, "plugin/investigacao-cpj/app/rotas/ficticio.py"):
+            self.concluir("T03")
+        self.assertEqual(self.quadro.read_bytes(), antes)
+        arquivo = self.raiz / "plugin/investigacao-cpj/app/rotas/ficticio.py"
+        arquivo.parent.mkdir(parents=True)
+        arquivo.write_text("# codigo ficticio\n", encoding="utf-8")
+        self.concluir("T03")
+        self.assertEqual(self.estado("T03"), "concluída")
+
+    def test_11_init_ausente_nao_e_arquivo_vazio_legitimo(self):
+        (self.raiz / "src/pacote/__init__.py").unlink()
+        with self.assertRaisesRegex(ValueError, "src/pacote/__init__.py"):
+            self.concluir()
+        self.assertEqual(self.estado("T01"), "em andamento")
+
+    def test_12_cli_real_isolada_recusa_ausente_e_aceita_excecao(self):
+        ferramentas = self.raiz / "ferramentas"
+        ferramentas.mkdir()
+        script = ferramentas / "fila-tarefas.py"
+        shutil.copy2(Path(fila.__file__), script)
+        base = [sys.executable, str(script), "--arquivo", str(self.quadro), "concluir", "T02",
+                "--agente", "Agente-A", "--resultado", "Teste ficticio"]
+        antes = self.quadro.read_bytes()
+        negativa = subprocess.run(base, capture_output=True, text=True, encoding="utf-8", timeout=20)
+        self.assertEqual(negativa.returncode, 1, negativa.stdout + negativa.stderr)
+        self.assertIn("docs/ausente.md", negativa.stdout)
+        self.assertEqual(self.quadro.read_bytes(), antes)
+        positiva = subprocess.run(base + ["--sem-conferir-arquivos", "Ausencia intencional autorizada em fixture"],
+                                  capture_output=True, text=True, encoding="utf-8", timeout=20)
+        self.assertEqual(positiva.returncode, 0, positiva.stdout + positiva.stderr)
+        self.assertEqual(self.estado("T02"), "concluída")
+        self.assertIn("ausentes: docs/ausente.md", self.quadro.read_text(encoding="utf-8").splitlines()[-1])
 
     def test_07_liberar_nao_confere_arquivos(self):
         (self.raiz / "src" / "b.py").write_text("", encoding="utf-8")

@@ -28,6 +28,10 @@ def tipos(g):
     return sorted(n["tipo"] for n in g["nos"].values())
 
 
+def bancos(t, origem="BANCO ORIGEM FICTICIO", destino="BANCO B FICTICIO"):
+    return dict(t, origem_banco=origem, destino_banco=destino)
+
+
 class TesteIdentidadeDosNos(unittest.TestCase):
     def setUp(self):
         self.m = modulo()
@@ -58,6 +62,62 @@ class TesteIdentidadeDosNos(unittest.TestCase):
         joaos = [n for n in g["nos"].values() if n["nome"] == "JOAO DA SILVA"]
         self.assertEqual(len(joaos), 3)  # nenhuma conta é escolhida por dedução
         self.assertIn(Decimal(10), [n["entra"] for n in joaos])
+
+    def test_mesmo_titular_agencia_conta_em_bancos_distintos_nao_se_fundem(self):
+        g = self.m.montar_grafo([
+            bancos(tx("VITIMA FICTICIA", "1/1", "TITULAR FICTICIO", "2/2", "100", "1")),
+            bancos(tx("VITIMA FICTICIA", "1/1", "TITULAR FICTICIO", "2/2", "50", "1"), destino="BANCO C FICTICIO")])
+        nos = [n for n in g["nos"].values() if n["nome"] == "TITULAR FICTICIO"]
+        self.assertEqual(len(nos), 2)
+        self.assertEqual(sorted(n["entra"] for n in nos), [Decimal(50), Decimal(100)])
+        self.assertEqual({n["banco"] for n in nos}, {"BANCO B FICTICIO", "BANCO C FICTICIO"})
+
+    def test_banco_normalizado_com_mesma_conta_e_um_no(self):
+        g = self.m.montar_grafo([
+            bancos(tx("VITIMA", "1/1", "TITULAR", "0001/22-2", "100", "1"), destino="Banco Fictício"),
+            bancos(tx("VITIMA", "1/1", "TITULAR", "0001 22 2", "40", "1"), destino="BANCO FICTICIO")])
+        nos = [n for n in g["nos"].values() if n["nome"] == "TITULAR"]
+        self.assertEqual(len(nos), 1)
+        self.assertEqual(nos[0]["entra"], Decimal(140))
+
+    def test_banco_ausente_entre_duas_possibilidades_fica_separado(self):
+        for conta in ("2/2", ""):
+            with self.subTest(conta_informada=bool(conta)):
+                g = self.m.montar_grafo([
+                    bancos(tx("VITIMA", "1/1", "TITULAR", "2/2", "100", "1")),
+                    bancos(tx("VITIMA", "1/1", "TITULAR", "2/2", "50", "1"), destino="BANCO C FICTICIO"),
+                    bancos(tx("VITIMA", "1/1", "TITULAR", conta, "10", "1"), destino="")])
+                nos = [n for n in g["nos"].values() if n["nome"] == "TITULAR"]
+                self.assertEqual(len(nos), 3)
+                desconhecido = next(n for n in nos if not n["banco"])
+                self.assertEqual(desconhecido["entra"], Decimal(10))
+
+    def test_banco_ausente_compativel_com_unica_conta_conhecida(self):
+        g = self.m.montar_grafo([
+            bancos(tx("VITIMA", "1/1", "TITULAR", "2/2", "100", "1")),
+            bancos(tx("VITIMA", "1/1", "TITULAR", "2/2", "10", "1"), destino="")])
+        nos = [n for n in g["nos"].values() if n["nome"] == "TITULAR"]
+        self.assertEqual(len(nos), 1)
+        self.assertEqual(nos[0]["entra"], Decimal(110))
+
+    def test_conta_ausente_nao_escolhe_entre_duas_do_mesmo_banco(self):
+        g = self.m.montar_grafo([
+            bancos(tx("VITIMA", "1/1", "TITULAR", "2/2", "100", "1")),
+            bancos(tx("VITIMA", "1/1", "TITULAR", "3/3", "50", "1")),
+            bancos(tx("VITIMA", "1/1", "TITULAR", "", "10", "1"))])
+        nos = [n for n in g["nos"].values() if n["nome"] == "TITULAR"]
+        self.assertEqual(len(nos), 3)
+        self.assertEqual(next(n for n in nos if not n["conta"])["entra"], Decimal(10))
+
+    def test_conta_ausente_liga_so_a_unica_compativel_do_banco_informado(self):
+        g = self.m.montar_grafo([
+            bancos(tx("VITIMA", "1/1", "TITULAR", "2/2", "100", "1")),
+            bancos(tx("VITIMA", "1/1", "TITULAR", "2/2", "50", "1"), destino="BANCO C FICTICIO"),
+            bancos(tx("VITIMA", "1/1", "TITULAR", "", "10", "1"))])
+        nos = [n for n in g["nos"].values() if n["nome"] == "TITULAR"]
+        self.assertEqual(len(nos), 2)
+        self.assertEqual({n["banco"]: n["entra"] for n in nos},
+                         {"BANCO B FICTICIO": Decimal(110), "BANCO C FICTICIO": Decimal(50)})
 
 
 class TesteCamadaCalculada(unittest.TestCase):
@@ -95,6 +155,29 @@ class TesteCamadaCalculada(unittest.TestCase):
         cams, _ = self.m._camadas([tx("A", "1/1", "JOAO DA SILVA", "0001/111-1", "100"),
                                    tx("JOAO DA SILVA", "0001/111-1", "B", "9/9", "30")])
         self.assertEqual(cams, [1, 2])
+
+    def test_calculo_nao_encadeia_conta_igual_em_banco_diferente(self):
+        g = self.m.montar_grafo([
+            bancos(tx("ORIGEM FICTICIA", "1/1", "TITULAR FICTICIO", "2/2", "100")),
+            bancos(tx("TITULAR FICTICIO", "2/2", "DESTINO FICTICIO", "3/3", "90"), origem="BANCO C FICTICIO")])
+        self.assertTrue(g["calculada"])
+        self.assertEqual(g["cams"], [1, 1])
+        self.assertNotIn("vitima", tipos(g))
+
+    def test_calculo_encadeia_banco_conta_iguais(self):
+        cams, calculada = self.m._camadas([
+            bancos(tx("ORIGEM", "1/1", "TITULAR", "2/2", "100")),
+            bancos(tx("TITULAR", "2/2", "DESTINO", "3/3", "90"), origem="BANCO B FICTICIO")])
+        self.assertTrue(calculada)
+        self.assertEqual(cams, [1, 2])
+
+    def test_calculo_banco_ausente_ambiguo_nao_inventa_encadeamento(self):
+        cams, calculada = self.m._camadas([
+            bancos(tx("ORIGEM", "1/1", "TITULAR", "2/2", "100")),
+            bancos(tx("ORIGEM", "1/1", "TITULAR", "2/2", "50"), destino="BANCO C FICTICIO"),
+            bancos(tx("TITULAR", "2/2", "DESTINO", "3/3", "10"), origem="")])
+        self.assertTrue(calculada)
+        self.assertEqual(cams, [1, 1, 1])
 
     def test_png_e_gerado_nos_dois_modos(self):
         with tempfile.TemporaryDirectory(prefix="cpj-rv17-") as tmp:

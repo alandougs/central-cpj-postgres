@@ -4,6 +4,7 @@ import tempfile
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 from reportlab.pdfgen import canvas
 from PIL import Image, ImageDraw
 
@@ -81,7 +82,7 @@ def main():
             json.dump({"pendentes_transcricao_visual": [], "conferir_visualmente": []}, f)
             
         # Roda o qualidade.py
-        script_qualidade = os.path.join("plugin", "investigacao-cpj", "skills", "pdf-autos-policiais", "scripts", "qualidade.py")
+        script_qualidade = str(Path(__file__).resolve().parents[2] / "skills" / "pdf-autos-policiais" / "scripts" / "qualidade.py")
         cmd = [sys.executable, script_qualidade, pasta_ext, "--pdf", pdf_path]
         r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
         if r.returncode != 0:

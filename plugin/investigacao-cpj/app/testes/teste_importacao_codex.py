@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+import time
 import unittest
 import zipfile
 
@@ -43,7 +44,7 @@ class ImportacaoCPJ(unittest.TestCase):
 
     def test_recusa_escopo_invalido_antes_de_escrever(self):
         pacote = self.pacote({"config/usuarios.json": "NAO IMPORTAR"})
-        with self.assertRaisesRegex(ValueError, "fora do escopo"):
+        with self.assertRaisesRegex(ValueError, "caminho não permitido"):
             self.importar(pacote)
         self.assertFalse((self.ws / "config" / "usuarios.json").exists())
 
@@ -72,6 +73,24 @@ class ImportacaoCPJ(unittest.TestCase):
         self.assertIsNone(self.tarefas.importar(tid, str(pacote)))
         self.assertTrue(cancelou)
         self.assertFalse((self.ws / "casos" / "OS-3-2099").exists())
+        self.assertFalse(pacote.exists())
+
+    def test_cancelamento_assincrono_preserva_status_sem_erro(self):
+        pacote = self.pacote({"casos/OS-7-2099/caso.json": "x" * (2 << 20)})
+        tid = self.tarefas.nova("importacao", "Importação fictícia", "teste")
+        original = self.tarefas.at
+        def acompanhar(tarefa, **kw):
+            original(tarefa, **kw)
+            if tarefa == tid and kw.get("etapa", "").startswith("verificando"):
+                self.tarefas.cancelar(tid)
+        self.tarefas.at = acompanhar
+        self.tarefas.rodar(tid, self.tarefas.importar, str(pacote))
+        limite = time.monotonic() + 5
+        while pacote.exists() and time.monotonic() < limite:
+            time.sleep(0.01)
+        self.assertFalse(pacote.exists())
+        self.assertEqual(self.tarefas.obter(tid)["status"], "cancelada")
+        self.assertFalse((self.ws / "casos" / "OS-7-2099").exists())
 
     def test_confirma_caso_inteiro_nao_sobrescreve_e_propaga_indexacao(self):
         existente = self.ws / "casos" / "OS-4-2099"; existente.mkdir()

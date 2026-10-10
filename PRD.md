@@ -2,7 +2,7 @@
 
 > Documento de continuidade. Qualquer agente (Claude Code, Codex, Gemini, modelo local) deve ler **este arquivo + `AGENTS.md`** antes de alterar o sistema. Atualize a seção **9 (Estado atual)** e o **Registro de mudanças** a cada entrega.
 > Dono do produto: Alan Douglas Silva — Investigador de Polícia, Central de Polícia Judiciária (CPJ), Seccional de Presidente Prudente, DEINTER 8, PCSP.
-> Última atualização: 2026-09-28 (Revisão de Foco no Core e Operação Solo).
+> Última atualização: 2026-10-10 (CL04 — consolidação do estado e das evidências locais).
 
 ---
 
@@ -33,7 +33,7 @@ Permissões codificadas em `plugin/investigacao-cpj/app/auth.py` (`PERMISSOES`):
 1. **Fonte do relatório = somente o IP/peças do próprio caso.** Bases de consulta (Muralha Paulista etc., pasta `consulta\`) e relatórios de referência (pasta `referencias\`) **nunca** são fonte de fatos; referências servem apenas como exemplo de estrutura/estilo.
 2. PDF ≤ 100 págs. pode ser lido diretamente por IA em consulta pontual, mas **o correto é extrair Markdown + CSV** e analisar sobre a extração (rastreabilidade por página).
 3. Separar fato documentado × relato × indício × inferência × lacuna; citar `(pág. N; fls. X)`; nunca completar CPF/conta/chave Pix/valor por dedução; nunca atribuir autoria sem base.
-4. **Sigilo (art. 20 CPP):** processamento local; nada de conteúdo de caso para serviços externos; agentes automáticos rodam **sem internet e sem conectores (MCP)**; dados de casos nunca vão ao GitHub.
+4. **Sigilo:** processamento local por padrão; dados de casos nunca vão ao GitHub. Uso de API exige ativação explícita do provedor pelo responsável e aceite positivo do pedido, com usuário, data e destinos persistidos; pedidos antigos sem esse contrato ficam bloqueados antes do envio. Agentes CLI automáticos não recebem ferramentas WebFetch/WebSearch nem conectores MCP. A autorização de sessões Codex para revisão não autoriza outros serviços. Prevalecem as regras 6 e 18 de `AGENTS.md`.
 5. Originais (`00-originais`) somente leitura; hash SHA-256 registrado.
 6. Toda saída de IA é **minuta**: decisão e assinatura são humanas.
 7. Relatório segue o **modelo DOCX CPJ 2026** (`modelos\`), com cabeçalho (O.S., Referência, Natureza, Investigado(s), Vítima(s), Local, Data dos Fatos) e seções RESUMO DOS FATOS / DILIGÊNCIAS REALIZADAS / CONCLUSÃO; conclusão preferencialmente **sem sugestões de providências** (discricionariedade do delegado).
@@ -51,7 +51,7 @@ Permissões codificadas em `plugin/investigacao-cpj/app/auth.py` (`PERMISSOES`):
 | RF05 | Fila de processamento: diagnóstico → texto/OCR (progresso por página) → tabelas CSV → dados críticos → indexação | implementado |
 | RF06 | **Início**: O.S. novas não vistas, prazos vencidos/hoje/≤3 dias, sem prazo, andamento por etapa, minhas O.S., produção do dia/mês | implementado (backend) |
 | RF07 | **Casos**: lista ordenada por urgência de prazo; busca por O.S./BO/IP/processo/partes/modalidade; ficha com edição, documentos, processamento, arquivos, conexões | implementado |
-| RF08 | **Botões de IA** na ficha: Analisar, Gerar relatório, Análise+relatório, Revisar — executa Claude Code em modo automático com progresso por marcos + atividade ao vivo, fila única, cancelar | implementado (backend); requer login do Claude CLI |
+| RF08 | **Botões de IA** na ficha: Analisar, Gerar relatório, Análise+relatório, Revisar — fila persistente com agente selecionável, CLI ou API configurada, progresso e cancelamento | implementado e testado com executores simulados; Claude continua executor padrão e requer login; piloto CLI real P01 concluído, com correção e complementação Codex medidas |
 | RF09 | **Editor leve da minuta** (campos do cabeçalho + 3 seções) → nova versão + DOCX no modelo; PDF (LibreOffice, se instalado); Abrir no Word (só no PC da Central); **Definir FINAL** (gera FINAL.md e dá baixa) | implementado (backend) |
 | RF10 | **Baixa na produção** por 3 vias com origem registrada: arquivo `*FINAL*` na pasta (automática), botão, agente | implementado |
 | RF11 | **Pesquisa relacional** de pessoas: nome, mãe, pai, CPF, RG, telefone, CNPJ/empresa, endereço (combináveis, sem acento, por palavras) em qualificações extraídas dos autos (`02-analise\pessoas.csv`) e bases de consulta; + ocorrências nos autos | implementado (backend) |
@@ -63,16 +63,16 @@ Permissões codificadas em `plugin/investigacao-cpj/app/auth.py` (`PERMISSOES`):
 | RF17 | **Estatísticas/KPIs**: entregues dia/mês/ano × meta, páginas, prazo mediano, em aberto por etapa, modalidades, autoria indicada, valor rastreado | implementado, inclusive % entregue no prazo, vencidos em aberto e retrabalho (versões por relatório) no painel |
 | RF18 | **Rede local**: admin habilita acesso de outros PCs com HTTPS (certificado autoassinado); padrão desligado | implementado (backend); exige autorização do firewall pelo usuário e aval da TI |
 | RF19 | Usuários (admin): criar/editar/desativar/remover, trocar a própria senha, ver auditoria | implementado (backend) |
-| RF20 | Interface única, limpa, responsiva, claro/escuro, barras de progresso reais em upload, OCR, exportação, importação e IA | **em construção** (`app/static/index.html` precisa ser reescrito para as APIs novas) |
-| RF21 | **Operação Full-Time 24/7**: execução contínua em segundo plano na porta estática `8765`, inicialização com o Windows, reinício automático em falha e utilitários de controle | implementado e testado (tarefa FT01) |
-| RF22 | **Esteira Completa 1-Clique**: botão e orquestrador assíncrono para processar o IP de ponta a ponta (OCR $\rightarrow$ CSVs $\rightarrow$ RAG $\rightarrow$ Analista Financeiro $\rightarrow$ Minuta $\rightarrow$ Revisor Gauntlet $\rightarrow$ DOCX) com checkpoints de retomada e barra de progresso | implementado e testado (tarefa EC01) |
-| RF23 | **Fluxograma Visual do Caminho do Dinheiro**: compilação gráfica das camadas de repasse do `fluxo-financeiro.csv` em imagem PNG (300 DPI) e injeção automática no relatório oficial DOCX | implementado e testado (tarefa FD01) |
-| RF24 | **Governança de System Design & Calibração Contínua**: formalização dos papéis de engenharia vs operação, ADRs e retroalimentação automática de lições aprendidas a partir das edições no Word | implementado e documentado (tarefa SD01) |
+| RF20 | Interface única, responsiva, claro/escuro, progresso em upload, OCR, exportação, importação e IA | implementada; integração HTTP e Edge F03 aprovados; AI03 verificada em 12 cenários Chrome, nos dois temas |
+| RF21 | **Operação Full-Time 24/7**: supervisor local, reinício em falha e utilitários de controle | testes com Startup fictícia aprovados (RV01/AG02); instalação e boot reais não certificados |
+| RF22 | **Esteira Completa**: extração, derivados, análise documental/financeira, redação, revisão e DOCX, com fila, checkpoints e progresso | implementada (EC01/CL02), 12 testes da squad e 19 de orçamento aprovados; análise por blocos e tarefas paralelas internas; piloto IA real P01 pendente |
+| RF23 | **Fluxograma do dinheiro**: PNG local e inserção no DOCX; identidade de nós e indicação de posição calculada | RV02/RV17 e TS04 testadas; banco participa da identidade, contas ambíguas permanecem separadas |
+| RF24 | **Governança e calibração**: papéis de engenharia/operação, ADRs e registro das correções | SD01/K01/RV06 implementadas; lições globais dependem de autorização/revisão, sem aprendizagem automática irrestrita |
 
 ## 5. Arquitetura
 
 ```
-C:\CPJ - TRABALHO\
+<workspace CPJ>\            atual: D:\CPJ - TRABALHO\
 ├─ PRD.md · AGENTS.md · CLAUDE.md · GEMINI.md · LEIA-ME.md · Central CPJ.bat
 ├─ casos\OS-<nº>-<ano>\        00-originais · 01-extracao\<doc>\ · 02-analise · 03-relatorios · caso.json · processamento.json
 │                               · registro-tratamento.md · ia-progresso.json · ia-logs\
@@ -89,7 +89,7 @@ C:\CPJ - TRABALHO\
 ├─ acervo\repo-ia-alandougs\    clone Git do GitHub alandougs/repo-ia-alandougs
 └─ plugin\                      marketplace local "cpj-local"
    └─ investigacao-cpj\
-      ├─ .claude-plugin\plugin.json          versão atual 0.2.0 (→ 0.3.0 nesta entrega)
+      ├─ .claude-plugin\plugin.json          versão 0.3.2 instalada e confirmada em 10/10/2026
       ├─ app\servidor.py · auth.py · tarefas.py · static\index.html      (Central CPJ, Flask)
       ├─ commands\*.md (10)  agents\*.md (3)
       └─ skills\ pdf-autos-policiais (diagnostico/extrair/tabelas/entidades/dividir.py)
@@ -99,7 +99,7 @@ C:\CPJ - TRABALHO\
 ```
 
 - **Stack:** Python 3.12, Flask 3.1, SQLite FTS5, pypdf, pypdfium2, pdfplumber, pytesseract + Tesseract 5.4 (`por` tessdata_best), python-docx, openpyxl, xlrd, cryptography. Sem Node. PowerShell 5.1 (scripts `.ps1` ASCII).
-- **IA automática:** `tarefas.py` executa `claude.exe -p <prompt> --output-format stream-json --permission-mode acceptEdits --allowedTools Read Write Edit Glob Grep Skill Task TodoWrite "Bash(python *)" "PowerShell(python *)" --disallowedTools WebFetch WebSearch --strict-mcp-config` com `cwd` = workspace. O agente registra marcos com `progresso.py <ID> <pct> "<etapa>"`. Após o agente, o servidor garante o DOCX da minuta mais recente e reindexa. **Requer `claude auth login` no CLI** (Sistema → Entrar no Claude).
+- **IA automática:** fila SQLite do plantão com agentes aprovados, reserva atômica, expediente, cancelamento e quatro pedidos da esteira. Claude é o padrão; há adaptadores Codex/Gemini/Copilot e oito APIs. O executor recebe procedimentos e ferramentas do caso, sem navegação/conectores. Após a execução, o servidor gera DOCX e reindexa. Ativação de API e consentimento são distintos; catálogo transmite chave/metadados, sem autos. **Claude requer `claude auth login`**; login concluído após autorização OAuth específica do operador em 10/10/2026. AI03 implementa consulta explícita ao catálogo e sugestão equilibrada compatível, preservando escolha manual; salvar continua uma ação do operador.
 - **Segurança web:** cookie HttpOnly/SameSite=Strict (Secure com HTTPS), cabeçalho `X-CPJ: 1` obrigatório em POST (anti-CSRF), permissões por rota, bind 127.0.0.1 por padrão, `abrir` arquivos só no PC da Central.
 
 ## 6. Modelo de dados
@@ -123,11 +123,45 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 
 - Abrir: `Central CPJ.bat` (ou atalho na Área de Trabalho). Primeiro acesso: criar o admin (no próprio PC). Depois, Sistema → Usuários.
 - Saúde: `ferramentas\Verificar ambiente.bat`. Backup: `ferramentas\Backup.bat` ou Sistema → Exportar.
-- Após editar o plugin: `ferramentas\Atualizar plugin.bat` (sobe versão, valida, reinstala, regera `portatil\`).
-- Publicar melhorias genéricas: `ferramentas\Publicar no GitHub.bat`.
+- Após editar o plugin: `ferramentas\Atualizar plugin.bat` (sobe versão, valida pacote/marketplace, confere instalação e regera `portatil\`). O staging local `C:\Users\alan_\AppData\Local\CPJ\plugin` contém apenas código genérico; a CLI recusou registro direto da origem D: exFAT. Não alterar confiança para contornar a recusa. Atualizador prioriza Python válido da `.venv`.
+- Publicação exige pedido expresso. **Não executar o publicador legado para diagnóstico:** ele pode alterar o acervo mesmo sem envio. GitHub não recebeu as alterações deste loop.
 - Teste isolado: `python plugin\investigacao-cpj\app\servidor.py --workspace <pasta-teste> --porta 8766 --somente-local --sem-navegador` (use `CPJ_WORKSPACE` nos scripts). PDF fictício: `skills\pdf-autos-policiais\teste\gerar_pdf_ficticio.py`.
 
 ## 9. Estado atual e próximos passos (atualizar sempre)
+
+### Estado consolidado em 10/10/2026
+
+**Arquitetura escolhida pelo operador:** SQLite para a operação solo. `caso.json` permanece fonte do caso, `rag/cpj.sqlite` é índice regenerável e o plantão mantém sua fila SQLite. PostgreSQL/Docker continuam fora do caminho de execução; não foi comprovada sincronização de um PostgreSQL externo. Esta revisão usa código e fixtures fictícias, sem certificar dados reais da produção.
+
+**Verificação:** AG04 concluiu duas rodadas completas estabilizadas: **71/71 suítes em ambas**, retorno zero, **560,67 s e 841,92 s** de testes; tempos do harness **833,09 s e 1.305,95 s**. Não houve repetição para esconder falha. F03 Edge inclui OCR, minuta, DOCX, gate FINAL sem forçar, baixa e painel. Alterações posteriores têm validação própria e não devem ser atribuídas àquele snapshot. Acervo: **61 testes + 33 subtestes**, validação estrita **170 itens, 35 planejados, zero erros/avisos**; CLI GC04 verifica seis páginas digitalizadas, 105 referências, cinco cálculos e mutações que falham. CI remota não executada.
+
+**Ambiente/plugin:** Claude Code oficial **2.1.287**, plugin **0.3.3** instalado/habilitado, conferidos independentemente pelo CLI; os 76 arquivos do bundle instalado coincidem por SHA-256 com fonte e staging (mais o manifesto do marketplace, 77 arquivos genéricos preparados). Onze portáteis e doze adaptadores CPJ regenerados/conferidos. CL03 corrigiu YAML inválido e atualizador que anunciava sucesso após falha. Python do PATH é alias Store ausente; ENV02 reparou `.venv` para **3.12.14**, com imports principais, pip e cinco inicializadores verificados. ENV03 encontra o Claude nativo sem depender do PATH antigo. Não houve instalação global de Python. Login Claude concluído após autorização OAuth específica do operador em 10/10/2026; CLI confirma `loggedIn: true`, `claude.ai`, plano Pro. P01 concluída e auditada com fonte fictícia de quatro páginas e plugin 0.3.2; as correções posteriores TS07/TS08 foram testadas e incorporadas ao plugin 0.3.3, sem nova inferência.
+
+| Frente | Estado e evidência atual |
+|---|---|
+| CF01/AI01/AI02/AI03 | Configurações, prompt de sistema, executor e consulta explícita aos catálogos implementados. Nove cartões, oito APIs e Copilot; sugestão equilibrada depende de resposta compatível e preserva escolhas manuais, inclusive campo limpo. Consulta não salva nem ativa provedor. Treze testes e 12 cenários Chrome aprovados; disponibilidade real da conta e inferência não certificadas. |
+| D01–D03/CL02/CX03 | Plantão persistente, aprovação/sinal de vida, painel, expediente configurável, squad por blocos e orçamento por grupo/pedido. Custo/tokens exigem uso medido e tarifas explícitas; CLI admite limite de tempo, sem teto financeiro inferido. Uma chamada enviada pode exceder o teto antes de sua medição. |
+| CX01/CX02/DJ01/PX05–PX07/SE01 | OCR local com workers/checkpoints por hash, cancelamento, Markdown/CSV/JSON, modos Rápido/Inteligente/IA Completa, PNG por API com aceite positivo e normalização somente de derivados. Sem autorização/provedor compatível, limitação explícita; originais preservados. |
+| GH01/GH02 | Core `consolidacao-2026-10-01` tinha HEAD remoto/local a40a2d8 antes do loop; alterações continuam sem commit/push. Acervo HEAD e2c563d, GitHub main b28610c1, **31 commits remotos ausentes**; `origin/main` local está desatualizada. Branch de preservação `codex/loop-gc02-20261009`; sem pull/reset/merge. |
+| GH03–GH07/GC01–GC06/GI01 | Revisões/propostas históricas não são merge. PR14/15/17 fechados sem merge; operador autorizou GC05 local. Modo entrega, detector de sensíveis, esquemas e cópias canônicas implementados/testados. GC06 registrou aprovação humana somente de autoria; não promoveu todo o acervo a revisado. GH07 continua proposta de estados patrimoniais, não integração concluída. |
+| SK01 | scope-guard/no-gold-plating instaladas nas pastas de skills, cópias equivalentes; reservas, testes e governança permanecem obrigatórios. |
+| RV17–RV20/TS04/TS05 | Gate exige conferência nova da minuta atual (hash/modo); escrita API atômica e arquivos vazios bloqueados. TS04 inclui banco na identidade financeira: 19 testes e conferência independente de dois nós de 100 em vez de um de 200. TS05 impede conclusão com arquivo reservado ausente, salvo justificativa explícita registrada: 12 testes e oito RV14 aprovados. |
+
+**Fila local autorizada concluída:** as tarefas do loop foram executadas e verificadas, incluindo P01, TS07, TS08 e CL08. TS07 corrige CSV explícito e imagens de conteúdo com `--sem-assinatura`; oito testes focados e sete regressões aprovados, oito repetidos pelo integrador em 4,736 s. TS08 exige solicitações da O.S., dados faltantes e rastreabilidade versionada, inclusive em retomadas antigas; oito testes independentes em 13,508 s, squad 12/12, TS06 3/3 e plantão simulado aprovados. CL08 instalou 0.3.3 e conferiu todos os hashes. Funcionalidades congeladas e propostas históricas não foram implementadas por esse fechamento. Não há autorização de commit/push/merge/publicação; a divergência GitHub está diagnosticada e preservada.
+
+**Verificação posterior ao snapshot AG04:** ambiente virtual e cinco inicializadores verificados em sandbox; seis testes independentes, rápida 5/5 e `pip check` aprovados. ENV03 encontra a instalação nativa mesmo com PATH antigo: oito testes, rápida 5/5 e plantão simulado aprovados. AI03 passou em rápida 5/5; TS04 em rápida 5/5 e quatro testes DOCX. Integração HTTP final, após essas mudanças, retornou zero em **128,66 s** (harness 157,80 s): permissões, OCR, minuta/DOCX, FINAL, baixa, exportação/importação e pesquisa com dados fictícios. Nenhum desses resultados comprova o piloto real com IA ou boot operacional.
+
+**Piloto P01 concluído:** segunda tentativa real com plugin 0.3.2: quatro pedidos, sete sessões Claude, **859,75 s**, **US$ 5,3127658 equivalentes API** e 4.085.381 tokens cumulativos incluindo cache; cobrança Pro não disponível. Primeira tentativa falha preservada. Auditoria corrigiu duas formulações em v02 e completou explicitamente três registros obrigatórios ausentes na automação; 13 hashes anteriores intactos, 48 afirmações v02 sustentadas na auditoria Codex, DOCX reaberto com imagem, feminino e valores corretos. Resumo do revisor automático errou a contagem (44+2, tabela 46+2); não se presume revisão humana ou conformidade automática integral. Relato e métricas em `PILOTO-2026.md`. Um caso fictício curto não certifica qualidade em autos extensos nem uso oficial. Os dois bugs das opções DOCX foram corrigidos em TS07 e o contrato dos registros em TS08; revisão/correção humanas das minutas continuam necessárias.
+
+**Incidente de teste conhecido:** o diagnóstico inicial herdou APPDATA real ao testar Startup e pode ter substituído/apagado `Central-CPJ-24-7.lnk`. O caminho estava ausente na conferência posterior; presença/conteúdo anteriores são desconhecidos. O operador foi informado. AG02 corrigiu isolamento e comprovou preservação de sentinela fictícia; rodadas seguintes usaram APPDATA adicional fictício. Boot real não foi reinstalado nem certificado.
+
+Relatos completos: `revisoes/estado-projeto-loop-2026-10-09.md`, `revisoes/suite-completa-2026-10-02.md`, `revisoes/plugin-0.3.3-2026-10-10.md`, `revisoes/exportacao-portatil-2026-10-10.md` e quadro `TAREFAS-COMPARTILHADAS.md`. Os registros abaixo são **históricos**; suas listas de pendências e alegações de instalação não substituem este estado consolidado.
+
+### Registros históricos
+
+**09/10/2026 — Decisão do operador no loop de conclusão:** depois de comparar PostgreSQL e SQLite para a operação solo, o operador decidiu expressamente “Seguir com SQLite na operação local atual”. A retomada de PostgreSQL foi cancelada; continuam válidas a fonte por arquivos de caso e a pesquisa SQLite da arquitetura atual. O operador também autorizou transferir as reservas antigas CX01, DJ01 e P01 porque os agentes anteriores encerraram; as transferências foram registradas pelo script da fila.
+
+**09/10/2026 — DJ01 verificada e encerrada:** `dados_extraidos.json` já estava implementado, integrado ao processamento da Central e aos procedimentos manual/portátil. Reserva transferida ao integrador, teste em sandbox fictícia novamente aprovado (uma verificação de consolidação, preservação de origem e de conferência; retorno zero, 0,41 s, com UTF-8 propagado aos subprocessos). A etapa preserva Markdown/CSV e não substitui `caso.json`. Diagnóstico global desta rodada: 54/64 suítes aprovadas em 555,20 s, com dez falhas identificadas e correções em curso; isso não é homologação geral do produto. Duas dessas falhas de interface foram repetidas com a dependência de teste QuickJS em pasta temporária: 10 e 6 testes aprovados.
 
 **05/10/2026 — Autorização expressa para o Codex:** o operador autorizou permanentemente a leitura de autos e minutas nas sessões do Codex para análises, revisões e correções solicitadas, sem repetir confirmação do provedor. Regra 18 de AGENTS.md; autorização não se estende a publicação, outros serviços ou alteração de originais.
 
@@ -193,6 +227,14 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
   - **Versionamento Git Local (GH01):** Repositório local inicializado na branch `consolidacao-2026-10-01` com `.gitignore` rigoroso contra vazamento de casos/dados e varredura de segurança aprovada com 0 bloqueios.
 
 ## Registro de mudanças
+
+- **10/10/2026 — ENV01/TS06/CL07:** OAuth especificamente autorizado e login confirmado. Primeira tentativa real P01 bloqueada por saída financeira reutilizada, preservada como falha. TS06 explicita contrato sem relaxar gate e preserva log de sessão reprovada; três testes focados, squad 12/12, rápida 5/5 e plantão aprovados. Plugin 0.3.2 instalado/habilitado, hashes fonte/staging/cache conferidos. Segunda tentativa usa novo workspace e limite operacional 1800 s; conclusão não presumida.
+
+- **10/10/2026 — CL04, consolidação posterior:** ENV02/ENV03/TS04/TS05/AI03 concluídas com provas próprias; integração HTTP final aprovada em 128,66 s. Plugin instalado 0.3.1, validações oficiais e hashes fonte/staging/cache conferidos. Piloto P01 ainda não executado; OAuth pendente. Resultados posteriores distinguem-se das duas rodadas AG04.
+
+- **10/10/2026 — CL04:** PRD consolidado com a decisão SQLite, interface existente, plantão/consentimento/orçamento, validações core/acervo realmente executadas, instalação 0.3.0 confirmada e limites do piloto/boot/GitHub. Corrigidas afirmações atuais de RF20 e aprendizagem automática; preservados registros históricos com identificação explícita. ENV02/TS04/TS05/AI03/P01 continuam pendentes neste snapshot.
+
+- **09/10/2026 (DJ01, verificação de continuidade):** consolidado JSON conferido em sandbox, integração e procedimentos confirmados; decisão atual de SQLite local e transferência autorizada das reservas registradas. O diagnóstico completo ainda apresenta falhas; a consolidação geral do PRD permanece com CL04.
 
 - **2026-10-05 · Codex · AUT01:** registrada em AGENTS.md a autorização permanente e expressa do operador para leitura de autos, revisão e correção de relatórios no Codex, no escopo dos pedidos do projeto.
 

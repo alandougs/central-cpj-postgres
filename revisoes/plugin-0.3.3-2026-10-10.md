@@ -1,0 +1,9 @@
+# Consolidação final do plugin — CL08 — 10/10/2026
+
+TS07 e TS08 concluídas antes da atualização oficial. TS07 corrigiu o CSV financeiro explícito e a preservação das imagens de conteúdo com `--sem-assinatura`: oito testes focados e sete regressões aprovados; conferência independente dos oito testes em 4,736 s. TS08 exige registros da O.S., dados faltantes e rastreabilidade da mesma versão, inclusive em checkpoints antigos. O integrador repetiu os oito testes em 13,508 s; squad 12/12, TS06 3/3 e plantão simulado também aprovados pelo executor. Dados e modelos fictícios, sem nova inferência.
+
+Uma execução de `ferramentas/atualizar-plugin.ps1`, com Python da `.venv` e Claude nativo no PATH do processo, atualizou 0.3.2 para **0.3.3**, retorno zero. Validações oficiais da origem, marketplace e cache aprovadas. `claude plugin list --json` confirmou `investigacao-cpj@cpj-local`, versão 0.3.3, habilitado, escopo de usuário. A conferência independente SHA-256 encontrou **76 arquivos coincidentes entre fonte/staging/cache**, zero divergências; manifesto do marketplace coincidente, total de 77 arquivos genéricos preparados. Onze portáteis regenerados; doze skills CPJ conferidas, nenhuma alteração necessária nos adaptadores.
+
+Evidências: `C:/Users/alan_/AppData/Local/Temp/cpj-cl08-final-20261010/atualizacao.log`, `plugin-final.json` e `hashes-final.json`; manifestos anteriores preservados no mesmo diretório. Cache instalado: `C:/Users/alan_/.claude/plugins/cache/cpj-local/investigacao-cpj/0.3.3`. Reiniciar a sessão Claude Code para carregar a versão atualizada.
+
+P01 permanece evidência do plugin 0.3.2, com auditoria e intervenções Codex expressamente registradas. Não houve regeneração do piloto, envio de dados reais, novo OAuth, publicação, commit, push ou alteração da confiança do marketplace. O staging contém somente código genérico.

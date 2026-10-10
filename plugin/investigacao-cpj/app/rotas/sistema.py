@@ -6,6 +6,7 @@ import subprocess
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import datetime
 from flask import Blueprint, abort, current_app, jsonify, request, send_file, send_from_directory
@@ -63,35 +64,80 @@ def api_ia_login():
 @requer("ia")
 def api_ia(id_):
     d = request.get_json(force=True) or {}
+    if not isinstance(d, dict): return jsonify({"erro": "Pedido de IA inválido."}), 400
     if not C.existe(id_):
         abort(404)
+    if d.get("agente") is not None and not isinstance(d["agente"], str):
+        return jsonify({"erro": "Agente inválido."}), 400
     agente = (d.get("agente") or "").strip() or None
     
     import executores_llm as EL
-    import json
     ag_res = agente or EL.agente_padrao(WS)
-    if ag_res and ag_res.startswith("api"):
+    if agente and not any(a["nome"] == agente and a["aprovado"] for a in tarefas.plantao.agentes()):
+        return jsonify({"erro": f"Agente '{agente}' não existe ou não está aprovado."}), 400
+    destinos = PL.destinos_externos(WS, tarefas.plantao, ag_res)
+    consentimento = None
+    if destinos:
         if "consentimento_externo" not in d:
-            destinos = [p for p, _ in EL.provedores_api_configurados(WS, ag_res)]
             return jsonify({"requer_consentimento": True, "destinos": destinos, "escopo": "api_ia"})
         cons = d["consentimento_externo"]
-        if cons.get("recusado"):
+        if not isinstance(cons, dict): return jsonify({"erro": "Consentimento inválido."}), 400
+        if any(k in cons and not isinstance(cons[k], bool) for k in ("aceito", "recusado")):
+            return jsonify({"erro": "Consentimento inválido."}), 400
+        if cons.get("recusado") is True or cons.get("aceito") is False:
             auditar("consentimento_recusado", f"{id_}: recusa para api_ia")
             comum.registrar_tratamento(id_, [f"- Consentimento externo: Usuário recusou envio para nuvem em {comum.agora()}."])
             return jsonify({"ok": True, "mensagem": "Envio recusado pelo usuário."})
-        auditar("consentimento_aceito", f"{id_}: aceite para {cons.get('destinos')}")
-        comum.registrar_tratamento(id_, [f"- Consentimento externo: Usuário {cons.get('usuario')} autorizou envio para {cons.get('destinos')} em {cons.get('data_hora')}."])
-
-    if agente and not any(a["nome"] == agente and a["aprovado"] for a in tarefas.plantao.agentes()):
-        return jsonify({"erro": f"Agente '{agente}' não existe ou não está aprovado."}), 400
+        aceitos = cons.get("destinos")
+        if (cons.get("aceito") is not True or cons.get("escopo", "api_ia") != "api_ia" or not isinstance(aceitos, list) or not aceitos or
+            not all(isinstance(x, str) and x in destinos for x in aceitos)):
+            return jsonify({"erro": "Informe consentimento válido para os destinos apresentados."}), 400
+        consentimento = EL.criar_consentimento(request.usuario["login"], aceitos)
     try:
-        tid = tarefas.enfileirar_ia(id_, d.get("acao"), request.usuario["login"], d.get("observacoes") or "", agente)
-        if ag_res and ag_res.startswith("api") and "consentimento_externo" in d:
-            with tarefas.plantao._c() as c:
-                c.execute("UPDATE pedidos SET consentimento=? WHERE id=?", (json.dumps(d["consentimento_externo"]), tid))
+        tid = tarefas.enfileirar_ia(id_, d.get("acao"), request.usuario["login"], d.get("observacoes") or "", ag_res,
+                                  consentimento=json.dumps(consentimento) if consentimento else None)
     except ValueError as e:
         return jsonify({"erro": str(e)}), 400
+    if consentimento:
+        auditar("consentimento_aceito", f"{id_}: aceite para {consentimento['destinos']}")
+        comum.registrar_tratamento(id_, [f"- Consentimento externo: Usuário {consentimento['usuario']} autorizou envio para {consentimento['destinos']} em {consentimento['data_hora']}."])
     auditar("ia_acionada", f"{id_}: {d.get('acao')}" + (f" -> {agente}" if agente else ""))
+    return jsonify({"tarefa": tid})
+
+
+@bp_sistema.post("/api/casos/<id_>/transcricao-visual")
+@requer("ia")
+def api_transcricao_visual(id_):
+    if not auth.pode(request.usuario["perfil"], "casos"): abort(403)
+    try: C.carregar(id_)
+    except (ValueError, FileNotFoundError): abort(404)
+    d = request.get_json(force=True) or {}
+    if not isinstance(d, dict) or set(d) - {"consentimento_externo"}:
+        return jsonify({"erro": "Pedido inválido; páginas são selecionadas pelo diagnóstico local."}), 400
+    import executores_llm as EL
+    try: plano = comum.plano_transcricao_visual(id_)
+    except (ValueError, OSError) as e: return jsonify({"erro": str(e)}), 400
+    if not plano: return jsonify({"erro": "Nenhuma página indicada para transcrição visual."}), 400
+    destinos = [p for p, _ in EL.provedores_api_configurados(WS) if "vision" in EL.CAPACIDADES_PROVEDOR.get(p, set())]
+    if not destinos: return jsonify({"erro": "Ative um provedor com modelo de visão em Sistema → Provedores e modelos de IA."}), 400
+    if "consentimento_externo" not in d:
+        return jsonify({"requer_consentimento": True, "destinos": destinos, "escopo": "transcricao_visual",
+                        "paginas": sum(len(x["paginas"]) for x in plano)})
+    c = d["consentimento_externo"]
+    if not isinstance(c, dict) or any(k in c and not isinstance(c[k], bool) for k in ("aceito", "recusado")):
+        return jsonify({"erro": "Consentimento inválido."}), 400
+    if c.get("recusado") is True or c.get("aceito") is False:
+        auditar("consentimento_recusado", f"{id_}: transcricao_visual")
+        comum.registrar_tratamento(id_, [f"- Transcrição visual: envio externo recusado em {comum.agora()}."])
+        return jsonify({"ok": True, "mensagem": "Envio recusado pelo usuário."})
+    aceitos = c.get("destinos")
+    if c.get("aceito") is not True or c.get("escopo", "transcricao_visual") != "transcricao_visual" or not isinstance(aceitos, list) or not aceitos or not all(isinstance(p, str) and p in destinos for p in aceitos):
+        return jsonify({"erro": "Confirme os destinos apresentados para transcrição visual."}), 400
+    cons = EL.criar_consentimento(request.usuario["login"], aceitos, escopo="transcricao_visual")
+    tid = tarefas.nova("ia", "Transcrição visual de páginas a conferir", request.usuario["login"], caso=id_, consentimento=cons)
+    auditar("consentimento_aceito", f"{id_}: transcricao_visual; destinos {cons['destinos']}")
+    comum.registrar_tratamento(id_, [f"- Consentimento externo: {cons['usuario']} autorizou transcrição visual para {cons['destinos']} em {cons['data_hora']}."])
+    tarefas.rodar(tid, comum.transcricao_visual, id_, plano, cons)
     return jsonify({"tarefa": tid})
 
 
@@ -281,16 +327,22 @@ def _carregar_cfg_llm():
 
 
 MODELOS_COPILOT = [
-    {"id": m, "nome": n, "recente": m in {"gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "claude-opus-5.5",
-                                              "claude-sonnet-5", "gemini-3.8-flash", "grok-4.6"}}
+    {"id": m, "nome": n, "recente": False}
     for m, n in (
-        ("gpt-6-astra", "GPT-6 Astra"), ("gpt-6-sol", "GPT-6 Sol"),
-        ("gpt-6-luna", "GPT-6 Luna"), ("claude-opus-5.5", "Claude Opus 5.5"),
-        ("claude-sonnet-5", "Claude Sonnet 5"), ("gemini-3.8-flash", "Gemini 3.8 Flash"),
-        ("grok-4.6", "Grok 4.6"), ("gpt-5.6-sol", "GPT-5.6 Sol"),
+        ("claude-sonnet-5.5", "Claude Sonnet 5.5 (padrão documentado do CLI)"),
+        ("gpt-6.1-sol", "GPT-6.1 Sol (seleção explícita)"), ("gpt-6-astra", "GPT-6 Astra (seleção explícita)"),
+        ("gpt-6-luna", "GPT-6 Luna (seleção explícita)"), ("claude-opus-5.5", "Claude Opus 5.5"),
+        ("claude-haiku-5.5", "Claude Haiku 5.5"), ("gpt-5.4", "GPT-5.4"),
+        ("gpt-5.3-codex", "GPT-5.3 Codex"), ("gemini-3.7-flash", "Gemini 3.7 Flash"),
     )
 ]
 
+MODELOS_EQUILIBRADOS = {
+    "openai": ("gpt-6.1-sol",), "anthropic": ("claude-sonnet-5-5",),
+    "gemini": ("gemini-3.8-flash",), "deepseek": ("deepseek-flash",), "xai": ("grok-4.7",),
+    "groq": ("openai/gpt-oss-120b",), "nvidia": ("nvidia/llama-3.3-nemotron-super-49b-v1.5",),
+    "openrouter": ("openai/gpt-6.1-sol", "anthropic/claude-sonnet-5.5"),
+}
 MODELOS_GEMINI_RECENTES = {
     "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash",
     "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview",
@@ -313,7 +365,8 @@ def _get_json_modelos(url, headers):
 def _consultar_modelos(provedor, chave):
     """Consulta só o catálogo de modelos; não envia prompt nem conteúdo de O.S."""
     if provedor == "copilot":
-        return {"modelos": MODELOS_COPILOT, "origem": "catálogo documentado do Copilot CLI", "dinamico": False}
+        return {"modelos": MODELOS_COPILOT, "origem": "catálogo documentado do Copilot CLI", "dinamico": False,
+                "modelo_equilibrado": "", "aviso": "Lista documental; confirme no CLI o acesso da sua conta. Escolha explicitamente e salve."}
     if not chave:
         raise ValueError("Informe e salve a chave da API antes de atualizar os modelos.")
 
@@ -345,13 +398,48 @@ def _consultar_modelos(provedor, chave):
     else:
         raise ValueError("Provedor não reconhecido.")
 
-    bruto = _get_json_modelos(url, headers)
+    itens = []
+    cursor = None
+    vistos = set()
+    for pagina in range(10):
+        pagina_url = url
+        if cursor:
+            pagina_url += "&" + urllib.parse.urlencode({"after_id" if provedor == "anthropic" else "pageToken": cursor})
+        bruto = _get_json_modelos(pagina_url, headers)
+        campo = "models" if provedor == "gemini" else "data"
+        if not isinstance(bruto, dict) or not isinstance(bruto.get(campo, []), list):
+            raise ValueError("O provedor retornou um catálogo inválido. Tente novamente.")
+        itens.extend(m for m in bruto.get(campo, []) if isinstance(m, dict))
+        proximo = None
+        if provedor == "anthropic" and bruto.get("has_more"):
+            proximo = bruto.get("last_id")
+            if not proximo:
+                raise ValueError("Catálogo incompleto: cursor de paginação ausente.")
+        elif provedor == "gemini":
+            proximo = bruto.get("nextPageToken")
+        if not proximo:
+            break
+        if not isinstance(proximo, str) or proximo in vistos or pagina == 9:
+            raise ValueError("Catálogo incompleto: paginação repetida ou limite de páginas atingido.")
+        vistos.add(proximo)
+        cursor = proximo
+    nao_textuais = ("embedding", "moderation", "whisper", "tts", "transcribe", "realtime", "image", "audio", "sora")
+    incompativeis = set()
+    for m in itens:
+        saidas = m.get("output_modalities")
+        parametros = m.get("supported_parameters")
+        if (m.get("active") is False or m.get("lifecycle") in ("deprecated", "retired") or
+                (isinstance(saidas, list) and "text" not in saidas) or
+                (provedor == "openrouter" and isinstance(parametros, list) and "tools" not in parametros) or
+                m.get("tool_calling") is False or m.get("function_calling") is False):
+            mid = m.get("id") or m.get("name") or ""
+            incompativeis.add(mid.removeprefix("models/") if provedor == "gemini" else mid)
     if provedor == "gemini":
-        itens = [m for m in bruto.get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
+        itens = [m for m in itens if "generateContent" in m.get("supportedGenerationMethods", [])
+                 and not any(x in m.get("name", "").lower() for x in nao_textuais)]
         normalizados = [{"id": m.get("name", "").removeprefix("models/"), "nome": m.get("displayName") or m.get("name"), "criado": ""}
                         for m in itens]
     else:
-        itens = bruto.get("data", [])
         normalizados = []
         for m in itens:
             mid = m.get("id") or m.get("name") or ""
@@ -360,8 +448,7 @@ def _consultar_modelos(provedor, chave):
             # As APIs OpenAI-compatible também listam áudio, embeddings e imagem;
             # este seletor é para os pedidos textuais do plantão.
             low = mid.lower()
-            if provedor in ("openai", "deepseek", "xai", "groq", "nvidia") and any(x in low for x in
-                    ("embedding", "moderation", "whisper", "tts", "transcribe", "realtime", "image", "audio", "sora")):
+            if any(x in low for x in nao_textuais) or m.get("lifecycle") == "retired":
                 continue
             if provedor == "openrouter":
                 mods = (m.get("architecture") or {}).get("output_modalities") or []
@@ -371,6 +458,7 @@ def _consultar_modelos(provedor, chave):
             nome = m.get("name") or m.get("display_name") or mid
             normalizados.append({"id": mid, "nome": nome, "criado": criado})
 
+    normalizados = list({m["id"]: m for m in normalizados if m["id"]}.values())
     agora_ts = time.time()
     for m in normalizados:
         try:
@@ -388,7 +476,10 @@ def _consultar_modelos(provedor, chave):
             provedor == "gemini" and m["id"] in MODELOS_GEMINI_RECENTES)
     normalizados.sort(key=lambda m: (not m["recente"], -m["_sort_ts"], m["id"].lower()))
     for m in normalizados: m.pop("_sort_ts", None)
-    return {"modelos": normalizados, "origem": "catálogo atual da API", "dinamico": True}
+    ids = {m["id"] for m in normalizados}
+    equilibrado = next((m for m in MODELOS_EQUILIBRADOS.get(provedor, ()) if m in ids and m not in incompativeis), "")
+    return {"modelos": normalizados, "origem": "catálogo atual da API", "dinamico": True,
+            "modelo_equilibrado": equilibrado}
 
 
 @bp_sistema.get("/api/sistema/llm")

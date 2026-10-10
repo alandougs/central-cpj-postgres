@@ -30,3 +30,20 @@ As duas otimizações candidatas restantes já são feitas pelo código atual: a
 - Regressão mínima: `teste_solo_claude.py` (7), `teste_seguranca_codex.py` (11), `teste_modularizacao_gemini.py` (6) e `teste_dados_os_codex.py` (18) OK. O teste de dados da O.S. incluiu OCR real.
 
 O ensaio anterior da E03 registrou 30,34 s para a etapa completa; as medições deste relatório usam `cProfile`, extração isolada e o mesmo PDF/hash antes e depois, portanto a comparação de 149,734 s para 65,637 s é a medida controlada desta mudança. O tempo do ensaio anterior não é diretamente comparável a esse perfil.
+
+## Restauração CX01 — 09/10/2026
+
+As três regressões da fila foram reproduzidas antes da correção: `--workers` não era aceito; faltava `checkpoints_reutilizados`; o teste F12 ainda lia o cache antigo `checkpoints-extracao.json`, substituído pela G01. A implementação de `origin/main` foi comparada com o arquivo atual e reaproveitada somente na extração: PDFium continua na thread principal, OCR trabalha sobre cópias independentes de imagens, no máximo dois workers, e os registros são ordenados por página antes da transcrição. O padrão atual é dois workers; `ocr_workers` registra a quantidade efetivamente utilizada.
+
+O checkpoint canônico permanece `.checkpoint/meta.json` e `pNNNN.json`, versão 2, com assinatura do PDF e parâmetros. Nenhum cache paralelo antigo foi criado. O teste F12 foi alinhado a esse formato e continua verificando que a correção visual substitui OCR duvidoso em cache. As transcrições visuais passam a registrar hash; edição ou remoção invalida somente o registro visual correspondente. Permanecem os critérios de carimbo, assinatura digital, texto misto e conferência visual.
+
+Ensaio local de quatro páginas fictícias escaneadas, 200 DPI, idioma português, checkpoint vazio, `--sem-reaproveitar`, saídas e workspace temporários:
+
+| Workers | Tempo total | Métodos | Versão do checkpoint |
+|---:|---:|---|---:|
+| 1 | 3,544 s | 4 páginas `ocr-tesseract` | 2 |
+| 2 | 3,167 s | 4 páginas `ocr-tesseract` | 2 |
+
+SHA-256 do PDF fictício: `61559ede7defde0abca3fd7cfdb30d1aab8672b222d9234fed7c869fede1595f`. Texto final idêntico entre as duas execuções, descontado somente o horário de geração. Nesta amostra, dois workers reduziram o tempo em aproximadamente 10,6%; execução única, dependente da carga do computador, sem extrapolação para autos reais ou comparação com o corpus histórico de 120 páginas.
+
+Verificação: `teste_desempenho_f02.py`, `teste_extracao_codex.py` (incluindo edição e remoção da transcrição visual), `teste_revisao_pr1_f12.py`, `teste_ocr_checkpoint_claude.py`, `teste_desempenho_codex.py` (7 testes) e `teste_fila_os_claude.py` aprovados. `ferramentas/testar-tudo.py --rapido`: 4/4 suítes aprovadas em 34,33 s. A suíte de checkpoints confirmou gravação por página, retomada após interrupção, recusa de checkpoint corrompido, invalidação por PDF/DPI diferentes e prioridade da transcrição visual. Todos os ensaios usaram dados fictícios; nenhuma API ou documento de caso real foi utilizado.

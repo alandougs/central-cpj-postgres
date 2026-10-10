@@ -277,14 +277,16 @@ class DadosOS(unittest.TestCase):
         self.assertIn('id="b-salvar-os">Salvar dados', html)
         self.assertIn('id="b-enviar">Processar PDF', html)
         funcao = re.search(r'(async function salvarRecebimento\(processar\).*?)\n\$\("#f-os"\)\.onsubmit', html, re.S)[1]
+        funcao = re.search(r'(async function processarPDFComAviso\(enviarPedido\)\{[\s\S]*?\n\})', html)[1] + '\n' + funcao
         teste = r'''
 const assert=require('node:assert/strict');
 const f={reportValidity:()=>true,elements:{caso_id:{value:''}},campos:{os:'991/2099',escrivao:'NOME FICTICIO'}};
-const dom={'#f-os':f};for(const id of ['#msg-up','#prog-up','#prog-up-tx','#b-enviar','#b-salvar-os','#b-nova-os','#dados-os-auto'])dom[id]={disabled:false,textContent:'',innerHTML:''};
+const dom={'#f-os':f};for(const id of ['#msg-up','#prog-up','#prog-up-tx','#b-enviar','#b-salvar-os','#b-nova-os','#dados-os-auto','#cons-destinos'])dom[id]={disabled:false,textContent:'',innerHTML:''};
 const $=id=>dom[id],esc=String;
-let arquivos=[{name:'ficticio.pdf'}],autoOS={},deteccaoOS=0,chamadas=[],falhar=false;
-class FormData{constructor(form){this.dados={...form.campos,caso_id:form.elements.caso_id.value}}append(k,v){(this.dados[k]??=[]);if(Array.isArray(this.dados[k]))this.dados[k].push(v);else this.dados[k]=v}}
-async function enviar(url,fd){chamadas.push(fd.dados);if(falhar)throw Error('Falha ficticia');return{caso:'OS-991-2099',criado:!fd.dados.caso_id,recebidos:fd.dados.arquivos?['ficticio.pdf']:[],ignorados:[]}}
+let arquivos=[{name:'ficticio.pdf'}],autoOS={},deteccaoOS=0,chamadas=[],falhar=false,avisar=false,recusar=false;
+class FormData{constructor(form){this.dados={...form.campos,caso_id:form.elements.caso_id.value}}append(k,v){(this.dados[k]??=[]);if(Array.isArray(this.dados[k]))this.dados[k].push(v);else this.dados[k]=v}set(k,v){this.dados[k]=v}}
+async function pedirConsentimentoExterno(destinos){return recusar?{recusado:true}:{aceito:true,destinos}}
+async function enviar(url,fd){chamadas.push(JSON.parse(JSON.stringify(fd.dados)));if(falhar)throw Error('Falha ficticia');if(avisar){if(!fd.dados.consentimento_externo)return{requer_consentimento:true,escopo:'transcricao_visual',destinos:['openai'],paginas:2};if(JSON.parse(fd.dados.consentimento_externo).recusado)return{recusado:true,mensagem:'Recusado'};}return{caso:'OS-991-2099',criado:!fd.dados.caso_id,recebidos:fd.dados.arquivos?['ficticio.pdf']:[],ignorados:[]}}
 function listaArqs(){} async function atualizarFila(){}function toast(){}
 '''
         teste += funcao + r'''
@@ -293,6 +295,8 @@ function listaArqs(){} async function atualizarFila(){}function toast(){}
  await salvarRecebimento(true);assert.equal(chamadas[1].caso_id,'OS-991-2099');assert.equal(chamadas[1].arquivos.length,1);assert.equal(arquivos.length,0);assert.equal(f.campos.escrivao,'NOME FICTICIO');
  await salvarRecebimento(true);assert.equal(chamadas.length,2);assert.match(dom['#msg-up'].textContent,/Selecione o PDF/);
  falhar=true;await salvarRecebimento(false);assert.equal(dom['#msg-up'].textContent,'Falha ficticia');for(const id of ['#b-enviar','#b-salvar-os','#b-nova-os'])assert.equal(dom[id].disabled,false);
+ falhar=false;avisar=true;recusar=true;arquivos=[{name:'ficticio.pdf'}];await salvarRecebimento(true);assert.equal(arquivos.length,1);assert.equal(f.campos.escrivao,'NOME FICTICIO');assert.equal(dom['#msg-up'].textContent,'Recusado');assert.equal(f.elements.caso_id.value,'OS-991-2099');for(const id of ['#b-enviar','#b-salvar-os','#b-nova-os'])assert.equal(dom[id].disabled,false);
+ recusar=false;await salvarRecebimento(true);const cons=JSON.parse(chamadas.at(-1).consentimento_externo);assert.equal(cons.aceito,true);assert.equal(cons.escopo,'transcricao_visual');assert.equal(chamadas.at(-1).arquivos.length,1);assert.equal(arquivos.length,0);assert.equal(f.campos.escrivao,'NOME FICTICIO');
 })().catch(e=>{console.error(e);process.exitCode=1});
 '''
         import shutil

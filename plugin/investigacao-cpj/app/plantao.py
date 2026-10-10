@@ -8,7 +8,8 @@ o primeiro OCIOSO e APROVADO reserva o próximo pedido (reserva atômica: dois a
 Regras de segurança: agente novo entra como "aguardando aprovação" (aprovar no PC da Central); um pedido ativo por caso;
 agente que para de responder devolve o pedido à fila (até 2 tentativas); cancelamento pela Central é respeitado.
 """
-import datetime, json, os, re, socket, sqlite3, subprocess, sys, threading, time, uuid
+import datetime, json, os, re, signal, socket, sqlite3, subprocess, sys, threading, time, uuid
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
@@ -161,7 +162,74 @@ def montar_prompt(job, ws, modo="auto", agente=None):
         + (f"{prog}\n" if modo == "api" else f"Progresso: registre cada marco executando  {prog}  nos marcos: {marcos}.\n")
         + (f"Observações do investigador: {job['observacoes']}\n" if job.get("observacoes") else "")
         + f"Tarefa: {tarefa.format(id=id_)}\n" + fim
+        + ("\n" + prompt_etapa(job, ws, job["_etapa"]) if job.get("_etapa") else "")
     )
+
+
+SAIDAS_CONSOLIDACAO = ("02-analise/ficha-caso.md", "02-analise/pessoas.csv",
+                      "02-analise/solicitacoes-os.md", "02-analise/dados-faltantes.md")
+
+
+def plano_etapas(ws, job):
+    """Etapas internas; completo/esteira preservam a cadeia de pedidos EC01."""
+    base = os.path.join(ws, "casos", job["caso"])
+    plano = []
+    def add(id_, tipo, titulo, saidas, **arg):
+        plano.append(dict(id=id_, tipo=tipo, etapa=titulo, saidas=saidas, arg=arg, estado="pendente"))
+    acao = job["acao"]
+    analise_completa = all(os.path.isfile(os.path.join(base, s)) and os.path.getsize(os.path.join(base, s))
+                          for s in SAIDAS_CONSOLIDACAO)
+    analisar = acao == "analisar" or (acao == "relatorio" and not analise_completa)
+    if analisar:
+        extr = os.path.join(base, "01-extracao")
+        docs = []
+        if os.path.isdir(extr):
+            for doc in sorted(os.listdir(extr)):
+                p = os.path.join(extr, doc, "transcricao.md")
+                if os.path.isfile(p):
+                    with open(p, encoding="utf-8") as f:
+                        paginas = [int(n) for n in re.findall(r"^## Página (\d+)", f.read(), re.M)]
+                    if paginas: docs.append((doc, max(paginas)))
+        if not docs: raise RuntimeError("Análise indisponível: transcrição por página ausente.")
+        if sum(n for _, n in docs) > 90:
+            for doc, n in docs:
+                for ini in range(1, n + 1, 90):
+                    num = len(plano) + 1
+                    add(f"blocos-{num:02d}", "blocos", f"Análise do bloco {num}", [f"02-analise/blocos/bloco-{num:02d}.md"], n=num, doc=doc, ini=ini, fim=min(n, ini+89))
+    if analisar or acao == "financeiro":
+        add("financeiro", "financeiro", "Analista financeiro", ["02-analise/fluxo-financeiro.md", "02-analise/fluxo-financeiro.csv"])
+    if analisar:
+        add("consolidacao", "consolidacao", "Consolidação da análise", list(SAIDAS_CONSOLIDACAO))
+    rel = os.path.join(base, "03-relatorios")
+    vs = [int(m.group(1)) for f in os.listdir(rel) if (m := re.fullmatch(r"minuta-v(\d+)\.md", f))] if os.path.isdir(rel) else []
+    versao = max(vs, default=0)
+    if acao == "relatorio":
+        versao += 1
+        add("redacao", "redacao", "Redação da minuta", [f"03-relatorios/minuta-v{versao:02d}.md", f"03-relatorios/rastreabilidade-v{versao:02d}.md"], proxima=versao)
+    if acao in ("relatorio", "revisar"):
+        if not versao: raise RuntimeError("Revisão indisponível: minuta ausente.")
+        add("revisao", "revisao", "Revisão independente", [f"03-relatorios/revisao-v{versao:02d}.md"], versao=versao)
+    if acao == "relatorio":
+        add("ajuste", "ajuste", "Ajuste conforme revisão", [f"03-relatorios/minuta-v{versao:02d}.md", f"03-relatorios/rastreabilidade-v{versao:02d}.md"], versao=versao)
+    return plano
+
+
+def prompt_etapa(job, ws, etapa):
+    tipo, arg = etapa["tipo"], etapa["arg"]
+    tarefa = {
+        "blocos": f"Analise somente o documento {arg.get('doc')}, páginas {arg.get('ini')} a {arg.get('fim')}. Grave achados com origem por página. Não altere arquivos dos outros blocos.",
+        "financeiro": "Analista financeiro: siga portatil/03-analista-financeiro.md. Registre ausência de transações e lacunas sem inventar dados.",
+        "consolidacao": "Consolidação: siga portatil/02-analisar-ip.md. Leia os blocos e o fluxo financeiro, confira os autos e responda às solicitações da O.S. Produza ficha-caso.md e pessoas.csv. Grave solicitacoes-os.md com a O.S. vigente, cada item, trecho, página/fls. e onde a análise responde ou registra limite. Grave dados-faltantes.md com DADOS FALTANTES — PROVIDENCIAR (OPERADOR), fonte, onde/como obter e por que importa. Se não houver lacunas relevantes, registre expressamente a conferência; não invente dados ou diligências.",
+        "redacao": f"REDATOR: siga portatil/04-relatorio-ip.md. Grave minuta-v{arg.get('proxima', 0):02d}.md e rastreabilidade-v{arg.get('proxima', 0):02d}.md, com cada afirmação material, sua fonte documental (página do PDF/fls.) e classificação de fato, relato, inferência ou lacuna. Responda cada item de solicitacoes-os.md e preserve limites de dados-faltantes.md. NÃO revise a própria minuta.",
+        "revisao": f"REVISOR INDEPENDENTE: siga portatil/05-revisar-relatorio.md. Confira minuta-v{arg.get('versao', 0):02d}.md e rastreabilidade-v{arg.get('versao', 0):02d}.md contra os autos e as solicitações da O.S.; o mapa não substitui a fonte documental. Não altere a minuta. Termine com 'Resultado: N sustentadas · N parciais · N não localizadas · N contraditórias'.",
+        "ajuste": f"Ajuste somente os achados sustentados pela revisão independente na minuta-v{arg.get('versao', 0):02d}.md e atualize rastreabilidade-v{arg.get('versao', 0):02d}.md para o conteúdo corrigido da mesma versão. Não remova lacunas nem atribua autoria sem base.",
+    }[tipo]
+    return (f"ETAPA EXCLUSIVA: {etapa['etapa']}. Execute SOMENTE esta etapa; a Central orquestra as demais.\n"
+            + tarefa + "\nSaídas obrigatórias: " + ", ".join(etapa["saidas"]) +
+            "\nNesta execução, confira e grave novamente TODAS as saídas obrigatórias, mesmo que já existam. "
+            "Se estiverem corretas, regenere o conteúdo conferido sem alterar os fatos. Não basta declarar reutilização "
+            "ou apenas mudar timestamps; a Central exige produtos atualizados nesta sessão." +
+            "\nBases de consulta e referências NÃO são fonte de fatos. Use somente os autos do caso. Não altere 00-originais.")
 
 
 # ------------------------------------------------------------------ fila persistente
@@ -180,9 +248,24 @@ class Plantao:
               criado_em TEXT, iniciado_em TEXT, fim TEXT);
             CREATE INDEX IF NOT EXISTS ix_ped_estado ON pedidos(estado, criado_em);
             """)
-            for coluna in ("grupo TEXT", "ordem INTEGER", "depende_de TEXT", "consentimento TEXT"):
+            for coluna in ("grupo TEXT", "ordem INTEGER", "depende_de TEXT", "consentimento TEXT", "orcamento TEXT", "uso_ia TEXT"):
                 try: c.execute("ALTER TABLE pedidos ADD COLUMN " + coluna)
                 except sqlite3.OperationalError: pass
+            c.execute("CREATE TABLE IF NOT EXISTS etapas_pedido (pedido TEXT PRIMARY KEY, plano TEXT NOT NULL)")
+
+    def etapas(self, pid):
+        with self._c() as c:
+            r = c.execute("SELECT plano FROM etapas_pedido WHERE pedido=?", (pid,)).fetchone()
+        return json.loads(r["plano"]) if r else []
+
+    def gravar_etapas(self, pid, plano):
+        with self._c() as c:
+            c.execute("INSERT OR REPLACE INTO etapas_pedido VALUES (?,?)", (pid, json.dumps(plano, ensure_ascii=False)))
+
+    def registrar_uso_ia(self, pid, limites, uso):
+        with self._c() as c:
+            c.execute("UPDATE pedidos SET orcamento=?, uso_ia=? WHERE id=? OR grupo=(SELECT grupo FROM pedidos WHERE id=?)",
+                      (json.dumps(limites), json.dumps(uso), pid, pid))
 
     @contextmanager
     def _c(self):
@@ -228,8 +311,13 @@ class Plantao:
         return out
 
     # ---------------------------------------------------------------- pedidos
-    def enfileirar(self, caso, acao, solicitante, observacoes="", preferido=None, consentimento=None):
+    def enfileirar(self, caso, acao, solicitante, observacoes="", preferido=None, consentimento=None, orcamento=None):
         if acao not in ACOES: raise ValueError("Ação de IA inválida.")
+        if orcamento is not None:
+            import executores_llm as EL
+            if not isinstance(orcamento, dict) or any(k not in ("segundos", "tokens", "custo_usd") or
+                (v is not None and (not EL._numero(v) or v <= 0 or (k == "tokens" and not isinstance(v, int))))
+                for k, v in orcamento.items()): raise ValueError("Limites de orçamento inválidos.")
         with self._c() as c:
             c.execute("BEGIN IMMEDIATE")
             self._encerrar_orfaos(c)
@@ -239,9 +327,10 @@ class Plantao:
             grupo, anterior, pid = "fluxo-" + uuid.uuid4().hex[:10], None, None
             for ordem, etapa in enumerate(etapas, 1):
                 atual = "ia-" + uuid.uuid4().hex[:10]
-                c.execute("INSERT INTO pedidos(id,caso,acao,observacoes,solicitante,preferido,estado,etapa,criado_em,grupo,ordem,depende_de,consentimento) "
-                          "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", (atual, caso, etapa, (observacoes or "")[:2000], solicitante, preferido or None,
-                          "pendente", "aguardando etapa anterior" if anterior else "aguardando agente de plantão", agora(), grupo, ordem, anterior, consentimento))
+                c.execute("INSERT INTO pedidos(id,caso,acao,observacoes,solicitante,preferido,estado,etapa,criado_em,grupo,ordem,depende_de,consentimento,orcamento) "
+                          "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (atual, caso, etapa, (observacoes or "")[:2000], solicitante, preferido or None,
+                          "pendente", "aguardando etapa anterior" if anterior else "aguardando agente de plantão", agora(), grupo, ordem, anterior, consentimento,
+                          json.dumps(orcamento) if orcamento is not None else None))
                 pid, anterior = pid or atual, atual
             c.execute("COMMIT")
         return pid
@@ -313,15 +402,19 @@ class Plantao:
         p = self._do_agente(pid, nome)
         if p["estado"] != "executando": raise ValueError(f"Pedido {pid} está '{p['estado']}'.")
         with self._c() as c:
-            c.execute("UPDATE pedidos SET estado='concluida', progresso=100, etapa='concluído', resultado=?, fim=? WHERE id=?",
-                      (json.dumps(resultado, ensure_ascii=False), agora(), pid))
+            atualizado = c.execute("UPDATE pedidos SET estado='concluida', progresso=100, etapa='concluído', resultado=?, fim=? "
+                                   "WHERE id=? AND agente=? AND estado='executando' AND cancelar=0",
+                                   (json.dumps(resultado, ensure_ascii=False), agora(), pid, nome)).rowcount
+            if not atualizado: raise ValueError("Pedido cancelado ou reserva não pertence mais ao agente.")
             c.execute("UPDATE agentes SET estado='ocioso', job=NULL, visto_em=? WHERE nome=?", (agora(), nome))
 
     def falhar(self, pid, nome, erro):
         self._do_agente(pid, nome)
         with self._c() as c:
-            c.execute("UPDATE pedidos SET estado=CASE WHEN cancelar=1 THEN 'cancelada' ELSE 'erro' END, erro=?, fim=? WHERE id=?",
-                      (str(erro)[:1000], agora(), pid))
+            atualizado = c.execute("UPDATE pedidos SET estado=CASE WHEN cancelar=1 THEN 'cancelada' ELSE 'erro' END, erro=?, fim=? "
+                                   "WHERE id=? AND agente=? AND estado='executando'",
+                                   (str(erro)[:1000], agora(), pid, nome)).rowcount
+            if not atualizado: raise ValueError("Reserva não pertence mais ao agente ou pedido já encerrado.")
             self._encerrar_orfaos(c)
             c.execute("UPDATE agentes SET estado='ocioso', job=NULL, visto_em=? WHERE nome=?", (agora(), nome))
 
@@ -357,7 +450,9 @@ class Plantao:
                 "caso": p["caso"], "acao": p["acao"], "status": estado, "progresso": p["progresso"] or 0, "etapa": etapa,
                 "detalhe": ((f"agente {p['agente']} · " if p["agente"] else "") + (p["detalhe"] or "")).strip(" ·"),
                 "inicio": p["iniciado_em"] or p["criado_em"], "fim": p["fim"], "erro": p["erro"], "resultado": res,
-                "observacoes": p["observacoes"], "agente": p["agente"]}
+                "observacoes": p["observacoes"], "agente": p["agente"], "etapas": self.etapas(p["id"]),
+                "orcamento": json.loads(p["orcamento"]) if p.get("orcamento") else None,
+                "uso_ia": json.loads(p["uso_ia"]) if p.get("uso_ia") else None}
 
 
 # ------------------------------------------------------------------ executores automáticos
@@ -389,6 +484,12 @@ def claude_exe():
             return max(cands)[1]
     except OSError:
         pass
+    # Instalador nativo: processos abertos antes da instalação mantêm PATH antigo.
+    perfil = os.environ.get("USERPROFILE", "")
+    if perfil:
+        nativo = os.path.join(perfil, ".local", "bin", "claude.exe")
+        if os.path.isfile(nativo):
+            return nativo
     w = shutil.which("claude.exe")
     if w and w.lower().endswith(".exe") and os.path.isfile(w):
         return w
@@ -420,6 +521,21 @@ def provedores_api_ativos(ws):
         if EL.configuracao(ws, prov):
             out.append((tipo, prov))
     return out
+
+
+def destinos_externos(ws, pl, preferido=None):
+    """Identifica provedores pelo tipo registrado, sem depender do nome do agente."""
+    import executores_llm as EL
+    agentes = [a for a in pl.agentes() if a["aprovado"] and (not preferido or a["nome"] == preferido)]
+    if preferido:
+        tipo = agentes[0]["tipo"] if agentes else None
+        api_padrao = any(preferido == "Central-" + p.capitalize() + " API" for p in EL.PROVEDORES_API)
+        if tipo in TIPOS_API or api_padrao:
+            return [p for p, _ in EL.provedores_api_configurados(ws)]
+        return ["cli:" + tipo] if agentes and agentes[0]["modo"] == "auto" and tipo in TIPOS_CLI_AUTO else []
+    destinos = [p for p, _ in EL.provedores_api_configurados(ws)]
+    destinos.extend("cli:" + a["tipo"] for a in agentes if a["modo"] == "auto" and a["tipo"] in TIPOS_CLI_AUTO)
+    return list(dict.fromkeys(destinos))
 
 
 def provedor_pronto(tipo, ws=None):
@@ -455,25 +571,100 @@ def provedor_pronto(tipo, ws=None):
 
 
 def _matar(p):
-    subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True, creationflags=SEM_JANELA)
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True, creationflags=SEM_JANELA)
+    else:
+        try: os.killpg(p.pid, signal.SIGKILL)
+        except ProcessLookupError: pass
+    p.wait(timeout=10)
 
 
 def executar_pedido(pl, job, nome, tipo):
+    """Sessões independentes, checkpoints persistentes e verificação de cada saída."""
+    plano = pl.etapas(job["id"]) or plano_etapas(pl.ws, job)
+    if job["acao"] == "relatorio" and not any(e["tipo"] == "consolidacao" for e in plano):
+        base = os.path.join(pl.ws, "casos", job["caso"])
+        if not all(os.path.isfile(os.path.join(base, s)) and os.path.getsize(os.path.join(base, s))
+                   for s in SAIDAS_CONSOLIDACAO):
+            plano = plano_etapas(pl.ws, dict(job, acao="analisar")) + plano
+    # Checkpoints anteriores ao contrato também devem entregar seus registros,
+    # mantendo a versão já reservada e a validação normal de cada saída.
+    for e in plano:
+        extras = list(SAIDAS_CONSOLIDACAO) if e["tipo"] == "consolidacao" else []
+        if e["tipo"] in ("redacao", "ajuste"):
+            v = e["arg"].get("proxima", e["arg"].get("versao"))
+            extras.append(f"03-relatorios/rastreabilidade-v{v:02d}.md")
+        e["saidas"].extend(s for s in extras if s not in e["saidas"])
+    pl.gravar_etapas(job["id"], plano)
+    trava = threading.Lock()
+    def arquivos(e):
+        return [os.path.join(pl.ws, "casos", job["caso"], s) for s in e["saidas"]]
+    def metadata(p):
+        if not os.path.isfile(p): return None
+        s = os.stat(p)
+        return s.st_mtime_ns, s.st_size
+    def rodar(e):
+        if e["estado"] == "concluida" and all(os.path.isfile(p) and os.path.getsize(p) for p in arquivos(e)): return
+        if not pl.progresso(job["id"], nome, etapa=e["etapa"]): raise RuntimeError("Cancelado pela Central.")
+        if e["tipo"] == "ajuste":
+            rev = os.path.join(pl.ws, "casos", job["caso"], "03-relatorios", f"revisao-v{e['arg']['versao']:02d}.md")
+            with open(rev, encoding="utf-8") as f: texto = f.read()
+            m = re.search(r"Resultado:\s*\d+ sustentadas\s*·\s*(\d+) parciais\s*·\s*(\d+) não localizadas\s*·\s*(\d+) contraditórias", texto)
+            if m and all(int(n) == 0 for n in m.groups()):
+                e.update(estado="dispensada", inicio=agora(), fim=agora(), resumo="Revisão sem pendências")
+                with trava: pl.gravar_etapas(job["id"], plano)
+                return
+        antes = {p: metadata(p) for p in arquivos(e)}
+        e.update(estado="executando", inicio=agora(), fim=None)
+        with trava: pl.gravar_etapas(job["id"], plano)
+        try:
+            res = _executar_sessao(pl, dict(job, _etapa=e), nome, tipo)
+            e.update(**res)  # Preserva sessão consumida mesmo se o gate de saída falhar.
+            for p in arquivos(e):
+                meta = metadata(p)
+                if not meta or not meta[1]: raise RuntimeError(f"{e['etapa']}: saída ausente ou vazia: {os.path.basename(p)}")
+                if meta == antes[p]: raise RuntimeError(f"{e['etapa']}: arquivo não atualizado: {os.path.basename(p)}")
+            e.update(estado="concluida", fim=agora())
+        except Exception as exc:
+            e.update(estado="erro", fim=agora(), erro=str(exc))
+            raise
+        finally:
+            with trava: pl.gravar_etapas(job["id"], plano)
+    blocos = [e for e in plano if e["tipo"] == "blocos"]
+    if blocos:
+        with ThreadPoolExecutor(max_workers=min(3, len(blocos))) as pool:
+            futuros = [pool.submit(rodar, e) for e in blocos]
+            for f in futuros: f.result()
+    for e in plano:
+        if e["tipo"] != "blocos": rodar(e)
+    return {"resumo": "; ".join(f"{e['etapa']}: {e['estado']} {e.get('resumo', '')}" for e in plano)[:1500],
+            "log": next((e.get("log") for e in reversed(plano) if e.get("log")), "")}
+
+
+def _executar_sessao(pl, job, nome, tipo):
     """Executa um pedido com o CLI do agente (modo automático). Lança exceção em falha."""
     ws, id_, acao = pl.ws, job["caso"], job["acao"]
     if tipo in TIPOS_API:
         import executores_llm as EL
+        dest = EL.validar_consentimento(job)
+        EL.OrcamentoIA(ws, job, pl)  # início antes de consultas de saúde e fallback
         prov = TIPOS_API[tipo]
         def tentar(provedor, cfg):
             if provedor != prov:
                 pl.progresso(job["id"], nome, detalhe=f"{prov} indisponível; tentando {provedor}")
             return EL.executar(ws, job, nome, provedor, cfg, pl)
-        cons_str = job.get("consentimento"); import json; dest = json.loads(cons_str).get("destinos") if cons_str else None; return EL.executar_com_fallback(ws, prov, tentar, dest)
+        return EL.executar_com_fallback(ws, prov, tentar, dest)
+    import executores_llm as EL
+    if tipo in TIPOS_CLI_AUTO: EL.validar_consentimento(job, "cli:" + tipo)
+    orcamento = EL.OrcamentoIA(ws, job, pl)
+    orcamento.verificar_cli(inicio=True)
     prompt = montar_prompt(job, ws, "auto")
     dlog = os.path.join(ws, "casos", id_, "ia-logs"); os.makedirs(dlog, exist_ok=True)
-    log = os.path.join(dlog, f"{datetime.datetime.now():%Y%m%d-%H%M%S}-{acao}-{tipo}.jsonl")
+    log = os.path.join(dlog, f"{datetime.datetime.now():%Y%m%d-%H%M%S-%f}-{job['id']}-{acao}-{tipo}.jsonl")
     ultima = os.path.join(dlog, f"{os.path.basename(log)}.resposta.txt")
     pfile = os.path.join(ws, "casos", id_, "ia-progresso.json")
+    if job.get("_etapa", {}).get("tipo") == "blocos":
+        pfile = os.path.join(ws, "casos", id_, "ia-progresso-" + job["_etapa"]["id"] + ".json")
     if os.path.exists(pfile): os.remove(pfile)
     if tipo == "claude":
         cmd = [claude_exe(), "-p", prompt, "--output-format", "stream-json", "--verbose", "--permission-mode", "acceptEdits",
@@ -503,20 +694,29 @@ def executar_pedido(pl, job, nome, tipo):
         cmd = [sys.executable, "-c", os.environ.get("CPJ_PLANTAO_SIMULADO_CMD", "import time; time.sleep(2); print('{\"type\": \"result\", \"subtype\": \"success\", \"result\": \"ok\"}')")]
     else:
         raise RuntimeError(f"Tipo {tipo} sem modo automático.")
-    env = dict(os.environ, CPJ_WORKSPACE=ws, PYTHONIOENCODING="utf-8")
+    env = dict(os.environ, CPJ_WORKSPACE=ws, CPJ_CASO=id_, CPJ_ACAO=acao, PYTHONIOENCODING="utf-8")
+    if job.get("_etapa"):
+        env.update(CPJ_ETAPA=job["_etapa"]["tipo"], CPJ_ETAPA_ARG=json.dumps(job["_etapa"]["arg"]))
     inicio = time.time()
     p = subprocess.Popen(cmd, cwd=ws, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                         encoding="utf-8", errors="replace", creationflags=SEM_JANELA)
+                         encoding="utf-8", errors="replace", creationflags=SEM_JANELA, start_new_session=os.name != "nt")
     acoes, ultimo, resultado, cancelado, saida_cli = 0, "", None, [False], []
+    erro_orcamento = []
 
     def vigia():   # sinal de vida + cancelamento mesmo quando o CLI fica em silêncio
         while p.poll() is None:
+            try: orcamento.verificar_cli()
+            except EL.OrcamentoExcedido as exc:
+                erro_orcamento.append(exc); _matar(p); return
             pct, etapa = None, None
             if os.path.exists(pfile):
                 try: pj = json.load(open(pfile, encoding="utf-8")); pct, etapa = int(pj["pct"]), pj["etapa"]
                 except Exception: pass
             det = f"{acoes} ações · {int(time.time() - inicio) // 60} min" + (f" · última: {ultimo}" if ultimo else "")
-            if not pl.progresso(job["id"], nome, pct, etapa, det):
+            try: ativo = pl.progresso(job["id"], nome, pct, etapa, det)
+            except sqlite3.OperationalError: time.sleep(1); continue
+            except ValueError: ativo = False
+            if not ativo:
                 cancelado[0] = True; _matar(p); return
             time.sleep(4)
     threading.Thread(target=vigia, daemon=True).start()
@@ -540,9 +740,12 @@ def executar_pedido(pl, job, nome, tipo):
             elif re.search(r"command|exec|tool|patch|file", t or "", re.I):
                 acoes += 1; ultimo = (t or "")[:60]
     p.wait()
+    p.stdout.close()
+    if erro_orcamento: raise erro_orcamento[0]
+    orcamento.verificar_cli()
     if cancelado[0] or (pl.pedido(job["id"]) or {}).get("cancelar"): raise RuntimeError("Cancelado pela Central.")
     if tipo in ("claude", "simulado"):
-        if not resultado or resultado.get("is_error") or resultado.get("subtype") != "success":
+        if p.returncode != 0 or not resultado or resultado.get("is_error") or resultado.get("subtype") != "success":
             raise RuntimeError(f"Agente não concluiu: {str((resultado or {}).get('result') or p.returncode)[:300]} "
                                f"(log: {os.path.relpath(log, ws)})")
         resumo = resultado.get("result") or ""
@@ -571,8 +774,9 @@ def pos_processar(ws, id_, acao):
             extra = {"minuta": m, "docx": os.path.basename(docx)}
         else:
             extra = {"aviso": "nenhuma minuta encontrada"}
-    subprocess.run([sys.executable, os.path.join(S_BASE, "indexar.py")], env=dict(os.environ, CPJ_WORKSPACE=ws, PYTHONIOENCODING="utf-8"),
-                   capture_output=True, creationflags=SEM_JANELA)
+    r = subprocess.run([sys.executable, os.path.join(S_BASE, "indexar.py")], env=dict(os.environ, CPJ_WORKSPACE=ws, PYTHONIOENCODING="utf-8"),
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=SEM_JANELA)
+    if r.returncode: raise RuntimeError("Indexação falhou: " + (r.stderr or r.stdout or str(r.returncode))[-600:])
     return extra
 
 

@@ -26,6 +26,8 @@ def testar():
         ws_test = os.path.join(T, "ws")
         os.makedirs(os.path.join(ws_test, "casos", "OS-999-2026"), exist_ok=True)
         os.makedirs(os.path.join(ws_test, "config"), exist_ok=True)
+        os.environ["CPJ_WORKSPACE"] = ws_test
+        os.environ["CPJ_SEM_AGENTE_EMBUTIDO"] = "1"
         
         # Seta o ws no sys
         import rotas.comum as comum
@@ -51,7 +53,7 @@ def testar():
         # Moca o plantão config DB
         import plantao
         plantao_db = os.path.join(ws_test, "config", "plantao.db")
-        plant = plantao.Plantao(plantao_db)
+        plant = plantao.Plantao(ws_test)
         
         import tarefas
         tarefas.plantao = plant
@@ -61,23 +63,21 @@ def testar():
         comum.tarefas.ws = ws_test
         
         import auth
-        a = auth.Auth(os.path.join(ws_test, "config", "usuarios.db"))
+        a = auth.Auth(ws_test)
         a.salvar_usuario("alan", "Alan Douglas Silva", "admin", "Senha123", cargo="Inv")
-        central.auth = a
+        comum.auth._inst = a
         
         cliente = central.app.test_client()
         cliente.post("/api/entrar", json={"login": "alan", "senha": "Senha123"}, headers={"X-CPJ": "1"})
         
         # Moca os provedores ativos (OpenAI e Gemini)
         import executores_llm as EL
-        cfg_ia = {"openai": {"chave": "sk-123", "modelo": "gpt-4"}, "gemini": {"chave": "AIza", "modelo": "gemini-1.5"}, "ordem_fallback": ["openai", "gemini"]}
-        with open(os.path.join(ws_test, "config", "ia.json"), "w", encoding="utf-8") as f:
+        EL.verificar_saude = lambda prov, chave: True  # nenhum HTTP real neste teste
         cfg_ia = {"openai": {"chave": "sk-123", "modelo": "gpt-4", "ativo": True}, "gemini": {"chave": "AIza", "modelo": "gemini-1.5", "ativo": True}}
         with open(os.path.join(ws_test, "config", "chaves_llm.json"), "w", encoding="utf-8") as f:
             json.dump(cfg_ia, f)
             
-        with plant._c() as c:
-            c.execute("INSERT INTO agentes(nome, tipo, modo, aprovado) VALUES('api-openai', 'api', 'manual', 1)")
+        plant.registrar("api-openai", "openai-api", "chat", aprovado=True)
             
         print("a) Pedido em modo API sem aceite -> recusado e retorna requer_consentimento")
         r = cliente.post("/api/casos/OS-999-2026/ia", json={"acao": "analisar", "agente": "api-openai"}, headers={"X-CPJ": "1"})
@@ -88,10 +88,9 @@ def testar():
         ok("gemini" in d.get("destinos", []), "Destinos incluem gemini")
         
         print("b) Com aceite -> cria o pedido na fila")
-        r = cliente.post("/api/casos/OS-999-2026/ia", json={"acao": "analisar", "agente": "api-openai", "consentimento_externo": {"usuario": "Teste", "data_hora": "2026", "destinos": ["openai", "gemini"]}}, headers={"X-CPJ": "1"})
+        r = cliente.post("/api/casos/OS-999-2026/ia", json={"acao": "analisar", "agente": "api-openai", "consentimento_externo": {"aceito": True, "usuario": "Teste", "data_hora": "2026", "destinos": ["openai", "gemini"]}}, headers={"X-CPJ": "1"})
         d = r.get_json()
         ok("tarefa" in d, "Tarefa enfileirada com sucesso")
-        tid = d["tarefa"]
         tid = d.get("tarefa", 0)
         
         # Verifica se gravou no banco
@@ -128,10 +127,9 @@ def testar():
             
         print("e) Modo agente local/scripts -> sem aviso")
         with plant._c() as c:
-            c.execute("UPDATE pedidos SET estado='concluido' WHERE id=?", (tid,))
+            c.execute("UPDATE pedidos SET estado='concluida' WHERE id=?", (tid,))
         # Criar agente fictício aprovado
-        with plant._c() as c:
-            c.execute("INSERT INTO agentes(nome, tipo, modo, aprovado) VALUES('Local-1', 'cli', 'auto', 1)")
+        plant.registrar("Local-1", "simulado", "chat", aprovado=True)
         r = cliente.post("/api/casos/OS-999-2026/ia", json={"acao": "analisar", "agente": "Local-1"}, headers={"X-CPJ": "1"})
         d = r.get_json()
         ok("tarefa" in d and not d.get("requer_consentimento"), "Local não pede consentimento")

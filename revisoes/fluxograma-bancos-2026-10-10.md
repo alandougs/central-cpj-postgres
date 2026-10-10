@@ -1,0 +1,11 @@
+# TS04 — identidade bancária do fluxograma
+
+Reserva `Codex-Loop-TS04-20261010`, diagnóstico e teste em 10/10/2026, exclusivamente com transações fictícias em memória e PNG temporário.
+
+O banco era apenas um rótulo: a chave do nó usava titular e agência/conta. Dois recebimentos de 100 para o mesmo titular/agência/conta em bancos diferentes produziam um nó de 200. A mesma chave no cálculo global de camadas ligava recebimento no banco B a repasse do banco C, retornando camadas calculadas `[1, 2]`, embora não existisse essa ligação documentada. Referência sem banco também escolhia implicitamente a identidade fundida quando havia duas possibilidades.
+
+Agora a identidade inclui titular, banco e agência/conta, normalizados pelos mesmos critérios já usados para nome e conta. A alteração vale no cálculo global de camadas e nos nós de cada coluna. Banco/conta incompletos só associam uma referência a uma única identidade compatível conhecida; duas possibilidades ficam separadas. Uma referência sem banco não é contada como alternativa adicional à mesma conta com banco documentado, mas tampouco permite escolher entre dois bancos. Os campos exibidos continuam provenientes do CSV; não se atribuem números ou bancos por dedução. Ausência de camada continua marcada como posição calculada, sem transformar origem em vítima documentada.
+
+TDD antes do código: 18 testes produziram quatro falhas que reproduziram fusão dos nós, banco ausente ambíguo, encadeamento entre bancos distintos e encadeamento sem banco ambíguo. Após o ajuste, 19 testes passaram em 3,092 s, incluindo banco normalizado, bancos distintos com mesma conta, banco/conta ausentes com duas possibilidades, associação única compatível com banco informado, encadeamento igual/distinto e geração PNG nos modos documentado e calculado. Os dez testes RV17 anteriores foram preservados.
+
+Regressão rápida final, incluindo RV17: cinco suítes passaram em 143,08 s, após o último ajuste. Conferência de diff no escopo retornou zero. A reprodução específica com dois recebimentos de 100 retorna dois nós, banco B com 100 e banco C com 100. Nenhum CSV/caso/configuração real foi lido ou alterado; nenhuma API foi usada. A cópia instalada do plugin deverá ser atualizada pelo integrador após estabilização das demais tarefas, pois o script fonte mudou.

@@ -85,35 +85,42 @@ def _conta(txt):
 
 
 def _contas_conhecidas(refs):
-    """refs: (escopo, nome, conta). Devolve {(escopo, chave do nome): {contas informadas}}."""
+    """refs: (escopo, nome, banco, conta). Guarda pares banco/conta documentados."""
     out = {}
-    for escopo, nome, conta in refs:
+    for escopo, nome, banco, conta in refs:
         if _conta(conta):
-            out.setdefault((escopo, _chave(nome)), set()).add(_conta(conta))
+            out.setdefault((escopo, _chave(nome)), set()).add((_chave(banco), _conta(conta)))
+    for k, pares in out.items():
+        # Uma referência incompleta não vira alternativa adicional às identidades
+        # bancárias explicitamente documentadas para aquela mesma conta.
+        contas_com_banco = {c for b, c in pares if b}
+        out[k] = {(b, c) for b, c in pares if b or c not in contas_com_banco}
     return out
 
 
-def _identidade(escopo, nome, conta, conhecidas):
-    """Identidade do nó = titular + conta. Sem conta, só se liga ao titular quando ele tem UMA conta conhecida no
-    escopo; havendo várias (ou nenhuma), a linha fica num nó próprio: não se escolhe conta por dedução."""
+def _identidade(escopo, nome, banco, conta, conhecidas):
+    """Titular + banco + conta. Referência incompleta só se liga a UMA identidade
+    compatível no escopo; ambiguidade permanece separada, sem escolher banco/conta."""
     k = _chave(nome) or "NAO INFORMADO"
-    c = _conta(conta)
-    if not c:
-        cs = conhecidas.get((escopo, k), ())
-        c = next(iter(cs)) if len(cs) == 1 else ""
-    return (k, c)
+    b, c = _chave(banco), _conta(conta)
+    if not b or not c:
+        candidatos = {(b or cb, cc) for cb, cc in conhecidas.get((escopo, k), ())
+                      if (not b or not cb or b == cb) and (not c or c == cc)}
+        if len(candidatos) == 1:
+            b, c = next(iter(candidatos))
+    return (k, b, c)
 
 
 def _camadas(txs):
     """(camada de cada transação, calculada). A do CSV se todas tiverem (calculada=False); senão a profundidade no
-    grafo pelo encadeamento titular+conta (sem ciclos), que é posição calculada e não fato documentado."""
+    grafo pelo encadeamento titular+banco+conta (sem ciclos), que é posição calculada e não fato documentado."""
     cam = [_inteiro(t.get("camada")) for t in txs]
     if all(c for c in cam):
         return cam, False
-    conhecidas = _contas_conhecidas([("g", t.get(f"{l}_titular"), t.get(f"{l}_ag_conta")) for t in txs for l in ("origem", "destino")])
+    conhecidas = _contas_conhecidas([("g", t.get(f"{l}_titular"), t.get(f"{l}_banco"), t.get(f"{l}_ag_conta")) for t in txs for l in ("origem", "destino")])
 
     def ident(t, lado):
-        return _identidade("g", t.get(f"{lado}_titular"), t.get(f"{lado}_ag_conta"), conhecidas)
+        return _identidade("g", t.get(f"{lado}_titular"), t.get(f"{lado}_banco"), t.get(f"{lado}_ag_conta"), conhecidas)
     prof, destinos = {}, {ident(t, "destino") for t in txs}
     raizes = {ident(t, "origem") for t in txs} - destinos or {ident(txs[0], "origem")}
     for r in raizes:
@@ -134,12 +141,12 @@ def montar_grafo(txs):
     """Nós por coluna e arestas. Devolve dict(colunas, nos, arestas, cams, calculada). Só estrutura, sem desenho."""
     cams, calculada = _camadas(txs)
     conhecidas = _contas_conhecidas(
-        [(c - 1, t.get("origem_titular"), t.get("origem_ag_conta")) for t, c in zip(txs, cams)]
-        + [(c, t.get("destino_titular"), t.get("destino_ag_conta")) for t, c in zip(txs, cams)])
+        [(c - 1, t.get("origem_titular"), t.get("origem_banco"), t.get("origem_ag_conta")) for t, c in zip(txs, cams)]
+        + [(c, t.get("destino_titular"), t.get("destino_banco"), t.get("destino_ag_conta")) for t, c in zip(txs, cams)])
     colunas, nos, arestas = {}, {}, []
 
     def no(col, nome, banco, conta, tipo):
-        k = (col,) + _identidade(col, nome, conta, conhecidas)
+        k = (col,) + _identidade(col, nome, banco, conta, conhecidas)
         n = colunas.setdefault(col, {}).setdefault(k, {"nome": nome or "Não informado", "banco": banco or "", "tipo": tipo, "entra": Decimal(0), "sai": Decimal(0), "conta": conta or ""})
         if not n["banco"] and banco:
             n["banco"] = banco
