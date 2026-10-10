@@ -138,7 +138,7 @@ class DadosOS(unittest.TestCase):
         from reportlab.lib.utils import ImageReader
         from reportlab.pdfgen import canvas
         imagem = Image.new("RGB", (1700, 900), "white")
-        fonte = ImageFont.truetype(r"C:\Windows\Fonts\arial.ttf", 42)
+        fonte = ImageFont.truetype(r"C:\Windows\Fonts\arial.ttf" if os.name == "nt" else "DejaVuSans.ttf", 42)
         desenhar = ImageDraw.Draw(imagem)
         for i, linha in enumerate(("Ordem de Servico: 992/2099", "Escrivao do feito: ESCRIVAO FICTICIO", "Natureza: Estelionato ficticio")):
             desenhar.text((80, 100 + 100 * i), linha, font=fonte, fill="black")

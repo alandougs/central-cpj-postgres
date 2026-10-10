@@ -103,8 +103,8 @@ ACOES = {
     "relatorio": ("Relatório de investigação (IA)",
                   "Use a skill investigacao-cpj:relatorio-ip para o caso {id} (fora do Claude: siga portatil\\04-relatorio-ip.md). "
                   "Se 02-analise\\ficha-caso.md não existir, faça antes a análise (investigacao-cpj:analisar-ip / "
-                  "portatil\\02-analisar-ip.md). Considere a determinação da O.S. registrada em caso.json.",
-                  "5 'iniciando'; 20 'análise e exemplos lidos'; 45 'minuta redigida'; 60 'rastreabilidade'; 75 'revisão concluída'; "
+                  "portatil\\02-analisar-ip.md). Considere a determinação da O.S. registrada em caso.json. NÃO revise a própria minuta; a revisão independente é outro pedido.",
+                  "5 'iniciando'; 20 'análise e exemplos lidos'; 45 'minuta redigida'; 60 'rastreabilidade'; 75 'minuta pronta para revisão independente'; "
                   "90 'DOCX gerado'; 100 'concluído'"),
     "completo": ("Análise + relatório (IA)",
                  "Para o caso {id}: 1) análise (skill investigacao-cpj:analisar-ip ou portatil\\02-analisar-ip.md), gerando também "
@@ -574,8 +574,11 @@ def _matar(p):
     if os.name == "nt":
         subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True, creationflags=SEM_JANELA)
     else:
-        try: os.killpg(p.pid, signal.SIGKILL)
-        except ProcessLookupError: pass
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    # Recolher o filho impede deixar um zumbi após cancelamento.
     p.wait(timeout=10)
 
 
@@ -713,9 +716,14 @@ def _executar_sessao(pl, job, nome, tipo):
                 try: pj = json.load(open(pfile, encoding="utf-8")); pct, etapa = int(pj["pct"]), pj["etapa"]
                 except Exception: pass
             det = f"{acoes} ações · {int(time.time() - inicio) // 60} min" + (f" · última: {ultimo}" if ultimo else "")
-            try: ativo = pl.progresso(job["id"], nome, pct, etapa, det)
-            except sqlite3.OperationalError: time.sleep(1); continue
-            except ValueError: ativo = False
+            try:
+                ativo = pl.progresso(job["id"], nome, pct, etapa, det)
+            except sqlite3.OperationalError:
+                # Uma disputa temporária pelo SQLite não desliga o vigia de cancelamento.
+                time.sleep(1)
+                continue
+            except ValueError:
+                ativo = False  # reserva transferida: a sessão antiga deve parar
             if not ativo:
                 cancelado[0] = True; _matar(p); return
             time.sleep(4)
@@ -758,7 +766,22 @@ def _executar_sessao(pl, job, nome, tipo):
     return {"resumo": resumo[:1500], "log": os.path.relpath(log, ws)}
 
 
-def pos_processar(ws, id_, acao):
+def snapshot_entregas(ws, id_):
+    """Metadados dos derivados antes de executar: arquivos antigos não provam uma entrega nova."""
+    base = os.path.join(ws, "casos", id_)
+    anteriores = {}
+    for pasta in ("02-analise", "03-relatorios"):
+        d = os.path.join(base, pasta)
+        if not os.path.isdir(d): continue
+        for nome in os.listdir(d):
+            p = os.path.join(d, nome)
+            if os.path.isfile(p):
+                st = os.stat(p)
+                anteriores[os.path.join(pasta, nome)] = (st.st_mtime_ns, st.st_size)
+    return anteriores
+
+
+def pos_processar(ws, id_, acao, anteriores=None):
     """Garantia: DOCX da minuta mais recente e reindexação — não depende do agente."""
     extra = {}
     if acao in ("relatorio", "completo", "esteira"):
@@ -773,10 +796,29 @@ def pos_processar(ws, id_, acao):
                 gerar_docx(ws, id_, m)
             extra = {"minuta": m, "docx": os.path.basename(docx)}
         else:
-            extra = {"aviso": "nenhuma minuta encontrada"}
+            raise RuntimeError("Relatório não entregue: nenhuma minuta encontrada em 03-relatorios.")
+    base = os.path.join(ws, "casos", id_)
+    esperados = {"analisar": ["02-analise/ficha-caso.md", "02-analise/pessoas.csv"],
+                 "financeiro": ["02-analise/fluxo-financeiro.md", "02-analise/fluxo-financeiro.csv"]}.get(acao, [])
+    if acao in ("relatorio", "completo", "esteira"):
+        esperados = ["03-relatorios/" + m]
+    if acao == "revisar":
+        d = os.path.join(base, "03-relatorios")
+        mins = [f for f in os.listdir(d) if re.fullmatch(r"minuta-v\d+\.md", f)] if os.path.isdir(d) else []
+        if not mins: raise RuntimeError("Revisão exige uma minuta existente.")
+        m = max(mins, key=lambda f: int(re.findall(r"\d+", f)[0]))
+        esperados = ["03-relatorios/" + m.replace("minuta-", "revisao-")]
+    for arquivo in esperados:
+        p = os.path.join(base, arquivo)
+        if not os.path.isfile(p) or not os.path.getsize(p):
+            raise RuntimeError(f"Etapa {acao} não entregou o arquivo esperado: {arquivo}")
+        st = os.stat(p)
+        if anteriores is not None and anteriores.get(os.path.normpath(arquivo)) == (st.st_mtime_ns, st.st_size):
+            raise RuntimeError(f"Etapa {acao} não atualizou o arquivo esperado: {arquivo}")
     r = subprocess.run([sys.executable, os.path.join(S_BASE, "indexar.py")], env=dict(os.environ, CPJ_WORKSPACE=ws, PYTHONIOENCODING="utf-8"),
                        capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=SEM_JANELA)
-    if r.returncode: raise RuntimeError("Indexação falhou: " + (r.stderr or r.stdout or str(r.returncode))[-600:])
+    if r.returncode:
+        raise RuntimeError(f"Indexação falhou após {acao}: {(r.stderr or r.stdout)[-1000:]}")
     return extra
 
 
@@ -800,10 +842,15 @@ def trabalhar(ws, nome, tipo, parar=None, aprovado=None, intervalo=3):
             pl.sinal(nome, "indisponível", motivo)
         if job:
             try:
+                anteriores = snapshot_entregas(ws, job["caso"])
                 res = executar_pedido(pl, job, nome, tipo)
-                res.update(pos_processar(ws, job["caso"], job["acao"]))
+                res.update(pos_processar(ws, job["caso"], job["acao"], anteriores))
                 pl.concluir(job["id"], nome, res)
             except Exception as e:
-                pl.falhar(job["id"], nome, str(e))
+                try:
+                    pl.falhar(job["id"], nome, str(e))
+                except ValueError:
+                    # Outra sessão já encerrou ou assumiu o pedido; não sobrescrever nem parar o worker.
+                    pass
             continue
         (parar.wait(intervalo) if parar else time.sleep(intervalo))

@@ -17,7 +17,7 @@ env = dict(os.environ, PYTHONIOENCODING="utf-8")
 TESS_DIR = r"C:\Program Files\Tesseract-OCR"
 if os.path.isdir(TESS_DIR): env["PATH"] = env.get("PATH", "") + ";" + TESS_DIR
 td = os.path.join(RAIZ, "ferramentas", "tessdata")
-if os.path.exists(os.path.join(td, "por.traineddata")): env["TESSDATA_PREFIX"] = td
+if os.path.isfile(os.path.join(td, "por.traineddata")) and os.path.getsize(os.path.join(td, "por.traineddata")) > 0: env["TESSDATA_PREFIX"] = td
 os.environ.update(env)
 
 
@@ -41,7 +41,7 @@ def transcricao(saida):
 
 def pagina(linhas):
     from PIL import Image, ImageDraw, ImageFont
-    try: f = ImageFont.truetype("arial.ttf", 30)
+    try: f = ImageFont.truetype("arial.ttf" if os.name == "nt" else "DejaVuSans.ttf", 30)
     except OSError: f = ImageFont.load_default()
     img = Image.new("RGB", (1700, 2200), "white"); d = ImageDraw.Draw(img); y = 160
     for l in linhas: d.text((150, y), l, fill="black", font=f); y += 55

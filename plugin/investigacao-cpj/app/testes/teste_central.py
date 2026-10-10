@@ -169,7 +169,7 @@ ok(adm.req("GET", "/painel", bruto=True)[0] == 200, "painel de estatísticas dis
 print("8. IA sem login do Claude e segurança de login")
 st, j = adm.req("POST", "/api/casos/OS-901-2026/ia", {"acao": "analisar"})
 if st == 200:
-    t = adm.esperar(j["tarefa"], 60)
+    t = adm.esperar(j["tarefa"], 1)  # sandbox sem agente embutido: verificar a espera, não aguardar execução
     if not t:
         # Sem agente de plantão ativo (fila multiagente/D01): o pedido aguarda em vez de falhar.
         t = next((x for x in adm.req("GET", "/api/tarefas")[1] if x["id"] == j["tarefa"]), None)

@@ -12,6 +12,13 @@ Atualizado em 27/09/2026. Esta é a fonte da verdade da fila de melhorias. Qualq
 6. Antes de concluir, confira mudanças recentes e rode `python ferramentas/fila-tarefas.py concluir <ID> --agente <nome-da-sessao> --resultado "arquivos, comando e resultado dos testes"`. Para devolver uma tarefa, use `liberar` com o mesmo responsável e explique o ponto de retomada em `--resultado`. Os comandos serializam alterações da fila. Não altere responsável/estado manualmente nem regrave o documento inteiro a partir de uma cópia antiga.
 7. Publicação, atualização instalada do plugin, execução de IA com autos reais, contas reais e configuração de rede ficam fora desta rodada. Mudança de contrato de API exige registro aqui antes de alterar o consumidor.
 
+## Revisão solicitada em 04/10/2026
+
+| ID | Responsável | Estado | Entrega | Arquivos reservados |
+|---|---|---|---|---|
+| RV17 | Codex-Revisao-2026-10-04 | concluída | Revisar a versão consolidada em main: salvar minutas sob trava com controle de versão; impedir uso de conferência antiga ou minuta de outra versão no FINAL; preservar isolamento de arquivos nas ferramentas API. Contratos: versao_base e ultima_vista conferidos dentro da mesma trava da escrita; versão inválida recebe 400; gate usa apenas resultado da execução atual; minuta explícita ausente/incompatível recebe 400. Testar com dados fictícios e publicar branch/PR conforme pedido do usuário. | `app/rotas/relatorios.py`, `app/executores_llm.py`, `skills/base-cpj/scripts/caso.py`, `app/testes/teste_relatorios_rv17.py`, `app/testes/teste_executores_rv17.py`, `PRD.md` |
+| RV18 | Codex-Revisao-2026-10-04 | concluída | Continuar em loop a revisão/correção solicitada em 04/10: reconciliar as 18 falhas restantes, recuperar checkpoints/OCR e etapas de IA quando houver regressão funcional, corrigir portabilidade de processos e isolamento/fixtures dos testes, validar suíte completa e sincronizar GitHub. Fixtures DOCX são sintéticas e exclusivas dos testes; nenhuma substituição do modelo de produção. Contratos atuais devem ser testados sem reduzir verificações de segurança nem falsear recursos ausentes. | `app/plantao.py`, `app/tarefas.py`, `app/rotas/relatorios.py`, `app/testes/`, `skills/pdf-autos-policiais/scripts/extrair.py`, `ferramentas/testar-tudo.py`, `ferramentas/central-daemon.py`, `PRD.md`, `revisoes/revisao-codigo-2026-10-04.md` |
+
 ## Quadro
 
 | AUT01 | Codex-Revisao-OS-20261005 | concluída | Registrar autorização permanente do operador para o Codex ler autos, revisar e corrigir relatórios neste projeto, sem nova confirmação a cada pedido | `AGENTS.md`, `PRD.md` |
@@ -381,6 +388,8 @@ Escolha primeiro uma correção prioritária com arquivos livres. Exemplos para 
 - 2026-10-02T18:54:44 — Antigravity-1: concluir AG03. revisoes/seguranca-cf01-ai01-2026-10-02.md; teste_configuracoes_cf01.py TUDO OK, testar-tudo.py --rapido 4/4 OK (29.44s); 3 propostas de tarefas formuladas (SEC01-SEC03)
 - 2026-10-02T18:54:58 — Antigravity-1: assumir AG05.
 - 2026-10-02T18:58:07 — Antigravity-1: concluir AG05. ferramentas/fila-os.py, plugin/investigacao-cpj/app/testes/teste_fila_os_padrao_antigravity.py; python teste_fila_os_padrao_antigravity.py, python teste_fila_os_claude.py, python ferramentas/testar-tudo.py --rapido; TUDO OK e 4/4 suítes aprovadas (32.20s)
+- 2026-10-04T06:53:52 — Codex-Revisao-2026-10-04: concluir RV17. Corrigidos concorrência/número de minuta, gate antigo, vínculo minuta-DOCX, IDs de diretório, alias para originais, escrita atômica API, loop de reserva e cópia FINAL sobre si. 17 testes novos OK; segurança 11, solo 7, modularização 6 e gate 5 OK. Suite completa 30/48 antes e 32/50 depois, mesmas 18 falhas preexistentes; relatório `revisoes/revisao-codigo-2026-10-04.md`.
+- 2026-10-04T07:19:13 — Codex-Revisao-2026-10-04: concluir RV18. OCR workers/checkpoints visuais, cancelamento POSIX/zumbis, conclusão condicionada à reserva/cancelamento, entregas atualizadas/indexação/CLI, logs únicos, prompts separados; fixtures/contratos reconciliados.
 - 2026-10-05T18:18:52 — Codex-Revisao-OS-20261005: assumir AUT01.
 - 2026-10-05T18:19:33 — Codex-Revisao-OS-20261005: concluir AUT01. Autorização expressa do operador registrada na regra 18 de AGENTS.md e no estado/registro do PRD; conferência textual, sem alteração de código ou originais.
 - 2026-10-06T16:05:02 — Gemini-1: assumir AG06.

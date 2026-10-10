@@ -172,38 +172,13 @@ def api_minuta(id_):
 @requer("trabalho")
 def api_minuta_salvar(id_):
     d = request.get_json(force=True) or {}
-    rel_dir = os.path.join(C.caminho(id_), "03-relatorios")
     ultima_vista = d.get("ultima_vista")
     versao_base = d.get("versao_base")
     forcar = d.get("forcar", False)
-
-    if not forcar:
-        ult = ultima_minuta(id_)
-        if ult:
-            if versao_base is not None:
-                m_v = re.findall(r"\d+", ult)
-                v_atual = int(m_v[0]) if m_v else 0
-                try:
-                    v_base_num = int(versao_base)
-                except (ValueError, TypeError):
-                    v_base_num = None
-                if v_base_num is not None and v_atual > v_base_num:
-                    return jsonify({
-                        "conflito": True,
-                        "erro": "conflito_concorrencia",
-                        "ultima": ult,
-                        "versao_atual": v_atual,
-                        "versao_base": v_base_num,
-                        "mensagem": f"Conflito de concorrência: a minuta já está na versão {v_atual} (base era {v_base_num}).",
-                    }), 409
-
-            if ultima_vista and ult != ultima_vista:
-                return jsonify({
-                    "conflito": True,
-                    "erro": "minuta_atualizada",
-                    "ultima": ult,
-                    "mensagem": f"A minuta foi atualizada para {ult} por outro usuário ou processo.",
-                }), 409
+    if versao_base is not None:
+        if isinstance(versao_base, bool) or not re.fullmatch(r"\d+", str(versao_base)):
+            return jsonify({"erro": "versao_base deve ser um inteiro não negativo."}), 400
+        versao_base = int(versao_base)
 
     meta_in = {k: str((d.get("meta") or {}).get(k) or "").replace("\n", " ").strip() for k in CAMPOS_MINUTA}
     sec = d.get("secoes") or {}
@@ -223,12 +198,24 @@ def api_minuta_salvar(id_):
         )
 
     try:
-        with C.reservar_arquivo_versao(rel_dir, "minuta-v") as (nome, caminho_arq):
-            m_v = re.findall(r"\d+", nome)
-            v = int(m_v[0]) if m_v else 1
-            txt = _formatar(v, nome)
-            with open(caminho_arq, "w", encoding="utf-8") as f:
-                f.write(txt)
+        # A leitura da base e a publicação da nova versão formam uma única operação.
+        with C.trava(id_):
+            ult = ultima_minuta(id_)
+            v_atual = int(re.search(r"minuta-v(\d+)", ult).group(1)) if ult else 0
+            if not forcar:
+                if versao_base is not None and v_atual > versao_base:
+                    return jsonify({
+                        "conflito": True, "erro": "conflito_concorrencia", "ultima": ult,
+                        "versao_atual": v_atual, "versao_base": versao_base,
+                        "mensagem": f"Conflito de concorrência: a minuta já está na versão {v_atual} (base era {versao_base}).",
+                    }), 409
+                if ultima_vista and ult != ultima_vista:
+                    return jsonify({
+                        "conflito": True, "erro": "minuta_atualizada", "ultima": ult,
+                        "mensagem": f"A minuta foi atualizada para {ult} por outro usuário ou processo.",
+                    }), 409
+            res = C.reservar_proxima_minuta(id_, _formatar, versao_base=None if forcar else versao_base)
+            nome, v = res["arquivo"], res["versao"]
     except C.ConcorrenciaErro as e:
         return jsonify({"conflito": True, "erro": "conflito_concorrencia", "mensagem": str(e)}), 409
 
@@ -278,6 +265,24 @@ def api_pdf(id_):
 
 def conferir_minuta_gate(id_, minuta_nome):
     """Executa conferir_minuta.py em modo entrega para o caso e minuta indicados."""
+    with C.trava(id_):
+        try:
+            return _conferir_minuta_gate(id_, minuta_nome)
+        except (OSError, subprocess.TimeoutExpired):
+            return _erro_conferencia("Não foi possível executar a conferência da minuta. Tente novamente.")
+
+
+def _erro_conferencia(detalhe):
+    return {
+        "aprovado": False,
+        "resumo": {"BLOQUEIA": 1, "REVISAR": 0},
+        "achados": [{"nivel": "BLOQUEIA", "codigo": "ERRO_EXECUCAO", "linha": 1,
+                     "dado": "", "detalhe": detalhe}],
+        "conferidos": [],
+    }
+
+
+def _conferir_minuta_gate(id_, minuta_nome):
     caminho_caso = C.caminho(id_)
     d_rel = os.path.join(caminho_caso, "03-relatorios")
     caminho_minuta = os.path.join(d_rel, minuta_nome)
@@ -303,21 +308,18 @@ def conferir_minuta_gate(id_, minuta_nome):
 
     env = dict(os.environ, CPJ_WORKSPACE=getattr(C, "WS", WS), PYTHONIOENCODING="utf-8")
     sem_janela = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    inicio = time.time() - 2  # folga para a granularidade de data do sistema de arquivos
-    proc = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        creationflags=sem_janela,
-        env=env,
-    )
-
     m_v = re.search(r"minuta-v(\d+)", minuta_nome)
     versao = m_v.group(1) if m_v else None
     nome_json = f"conferencia-v{versao}.json" if versao else f"conferencia-{os.path.splitext(minuta_nome)[0]}.json"
     caminho_json = os.path.join(d_rel, nome_json)
+    # Um arquivo de uma execução anterior nunca pode aprovar uma execução que falhou.
+    inicio = time.time() - 2  # tolerância à granularidade do sistema de arquivos
+    if os.path.exists(caminho_json):
+        os.remove(caminho_json)
+    proc = subprocess.run(
+        cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
+        creationflags=sem_janela, env=env, timeout=180,
+    )
 
     def bloqueio(codigo, detalhe):
         return {
@@ -349,6 +351,7 @@ def conferir_minuta_gate(id_, minuta_nome):
         return bloqueio("CONFERENCIA_DESATUALIZADA", "A conferência não corresponde à versão atual da minuta em modo entrega; rode de novo.")
     achados = conf.get("achados") if isinstance(conf.get("achados"), list) else []
     bloqueios = sum(1 for a in achados if isinstance(a, dict) and a.get("nivel") == "BLOQUEIA")
+    conf["sha256_minuta"] = sha_atual
     conf["aprovado"] = proc.returncode == 0 and bloqueios == 0 and conf.get("aprovado") is True
     return conf
 
@@ -372,17 +375,22 @@ def api_final(id_):
     minuta_req = os.path.basename(dados.get("minuta") or "")
     minuta_nome = None
     sha_minuta = ""
-    if minuta_req and os.path.isfile(os.path.join(d, minuta_req)):
+    m_docx = re.search(r"-v(\d+)\.docx$", nome, re.IGNORECASE)
+    if minuta_req:
+        m_minuta = re.fullmatch(r"minuta-v(\d+)\.md", minuta_req)
+        if not m_minuta or not os.path.isfile(os.path.join(d, minuta_req)):
+            return jsonify({"erro": "Minuta informada não encontrada ou inválida."}), 400
+        if m_docx and int(m_docx.group(1)) != int(m_minuta.group(1)):
+            return jsonify({"erro": "A minuta informada não corresponde à versão do DOCX."}), 400
         minuta_nome = minuta_req
     else:
-        m_v = re.search(r"v(\d+)", nome, re.IGNORECASE)
-        if m_v:
-            v_num = int(m_v.group(1))
+        if m_docx:
+            v_num = int(m_docx.group(1))
             for f in (os.listdir(d) if os.path.isdir(d) else []):
                 if re.match(rf"minuta-v0*{v_num}\.md$", f):
                     minuta_nome = f
                     break
-        if not minuta_nome:
+        else:
             minuta_nome = ultima_minuta(id_)
 
     if not minuta_nome:
@@ -418,7 +426,8 @@ def api_final(id_):
             }), 409
 
     final = os.path.join(d, f"RELATORIO-{id_}-FINAL.docx")
-    shutil.copyfile(p, final)
+    if os.path.abspath(p) != os.path.abspath(final):
+        shutil.copyfile(p, final)
     try:
         texto = RF.extrair_texto(final)
         c = C.carregar(id_)
@@ -448,4 +457,3 @@ def api_final(id_):
     if forcar and justificativa:
         resp["ressalva"] = justificativa
     return jsonify(resp)
-

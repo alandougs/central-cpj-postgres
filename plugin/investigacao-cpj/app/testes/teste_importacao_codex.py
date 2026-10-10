@@ -70,7 +70,9 @@ class ImportacaoCPJ(unittest.TestCase):
             if tarefa == tid and kw.get("etapa", "").startswith("verificando") and not cancelou:
                 cancelou = self.tarefas.cancelar(tid)
         self.tarefas.at = acompanhar
-        self.assertIsNone(self.tarefas.importar(tid, str(pacote)))
+        resultado = self.tarefas.importar(tid, str(pacote))
+        self.assertIsNone(resultado, "cancelamento síncrono é consumido pelo contrato da importação")
+        self.assertEqual(self.tarefas.obter(tid)["status"], "cancelada")
         self.assertTrue(cancelou)
         self.assertFalse((self.ws / "casos" / "OS-3-2099").exists())
         self.assertFalse(pacote.exists())

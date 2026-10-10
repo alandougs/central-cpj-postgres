@@ -93,6 +93,8 @@ class Squad(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'cancelado'):
             self.pl.concluir(job['id'],'Teste',{'resumo':'antigo'})
     def test_indexacao_com_erro_impede_conclusao(self):
+        self.gravar('02-analise/ficha-caso.md')
+        self.gravar('02-analise/pessoas.csv')
         with patch.object(PL.subprocess,'run',return_value=subprocess.CompletedProcess([],1,'','falha ficticia')):
             with self.assertRaisesRegex(RuntimeError,'Indexação falhou'):
                 PL.pos_processar(self.ws,self.caso,'analisar')
