@@ -57,8 +57,9 @@ class TestTarefasC03(unittest.TestCase):
 
         tid = self.tarefas.nova("importar", "Teste", "user")
         self.tarefas.cancelar(tid)
-        with self.assertRaisesRegex(ValueError, "Tarefa cancelada"):
-            self.tarefas.importar(tid, str(zip_path))
+        self.assertIsNone(self.tarefas.importar(tid, str(zip_path)))
+        self.assertEqual(self.tarefas.obter(tid)["status"], "cancelada")
+        self.assertFalse(zip_path.exists())
 
         self.assertFalse((self.ws / "casos").exists() and len(list((self.ws / "casos").iterdir())) > 0)
 

@@ -31,7 +31,7 @@ Dois caminhos:
 - **Scripts:** `$S = "plugin\investigacao-cpj\skills\pdf-autos-policiais\scripts"`.
 - **Caso:** `casos\<ID>\`, onde `<ID>` deriva da **Ordem de Serviço** (O.S. `123/2026` → `OS-123-2026`).
   - `00-originais\` — arquivos originais (somente leitura), **nunca modificados**.
-  - `01-extracao\<documento>\` — uma pasta por arquivo original (nome do arquivo sem extensão): `transcricao.md`, `tabelas\`, `entidades.csv`, `relatorio_extracao.json`, `diagnostico.json`, `processamento.log`.
+  - `01-extracao\<documento>\` — uma pasta por arquivo original (nome do arquivo sem extensão): `transcricao.md`, `tabelas\`, `entidades.csv`, `dados_extraidos.json`, `relatorio_extracao.json`, `diagnostico.json`, `processamento.log`.
   - `02-analise\`, `03-relatorios\` — etapas seguintes.
   - `caso.json`, `processamento.json`, `registro-tratamento.md`.
 - **Central CPJ** (`http://127.0.0.1:8765`, atalho `Central CPJ.bat`): o usuário normalmente envia os PDFs por ela, e ela já executa diagnóstico, extração/OCR, tabelas, entidades e indexação. **Antes de processar, verifique `processamento.json`**: se o documento já está `concluido`, não refaça — vá direto à transcrição visual das páginas pendentes/⚠ (se houver) e à análise.
@@ -126,6 +126,12 @@ Gera `$E\transcricao.md` (seção `## Página N` por página, método em coment�
 
 2. **Transcrição visual das páginas pendentes ou a conferir:** leia os PNGs em lotes (até ~20 por rodada) e grave cada transcrição em `$E\transcricoes_visuais\pNNNN.md`, seguindo as **regras de transcrição** abaixo — **tabelas sempre em Markdown** (`| col | col |`), para virarem CSV. Depois rode `extrair.py` de novo com os mesmos parâmetros: ele incorpora as transcrições (método `transcricao-visual-llm`). Se houver centenas de páginas pendentes, avise o tempo/consumo antes e sugira instalar o Tesseract.
 
+   **Pela Central CPJ:** na ficha do caso, use **Transcrever páginas a conferir**. O servidor seleciona a união de `pendentes_transcricao_visual`, `conferir_visualmente` e páginas com `precisa_ia` em `qualidade.json`. O aviso lista os destinos possíveis; Aceitar autoriza somente o escopo `transcricao_visual`, e Recusar/Esc não cria pedido. Somente o PNG de cada página selecionada e uma instrução fixa são enviados, pelo roteador com capacidade `vision`; o modelo configurado também deve aceitar imagens. Não são enviados o PDF inteiro, nomes de arquivos nem textos das outras páginas. DeepSeek/Groq sem visão não participam dessa rota.
+
+   `scripts/transcrever_visual.py` grava arquivos novos com origem (provedor/modelo, página, hash do PNG) e aviso **CONFERIR**; nunca sobrescreve transcrição existente, inclusive gravação concorrente. Dígitos duvidosos devem ser `? [dígito incerto]`; a conferência humana continua obrigatória. O pedido compartilha o orçamento entre páginas, retries e fallback. A chamada enviada pode ultrapassar um teto antes da medição; a próxima é bloqueada, sem prometer limite rígido de faturamento.
+
+   A Central valida o hash do original, os checkpoints e a disponibilidade de Tesseract antes do envio. Com os mesmos parâmetros, incorpora as transcrições sem novo OCR e atualiza tabelas Markdown, entidades, JSON estruturado, qualidade e índice. Se original/checkpoint/ambiente mudou, interrompe com aviso para executar processamento local primeiro. Retomar preserva arquivos já transcritos e incorpora também resultados de um pedido interrompido.
+
 3. **Tabelas → CSV** (extratos, relações de transferências, planilhas de quebra):
 
 ```powershell
@@ -143,7 +149,15 @@ python "$S\entidades.py" "$E\transcricao.md"
 
 Gera `$E\entidades.csv` (CPF, CNPJ, placa, telefone, valor, data, e-mail, fls. por página). São candidatos por padrão de texto: status "pendente de conferência" até alguém confrontar com a imagem da página.
 
-5. **Estruturar** a partir da transcrição (não do PDF bruto), em `$E\estrutura.md`:
+5. **JSON consolidado da extração:**
+
+```powershell
+python "$S\dados_json.py" $E
+```
+
+Gera `$E\dados_extraidos.json`, reunindo as páginas da transcrição com o método usado, as linhas dos CSVs de tabelas e os candidatos de `entidades.csv`. Ele preserva página, arquivo de origem e status de conferência; não substitui o Markdown, os CSVs nem `relatorio_extracao.json`.
+
+6. **Estruturar** a partir da transcrição (não do PDF bruto), em `$E\estrutura.md`:
    - **Índice de peças:** peça, data, págs. do PDF, fls. dos autos (quando legíveis), síntese de uma linha.
    - **Pessoas:** nome como consta, qualificação como consta, condição (vítima, testemunha, investigado, indiciado, comunicante), páginas.
    - **Cronologia:** data/hora, fato, fonte (peça e página), natureza (fato documentado / relato / informação de terceiro).
@@ -165,7 +179,7 @@ A análise e o relatório seguem nas skills `analise-ip-fraude` e `relatorio-ip-
 
 ## Output
 
-- **B:** `transcricao.md`, `estrutura.md`, `entidades.csv`, `tabelas\*.csv` + `indice_tabelas.csv`, `relatorio_extracao.json`.
+- **B:** `transcricao.md`, `estrutura.md`, `entidades.csv`, `dados_extraidos.json`, `tabelas\*.csv` + `indice_tabelas.csv`, `relatorio_extracao.json`.
 - **A:** partes `NOME_parteXXdeYY_pagsINICIO-FIM.pdf` + `MANIFESTO.json` + modelo de Ficha da Parte.
 
 Atualize `registro-tratamento.md` do caso e feche com o quadro:

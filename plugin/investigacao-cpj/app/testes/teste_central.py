@@ -68,7 +68,8 @@ ok(adm.req("POST", "/api/usuarios", {"login": "x"}, csrf=False)[0] == 403, "POST
 print("2. Delegado cadastra O.S. com prazo vencido e envia o PDF")
 ok(dlg.entrar("delegado"), "delegado entrou")
 ontem = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
-st, j = dlg.req("POST", "/api/os", campos={"os": "901/2026", "bo": "AB0001/2026", "inquerito": "0001/2026", "prazo": ontem,
+st, j = dlg.req("POST", "/api/os", campos={"os": "901/2026", "bo": "AB0001/2026", "inquerito": "0001/2026", "processo": "0001/2026",
+                                             "natureza": "Estelionato", "prazo": ontem,
                                              "requisitante": "Dr. Delegado Teste", "determinacao": "Identificar o titular da chave Pix."},
                 arquivos=[("arquivos", os.path.join(W, "ip_ficticio.pdf"))])
 ok(st == 200 and j.get("caso") == "OS-901-2026" and j.get("recebidos"), f"O.S. cadastrada ({j})")
@@ -118,13 +119,36 @@ ok(any(x["autor"] == "Colega Teste" and x["peso"] == 5 for x in adm.req("GET", "
 print("6. Minuta → DOCX → FINAL → baixa")
 m = adm.req("GET", "/api/casos/OS-901-2026/minuta")[1]
 ok(m["meta"]["ordem_servico"] == "901/2026", "minuta nova já vem com dados da O.S.")
-m["meta"].update(delegado="Dr. Delegado Teste", delegado_genero="M", referencia="IPe nº 901/2026 / Processo nº 0000901-01.2026.8.26.0000", investigados="FULANO FICTICIO DE TAL", vitimas="MARIA FICTICIA DA SILVA", natureza="Estelionato fictício", local="Local fictício", data_fatos="10/03/2026", escrivao="Escrivão Fictício")
-sec = {"RESUMO DOS FATOS": "Consta do termo de declarações fictício o relato sobre transferência via Pix (pág. 1 do PDF; fls. 1).",
-       "DILIGÊNCIAS REALIZADAS": "Foi conferido o termo de declarações fictício, preservadas as lacunas documentais (pág. 1 do PDF; fls. 1).",
-       "CONCLUSÃO": "O documento fictício registra relato de transferência, sem permitir atribuição de autoria (pág. 1 do PDF; fls. 1)."}
+m["meta"].update(delegado="Dr. Delegado Teste", investigados="FULANO FICTICIO DE TAL", vitimas="MARIA FICTICIA DA SILVA")
+sec = {"RESUMO DOS FATOS": "Consta do boletim de ocorrência (fls. 2) que a vítima, em tese, foi induzida a erro.",
+       "DILIGÊNCIAS REALIZADAS": "### Caminho do dinheiro\n| Data | Valor | Destino | Fls. |\n|---|---|---|---|\n| 10/03/2026 | R$ 2.500,00 | FULANO FICTICIO | 4 |",
+       "CONCLUSÃO": "Foram reunidos elementos indicativos de que o valor foi destinado à conta acima."}
+m["meta"].update(
+    delegado="Dr. Delegado Teste",
+    delegado_genero="M",
+    escrivao="Escrivão Teste",
+    natureza="Estelionato",
+    investigados="FULANO FICTICIO DE TAL",
+    vitimas="MARIA FICTICIA DA SILVA",
+    local="Presidente Prudente, SP",
+    data_fatos="10/03/2026",
+    referencia="IPe nº 0001/2026 / Processo nº 0001/2026",
+)
+sec = {
+    "RESUMO DOS FATOS": "Consta do termo de declarações (pág. 1 do PDF) que a vítima realizou transferência para a chave Pix 99988877766.",
+    "DILIGÊNCIAS REALIZADAS": "Em diligências sobre os autos (pág. 1 do PDF), identificou-se FULANO FICTICIO DE TAL, CPF 999.888.777-66, filho de BELTRANA FICTICIA, telefone (18) 99777-1122.",
+    "CONCLUSÃO": "Foram reunidos elementos informativos quanto à autoria em tese e materialidade."
+}
 st, j = adm.req("POST", "/api/casos/OS-901-2026/minuta", {"meta": m["meta"], "secoes": sec})
 ok(st == 200 and j.get("docx") == "RELATORIO-OS-901-2026-v01.docx", f"minuta salva e DOCX gerado ({j})")
 st, j = adm.req("POST", "/api/casos/OS-901-2026/final", {"docx": "RELATORIO-OS-901-2026-v01.docx"})
+ok(st == 200, "relatório definido como FINAL")
+if st == 409:
+    st, j = adm.req("POST", "/api/casos/OS-901-2026/final", {
+        "docx": "RELATORIO-OS-901-2026-v01.docx",
+        "forcar": True,
+        "justificativa": "Minuta aprovada com ressalva para teste de integração."
+    })
 ok(st == 200, f"relatório definido como FINAL ({j})")
 c = adm.req("GET", "/api/casos/OS-901-2026")[1]["caso"]
 ok(c["status"] == "entregue" and c["baixa"]["origem"] == "central", "baixa registrada (origem central)")

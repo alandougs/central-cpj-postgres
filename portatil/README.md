@@ -1,6 +1,6 @@
 # Procedimentos portáteis (qualquer agente de IA)
 
-Gerado em 2026-10-01 10:50. Um arquivo autocontido por tarefa. Leia também `..\AGENTS.md`.
+Gerado em 2026-10-10 05:58. Um arquivo autocontido por tarefa. Leia também `..\AGENTS.md`.
 
 | Arquivo | Tarefa |
 |---|---|

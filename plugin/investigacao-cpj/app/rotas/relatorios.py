@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Rotas de geração e gestão de relatórios: minuta, DOCX, PDF e relatório FINAL."""
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -8,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import unicodedata
 from flask import Blueprint, abort, jsonify, request
 from rotas.comum import (
@@ -270,6 +272,16 @@ def conferir_minuta_gate(id_, minuta_nome):
             return _erro_conferencia("Não foi possível executar a conferência da minuta. Tente novamente.")
 
 
+def _erro_conferencia(detalhe):
+    return {
+        "aprovado": False,
+        "resumo": {"BLOQUEIA": 1, "REVISAR": 0},
+        "achados": [{"nivel": "BLOQUEIA", "codigo": "ERRO_EXECUCAO", "linha": 1,
+                     "dado": "", "detalhe": detalhe}],
+        "conferidos": [],
+    }
+
+
 def _conferir_minuta_gate(id_, minuta_nome):
     caminho_caso = C.caminho(id_)
     d_rel = os.path.join(caminho_caso, "03-relatorios")
@@ -301,6 +313,7 @@ def _conferir_minuta_gate(id_, minuta_nome):
     nome_json = f"conferencia-v{versao}.json" if versao else f"conferencia-{os.path.splitext(minuta_nome)[0]}.json"
     caminho_json = os.path.join(d_rel, nome_json)
     # Um arquivo de uma execução anterior nunca pode aprovar uma execução que falhou.
+    inicio = time.time() - 2  # tolerância à granularidade do sistema de arquivos
     if os.path.exists(caminho_json):
         os.remove(caminho_json)
     proc = subprocess.run(
@@ -308,33 +321,39 @@ def _conferir_minuta_gate(id_, minuta_nome):
         creationflags=sem_janela, env=env, timeout=180,
     )
 
-    if os.path.isfile(caminho_json):
-        try:
-            with open(caminho_json, "r", encoding="utf-8") as f:
-                conf = json.load(f)
-            if isinstance(conf, dict) and isinstance(conf.get("aprovado"), bool):
-                if not conf["aprovado"] or proc.returncode == 0:
-                    return conf
-        except (OSError, ValueError):
-            pass
-    return _erro_conferencia((proc.stderr or proc.stdout).strip() or "A execução não produziu uma conferência válida.")
+    def bloqueio(codigo, detalhe):
+        return {
+            "aprovado": False,
+            "resumo": {"BLOQUEIA": 1, "REVISAR": 0},
+            "achados": [{"nivel": "BLOQUEIA", "codigo": codigo, "linha": 1, "dado": "", "detalhe": detalhe}],
+            "conferidos": [],
+        }
 
-
-def _erro_conferencia(detalhe):
-    return {
-        "aprovado": False,
-        "resumo": {"BLOQUEIA": 1, "REVISAR": 0},
-        "achados": [
-            {
-                "nivel": "BLOQUEIA",
-                "codigo": "ERRO_EXECUCAO",
-                "linha": 1,
-                "dado": "",
-                "detalhe": detalhe,
-            }
-        ],
-        "conferidos": [],
-    }
+    # Falha fechado: só vale resultado gerado NESTA execução, em modo entrega, da minuta como está agora.
+    if proc.returncode not in (0, 1):
+        return bloqueio("ERRO_EXECUCAO", (proc.stderr or proc.stdout).strip() or "Erro na execução da conferência da minuta.")
+    if not os.path.isfile(caminho_json) or os.path.getmtime(caminho_json) < inicio:
+        return bloqueio("CONFERENCIA_DESATUALIZADA", "A conferência não gerou resultado novo para esta minuta; rode de novo.")
+    try:
+        with open(caminho_json, "r", encoding="utf-8") as f:
+            conf = json.load(f)
+    except (OSError, ValueError):
+        return bloqueio("ERRO_EXECUCAO", "O resultado da conferência está ilegível; rode de novo.")
+    if not isinstance(conf, dict):
+        return bloqueio("ERRO_EXECUCAO", "O resultado da conferência está ilegível; rode de novo.")
+    try:
+        with open(caminho_minuta, "rb") as f:
+            sha_atual = hashlib.sha256(f.read()).hexdigest()
+    except OSError:
+        return bloqueio("ERRO_EXECUCAO", "Não foi possível reler a minuta conferida.")
+    if (conf.get("schema") != "cpj-conferencia/1" or conf.get("modo") != "entrega"
+            or conf.get("minuta") != minuta_nome or conf.get("sha256_minuta") != sha_atual):
+        return bloqueio("CONFERENCIA_DESATUALIZADA", "A conferência não corresponde à versão atual da minuta em modo entrega; rode de novo.")
+    achados = conf.get("achados") if isinstance(conf.get("achados"), list) else []
+    bloqueios = sum(1 for a in achados if isinstance(a, dict) and a.get("nivel") == "BLOQUEIA")
+    conf["sha256_minuta"] = sha_atual
+    conf["aprovado"] = proc.returncode == 0 and bloqueios == 0 and conf.get("aprovado") is True
+    return conf
 
 
 @bp_relatorios.post("/api/casos/<id_>/final")
@@ -355,6 +374,7 @@ def api_final(id_):
 
     minuta_req = os.path.basename(dados.get("minuta") or "")
     minuta_nome = None
+    sha_minuta = ""
     m_docx = re.search(r"-v(\d+)\.docx$", nome, re.IGNORECASE)
     if minuta_req:
         m_minuta = re.fullmatch(r"minuta-v(\d+)\.md", minuta_req)
@@ -392,6 +412,7 @@ def api_final(id_):
             }), 409
     else:
         conf = conferir_minuta_gate(id_, minuta_nome)
+        sha_minuta = str(conf.get("sha256_minuta") or "")
         achados = conf.get("achados", [])
         bloqueios = sum(1 for a in achados if a.get("nivel") == "BLOQUEIA")
         if (bloqueios > 0 or not conf.get("aprovado", True)) and not forcar:
@@ -422,9 +443,9 @@ def api_final(id_):
             if "baixa" in caso_dict:
                 caso_dict["baixa"]["ressalva"] = justificativa
         c = C.atualizar(id_, _set_ressalva)
-        auditar("relatorio_final_ressalva", f"{id_}/{nome}: {justificativa}")
+        auditar("relatorio_final_ressalva", f"{id_}/{nome}: {justificativa}" + (f" [minuta sha256 {sha_minuta[:16]}]" if sha_minuta else ""))
     else:
-        auditar("relatorio_final", f"{id_}/{nome}")
+        auditar("relatorio_final", f"{id_}/{nome}" + (f" [minuta sha256 {sha_minuta[:16]}]" if sha_minuta else ""))
 
     versoes = len([f for f in os.listdir(d) if re.match(r"minuta-v\d+\.md$", f)])
     C.registrar_relatorio(id_, os.path.basename(final), data=c["datas"]["entregue"], versoes=versoes or None)

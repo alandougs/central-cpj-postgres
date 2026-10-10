@@ -4,6 +4,7 @@
 python ferramentas/fila-tarefas.py listar
 python ferramentas/fila-tarefas.py assumir RV14 --agente Gemini-1
 python ferramentas/fila-tarefas.py concluir RV14 --agente Gemini-1 --resultado "Arquivos e testes"
+    # recusa arquivo reservado ausente ou com 0 bytes; exceção: --sem-conferir-arquivos "motivo (15+ caracteres)"
 python ferramentas/fila-tarefas.py liberar RV14 --agente Gemini-1 --resultado "Onde parou"
 python ferramentas/fila-tarefas.py reabrir FT01 --agente Gemini-1 --motivo "Entrega com 0 bytes"
 python ferramentas/fila-tarefas.py proxima [--prefixo RV|GH] # loop: 0 = ID livre; 3 = fila concluída; 4 = só bloqueadas
@@ -38,6 +39,18 @@ DEPENDENCIAS = {
     "GH05": ["GH03", "GH04"],
     "GH06": ["GH02"],
     "GH07": ["GH03", "RV02"],
+    # Fechamento de pendências de 02/10/2026 (CL = Claude, CX = Codex, AG = Antigravity, GC = Copilot/GitHub)
+    "CL03": ["CL01", "CL02", "CX01", "CX02", "AG01"],   # plugin só com a suíte verde
+    "CL04": ["CL03", "AG02", "AG04"],                   # PRD por último, com o resultado real
+    "CX03": ["AG03", "CL02"],                           # orçamento de IA depois da revisão de segurança e do plantão
+    "AG04": ["CL01", "CL02", "CX01", "CX02", "AG01"],   # suíte final depois das correções
+    # Pipeline de PDF do ASTRA, 07/10/2026 (PROMPT-PIPELINE-PDF.md)
+    "PX01": ["AI02"],                                   # aviso de envio externo depois da ampliação de provedores
+    "PX02": ["PX01"],                                   # roteador respeita o aceite
+    "PX05": ["PX02", "PX03", "DJ01", "CX01"],           # transcrição visual por API sobre roteador, qualidade e extração estáveis
+    "PX06": ["PX05"],                                   # modos dependem da etapa de IA
+    "PX07": ["PX05"],                                   # normalização considera a transcrição complementar
+    "AI03": ["PX01", "CL04"], # cat?logo atual e escolha padr?o ap?s UI/rotas e PRD livres
 }
 
 
@@ -54,7 +67,12 @@ def linhas_tarefas(texto):
 
 
 def normalizar_caminho(p):
-    """Normaliza caminhos para comparação de sobreposição.
+    """Versão para comparar sobreposição (sem diferenciar caixa); ver _normalizar."""
+    return _normalizar(p).casefold()
+
+
+def _normalizar(p):
+    """Normaliza caminhos reservados, preservando a caixa original.
 
     Remove barras iniciais/finais, unifica separadores, converte caminhos absolutos
     da raiz em relativos e mapeia atalhos históricos ('app/...', 'skills/...',
@@ -84,7 +102,7 @@ def normalizar_caminho(p):
             p = f"plugin/investigacao-cpj/{p}"
             break
 
-    return p.casefold()
+    return p
 
 
 def caminhos(campos):
@@ -92,6 +110,27 @@ def caminhos(campos):
     return [normalizar_caminho(p)
             for p in re.findall(r"`([^`]+)`", campos[4])
             if normalizar_caminho(p)]
+
+
+ARQUIVOS_VAZIOS_OK = {"__init__.py", ".gitkeep", ".keep"}
+
+
+def conferir_entrega(campos):
+    """(vazios, ausentes) entre os ARQUIVOS reservados. Pasta, padrão (*?[) e nome sem extensão não entram; 0 bytes é
+    o defeito que fez tarefas constarem concluídas sem entrega (FT01, FD01, SD01, RV03–RV05)."""
+    vazios, ausentes = [], []
+    for p in re.findall(r"`([^`]+)`", campos[4]):
+        rel = _normalizar(p)
+        if not rel or any(c in rel for c in "*?[") or not Path(rel).suffix:
+            continue
+        alvo = RAIZ / rel
+        if alvo.is_dir():
+            continue
+        if not alvo.exists():
+            ausentes.append(rel)
+        elif alvo.stat().st_size == 0 and alvo.name not in ARQUIVOS_VAZIOS_OK:
+            vazios.append(rel)
+    return vazios, ausentes
 
 
 def sobrepostos(a, b):
@@ -145,13 +184,14 @@ def proxima(tarefas, prefixo=None):
     return 4, "AGUARDANDO: " + "; ".join(f"{i} ({tarefas[i][1][2]}, {tarefas[i][1][1]})" for i in abertas)
 
 
-def atualizar(arquivo, acao, id_, agente, resultado):
+def atualizar(arquivo, acao, id_, agente, resultado, sem_conferir=None):
     with trava(arquivo, agente):
         original = arquivo.read_bytes()
         texto = original.decode("utf-8")
         tarefas = linhas_tarefas(texto)
         if id_ not in tarefas: raise ValueError(f"Tarefa desconhecida: {id_}")
         numero, campos = tarefas[id_]
+        nota_entrega = ""
         if acao == "assumir":
             erro = impedimento(tarefas, id_)
             if erro: raise ValueError(erro)
@@ -166,6 +206,22 @@ def atualizar(arquivo, acao, id_, agente, resultado):
         else:
             if campos[2] != "em andamento" or campos[1] != agente:
                 raise ValueError(f"Só o responsável atual pode {acao}: {id_}, {campos[1]}, {campos[2]}.")
+            if acao == "concluir":
+                vazios, ausentes = conferir_entrega(campos)
+                motivo = " ".join((sem_conferir or "").split())
+                if vazios and not sem_conferir:
+                    raise ValueError(f"Entrega com arquivo(s) vazio(s) (0 bytes): {', '.join(vazios)}. Conclua a entrega ou use "
+                                     "--sem-conferir-arquivos \"motivo\" (15+ caracteres) se o arquivo vazio for intencional.")
+                if ausentes and not sem_conferir:
+                    raise ValueError(f"Entrega com arquivo(s) reservado(s) ausente(s): {', '.join(ausentes)}. Conclua a entrega ou use "
+                                     "--sem-conferir-arquivos \"motivo\" (15+ caracteres) se a ausência for intencional.")
+                if sem_conferir is not None and len(motivo) < 15:
+                    raise ValueError("--sem-conferir-arquivos exige justificativa de 15 caracteres ou mais.")
+                if vazios or ausentes:
+                    lacunas = []
+                    if vazios: lacunas.append(f"vazios: {', '.join(vazios)}")
+                    if ausentes: lacunas.append(f"ausentes: {', '.join(ausentes)}")
+                    nota_entrega = f" Conferência de arquivos dispensada ({motivo}); {'; '.join(lacunas)}."
             campos[2] = "concluída" if acao == "concluir" else "disponível"
             if acao == "liberar": campos[1] = "—"
         linhas = texto.splitlines()
@@ -173,6 +229,7 @@ def atualizar(arquivo, acao, id_, agente, resultado):
         timestamp = datetime.datetime.now().isoformat(timespec="seconds")
         registro = f"- {timestamp} — {agente}: {acao} {id_}."
         if resultado: registro += " " + " ".join(resultado.split())
+        registro += nota_entrega
         novo = "\n".join(linhas).rstrip() + "\n" + registro + "\n"
         fd, nome = tempfile.mkstemp(prefix=arquivo.name + ".", suffix=".tmp", dir=arquivo.parent)
         tmp = Path(nome)
@@ -199,6 +256,9 @@ def main():
         p.add_argument("id")
         p.add_argument("--agente", required=True)
         p.add_argument("--resultado", required=acao != "assumir")
+        if acao == "concluir":
+            p.add_argument("--sem-conferir-arquivos", dest="sem_conferir", default=None, metavar="MOTIVO",
+                           help="Conclui mesmo com arquivo reservado ausente ou vazio (0 bytes); o motivo vai para o registro")
     p_reabrir = sub.add_parser("reabrir", help="Reabre tarefa concluída cuja entrega se perdeu")
     p_reabrir.add_argument("id")
     p_reabrir.add_argument("--agente", required=True)
@@ -218,7 +278,8 @@ def main():
         else:
             if not re.fullmatch(r"[\w.\- ]{1,60}", args.agente) or not args.agente.strip():
                 raise ValueError("Use um nome de sessão com letras, números, espaço, ponto ou hífen.")
-            print(atualizar(arquivo, args.acao, args.id, args.agente.strip(), getattr(args, "resultado", None)))
+            print(atualizar(arquivo, args.acao, args.id, args.agente.strip(), getattr(args, "resultado", None),
+                             getattr(args, "sem_conferir", None)))
         return 0
     except (OSError, ValueError) as exc:
         print(f"Erro: {exc}")

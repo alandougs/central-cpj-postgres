@@ -287,6 +287,8 @@ class Tarefas:
             try: self.indexar()
             except Exception as e: raise RuntimeError(f"Importação confirmada, mas a indexação falhou: {e}") from e
             return {"casos_novos": sorted(novos), "casos_ja_existentes": sorted(pulados), "arquivos": copiados}
+        except ImportacaoCancelada:
+            return None
         finally:
             shutil.rmtree(temporaria, ignore_errors=True); _apagar(zip_path)
 
@@ -328,12 +330,12 @@ class Tarefas:
         if not exe: raise ValueError("Claude Code não encontrado neste computador.")
         subprocess.Popen(["cmd", "/c", "start", "Entrar no Claude", "cmd", "/k", exe, "auth", "login"], cwd=self.ws)
 
-    def enfileirar_ia(self, id_, acao, usuario, observacoes="", preferido=None):
+    def enfileirar_ia(self, id_, acao, usuario, observacoes="", preferido=None, consentimento=None):
         """O botão da Central cria um pedido na fila do plantão; o primeiro agente ocioso e aprovado executa."""
         if not preferido:
             import executores_llm as EL
             preferido = EL.agente_padrao(self.ws)  # modo padrão "api" (Sistema → Configurações)
-        return self.plantao.enfileirar(id_, acao, usuario, observacoes, preferido)
+        return self.plantao.enfileirar(id_, acao, usuario, observacoes, preferido, consentimento=consentimento)
 
     def cancelar(self, tid):
         if str(tid).startswith("ia-"): return self.plantao.cancelar(tid)

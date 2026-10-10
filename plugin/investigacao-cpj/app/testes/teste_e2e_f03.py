@@ -17,6 +17,7 @@ Restrições monitoradas:
 - Execução em menos de 5 minutos com Edge headless pré-instalado.
 """
 import os
+import io
 from pathlib import Path
 import sys
 import time
@@ -56,6 +57,21 @@ class TesteE2EF03CentralCPJ(unittest.TestCase):
         # Gera PDF sintético de teste (3 páginas texto + 1 escaneada para OCR)
         cls.pdf_teste = cls.servidor.ws / "inquerito_ficticio_e2e.pdf"
         cls.total_paginas = gerar_pdf_sintetico_e2e(cls.pdf_teste, paginas_texto=3, paginas_imagem=1)
+        # Completa a fonte fictícia antes do upload: IP local não substitui IPe.
+        from pypdf import PdfReader, PdfWriter
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import A4
+        camada = io.BytesIO()
+        cv = canvas.Canvas(camada, pagesize=A4)
+        cv.setFont("Helvetica", 9)
+        cv.drawString(50, 610, "DADOS FICTICIOS COMPLEMENTARES - TESTE E2E")
+        cv.drawString(50, 595, "IPe nº 4562026 / Processo nº 0000001-00.2026.8.26.0000")
+        cv.drawString(50, 580, "Banco Teste S.A.: titular da conta recebedora do Pix: CARLOS TESTE SANTOS.")
+        cv.save()
+        writer = PdfWriter(clone_from=io.BytesIO(cls.pdf_teste.read_bytes()))
+        writer.pages[0].merge_page(PdfReader(io.BytesIO(camada.getvalue())).pages[0])
+        with cls.pdf_teste.open("wb") as f:
+            writer.write(f)
 
     @classmethod
     def tearDownClass(cls):
@@ -176,16 +192,33 @@ class TesteE2EF03CentralCPJ(unittest.TestCase):
             page.locator("#editor").wait_for(state="visible", timeout=5000)
 
             # Preenche metadados e seções da minuta
-            page.locator("#ed-meta input[data-m='local']").fill("Presidente Prudente, SP")
-            page.locator("#ed-meta input[data-m='data_fatos']").fill("10/03/2026")
+            metadados = {
+                "ordem_servico": "456/2026",
+                "referencia": "IPe nº 4562026 / Processo nº 0000001-00.2026.8.26.0000",
+                "natureza": "Estelionato",
+                "investigados": "CARLOS TESTE SANTOS",
+                "vitimas": "MARIA TESTE SILVA",
+                "local": "Presidente Prudente, SP",
+                "data_fatos": "12/03/2026",
+                "local_data": "Presidente Prudente, 12 de março de 2026",
+                "delegado": "Delegado de Polícia Titular",
+                "delegado_genero": "M",
+            }
+            for campo, valor in metadados.items():
+                page.locator(f"#ed-meta input[data-m='{campo}']").fill(valor)
             page.locator("#ed-secoes textarea[data-s='RESUMO DOS FATOS']").fill(
-                "Consta que a vítima relatou transferência via Pix no valor de R$ 5.000,00 (pág. 2 do PDF; fls. 2)."
+                "O extrato de **MARIA TESTE SILVA** registra transferência via Pix de R$ 5.000,00 "
+                "em 12/03/2026 (pág. 2 do PDF; fls. 2)."
             )
             page.locator("#ed-secoes textarea[data-s='DILIGÊNCIAS REALIZADAS']").fill(
-                "Análise documental dos extratos bancários confirmando a operação (pág. 2 do PDF; fls. 2)."
+                "A O.S. determina a identificação do titular da conta recebedora do Pix; o documento "
+                "bancário fictício identifica **CARLOS TESTE SANTOS** como titular (pág. 1 do PDF; fls. 1). "
+                "A análise do extrato confirma o lançamento de R$ 5.000,00 (pág. 2 do PDF; fls. 2)."
             )
             page.locator("#ed-secoes textarea[data-s='CONCLUSÃO']").fill(
-                "Apurados indícios da ocorrência dos fatos, em tese (pág. 2 do PDF; fls. 2)."
+                "A solicitação da O.S. foi atendida com a identificação documental de **CARLOS TESTE SANTOS** "
+                "como titular da conta recebedora, sem atribuir autoria exclusivamente pela titularidade "
+                "(pág. 1 do PDF; fls. 1)."
             )
 
             # Salva minuta e solicita geração do DOCX
@@ -209,7 +242,12 @@ class TesteE2EF03CentralCPJ(unittest.TestCase):
             # 7. Definir relatório como FINAL e baixa na produção
             # -------------------------------------------------------------
             # O handler de diálogo em SessaoNavegador aceita automaticamente o confirm()
-            page.locator("#detalhe button[data-final]").first.click()
+            with page.expect_response(lambda r: r.url.endswith("/final") and r.request.method == "POST", timeout=15000) as captura:
+                page.locator("#detalhe button[data-final]").first.click()
+            resposta_final = captura.value
+            dados_final = resposta_final.json()
+            self.servidor.guardar_evidencias(page, caso_id, {"status": resposta_final.status, "dados": dados_final})
+            self.assertEqual(resposta_final.status, 200, f"Gate FINAL recusou a fixture: {dados_final}")
 
             # Aguarda a atualização da tela com o relatório final e baixa
             page.wait_for_selector(f"#detalhe a:has-text('RELATORIO-{caso_id}-FINAL.docx')", timeout=30000)

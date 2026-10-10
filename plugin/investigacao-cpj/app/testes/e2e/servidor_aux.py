@@ -106,9 +106,12 @@ class ServidorTesteE2E:
         env = dict(
             os.environ,
             CPJ_WORKSPACE=str(self.ws),
+            APPDATA=str(self.ws / "appdata-ficticio"),
+            CPJ_SEM_AGENTE_EMBUTIDO="1",
             PYTHONIOENCODING="utf-8",
             PYTHONWARNINGS="ignore",
         )
+        (self.ws / "appdata-ficticio").mkdir()
 
         log_path = self.ws / "servidor_e2e.log"
         self.log_file = open(log_path, "w", encoding="utf-8", errors="replace")
@@ -162,6 +165,18 @@ class ServidorTesteE2E:
             except Exception:
                 return ""
         return ""
+
+    def guardar_evidencias(self, page, caso_id, resposta):
+        """Preserva diagnóstico do gate somente do caso fictício desta sessão."""
+        destino = Path(tempfile.mkdtemp(prefix="cpj-e2e-f03-evidencias-"))
+        (destino / "resposta-final.json").write_text(
+            json.dumps(resposta, ensure_ascii=False, indent=2), encoding="utf-8")
+        (destino / "servidor.log").write_text(self.ler_log(), encoding="utf-8")
+        page.screenshot(path=str(destino / "gate-final.png"), full_page=True)
+        fonte = self.ws / "casos" / caso_id
+        shutil.copytree(fonte, destino / "caso-ficticio")
+        print(f"[E2E F03] Evidências fictícias preservadas: {destino}", flush=True)
+        return destino
 
     def parar(self):
         if self.processo is not None:

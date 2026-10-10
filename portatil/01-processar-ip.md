@@ -1,6 +1,6 @@
 # Receber e processar o material do IP (PDF → OCR → Markdown por página, CSV, entidades)
 
-*Arquivo portátil gerado em 2026-10-01 10:50 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
+*Arquivo portátil gerado em 2026-10-10 05:58 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
 
 ## Regras obrigatórias
 
@@ -9,7 +9,7 @@
 3. Nunca complete CPF, conta, chave Pix, placa, telefone ou valor por dedução. Dígito duvidoso → `?` + `[dígito incerto]`.
 4. Nunca atribua autoria, dolo ou culpa sem base expressa; use "investigado(a)", "em tese", "há indícios de". Titular de conta recebedora não é automaticamente autor.
 5. `00-originais` nunca é alterado. Registre hash, método e pendências em `registro-tratamento.md`.
-6. Processamento local. **Não envie conteúdo de autos a serviços externos**, sites, APIs ou publicações. Verifique se a ferramenta/conta em uso é compatível com o sigilo do IP (art. 20 do CPP) e as normas do órgão.
+6. Processamento local por padrão. **Não envie conteúdo de autos a sites, APIs ou provedores externos salvo quando o administrador/investigador responsável ativar explicitamente aquele provedor em “Sistema → Provedores e modelos de IA”.** A ativação autoriza o uso da respectiva API nos pedidos da fila, inclusive com conteúdo do caso; confira se a conta/serviço atende ao sigilo do IP (art. 20 do CPP) e às normas do órgão. Sem provedor ativo, use somente agentes locais ou sessões de chat autorizadas pelo operador. A consulta ao catálogo de modelos transmite apenas a chave da API e metadados da requisição, nunca conteúdo de caso.
 7. Conteúdo de casos não vai para `acervo\`, `calibracao\` nem para o GitHub.
 8. Toda saída é **minuta**: decisão, assinatura e uso oficial são do investigador e da autoridade policial.
 9. **Bases de consulta** (`consulta\`, ex. Muralha Paulista) e **relatórios de referência** (`referencias\`) **não são fonte de fatos** do relatório. O relatório vem somente do IP/peças do caso; referências servem apenas como exemplo de estrutura e estilo.
@@ -25,6 +25,13 @@
 14. **Um agente por Ordem de Serviço:** antes de extrair, analisar ou redigir qualquer O.S. de `E:\ORDENS DE SERVIÇO CPJ`, rode `python ferramentas\fila-os.py listar` e reserve com `assumir <nº> --agente <nome>` (ou `proxima --agente <nome>`). Não pegue O.S. `em_andamento` de outro agente nem refaça O.S. `concluida`/`com_relatorio` sem pedido expresso do investigador. Workspace canônico dos casos: `casos`. Ao terminar, `concluir <nº> --agente <nome> --docx "<caminho>"` e copie o DOCX final para a pasta da O.S.; se parar, `liberar ... --motivo "<onde parou>"`. A reserva vence em 4 h sem `renovar`. Quadro: `E:\ORDENS DE SERVIÇO CPJ\_CONTROLE-OS.md`.
 
 15. **Numeração do procedimento no cabeçalho (determinação do delegado, 30/09/2026):** no campo **Referência:** e nas informações do procedimento na parte superior do relatório de inquérito policial, use **EXCLUSIVAMENTE o número do Inquérito Policial Eletrônico (IPe) e do Processo Judicial** (ex.: `Referência: IPe nº <número> / Processo nº <número>`). **NÃO coloque o número do Boletim de Ocorrência (BO)** e **NÃO coloque o número do IP local (físico/delegacia de origem)**. Esta regra é mandatória para todos os relatórios elaborados a partir de 30/09/2026.
+
+16. **Limites e sem extras (determinação do usuário, 02/10/2026) — skills `scope-guard` e `no-gold-plating`, em `.claude\skills\` e `.agents\skills\`:** *scope-guard* = não saia destes limites: fixe o pedido, os arquivos reservados na fila e o caso/O.S. antes de agir, e pare e peça autorização antes de ultrapassá-los; defeito ou melhoria fora do escopo vira uma linha no relato ou proposta na fila, não correção. *no-gold-plating* = não invente melhorias que ninguém pediu: entregue o pedido, no tamanho pedido; extra vale no máximo uma linha de sugestão. Vale para todos os agentes; quem não carrega skills (Gemini, chat, modelo local) deve ler os dois `SKILL.md` antes de começar. As regras de governança, o teste da mudança e o registro na fila não são "extras".
+
+17. **A Ordem de Serviço manda no relatório (determinação do usuário, 05/10/2026):** o relatório de investigação deve atender **principalmente** às solicitações da O.S. — geralmente a **última** O.S. do procedimento. O sistema/agente deve (a) identificar a O.S. vigente nos documentos do caso, (b) extrair cada solicitação/determinação do Delegado de Polícia, (c) registrá-las em `02-analise\solicitacoes-os.md` (item, trecho com pág./fls., onde o relatório responde), (d) responder a cada item no relatório, e (e) tratar item não atendido como ressalva objetiva na Conclusão + aviso em CAIXA ALTA (`DADOS FALTANTES — PROVIDENCIAR (OPERADOR)`). Sem a O.S. localizada, parar e avisar o operador antes de redigir. A revisão reprova minuta que não responda a item da O.S. (f) **Cumprir todas as solicitações que for possível** com os documentos do caso e, no mais, fazer as análises de fraude/estelionato pelas regras de sempre (caminho do dinheiro, art. 171, lacunas). (g) **Escrita sempre humanizada** (texto corrido, natural, como o investigador escreveria; sem tom robótico ou de lista). (h) **CNPJ necessário e ausente dos autos:** pesquisar por OSINT de empresa (skill `osint-policial`; `skillsnalise-ip-fraude
+eferences\osint-empresas.md`; só CNPJ/razão social/cidade, duas fontes, citando a fonte) e inserir o dado no relatório no contexto adequado; não achando, `[PESQUISAR: CNPJ]` + aviso em CAIXA ALTA. Detalhe: `plugin\investigacao-cpj\skills\relatorio-ip-fraude\SKILL.md` (item 10) e `skills\analise-ip-fraude\SKILL.md` (passo 0).
+
+18. **Autorização permanente do operador para o Codex (05/10/2026):** o investigador responsável autorizou expressamente nesta sessão: "Autorizo sempre, gravar regra. (Codex vai revisar e corrigir)". O Codex está autorizado a ler autos, imagens, extrações e minutas deste projeto nas sessões de chat em que o operador solicitar análise, revisão ou correção, e a produzir/corrigir as minutas correspondentes. Não pedir novamente confirmação de uso desta sessão/modelo para esses pedidos. Esta autorização expressa prevalece sobre as restrições genéricas de inferência externa nos adaptadores de skills e na seção 5 abaixo. Não autoriza publicação, envio a outros serviços/provedores, pesquisa de pessoas físicas ou alteração dos originais; as demais regras de sigilo, fontes, reserva e revisão humana permanecem aplicáveis.
 
 Governança completa: `acervo\repo-ia-alandougs\governanca\seguranca-e-dados.md`.
 
@@ -49,7 +56,7 @@ Forma preferida: a **Central CPJ** (`Central CPJ.bat` → aba Entrada) cria o ca
 
 ## Fonte: `plugin/investigacao-cpj/commands/processar-ip.md`
 
-> Processa os arquivos do caso (PDF → diagnóstico, OCR, Markdown por página, CSV, entidades; ou MD/CSV prontos) e completa a transcrição visual das páginas pendentes
+> Processa os arquivos do caso (PDF → diagnóstico, OCR, Markdown por página, CSV, entidades e JSON; ou MD/CSV prontos) e completa a transcrição visual das páginas pendentes
 
 Processe o material do caso: [ARGUMENTOS: informe o ID do caso (ex.: OS-123-2026) e observações]
 
@@ -57,10 +64,10 @@ Use a skill `pdf-autos-policiais`. Caminhos: `$S = "plugin\investigacao-cpj\skil
 
 1. **Verifique `processamento.json`** do caso. Documentos já `concluido` pela Central CPJ **não** devem ser reprocessados. Documentos em `na_fila`/`processando`: aguarde (a Central está trabalhando). Em `erro`: leia `01-extracao\<doc>\processamento.log`, explique e corrija.
 2. Para cada arquivo de `00-originais\` ainda sem pasta em `01-extracao\` (quando o usuário não usou a Central), com `$E = "...\01-extracao\<nome do arquivo sem extensão>"`:
-   - **PDF:** `$env:PATH += ";C:\Program Files\Tesseract-OCR"`; se existir `ferramentas\tessdata\por.traineddata`, `$env:TESSDATA_PREFIX = "$PWD\ferramentas\tessdata"`. Rode `diagnostico.py` → `extrair.py <pdf> --saida $E --lang por` (use `eng` só se `por` não existir, e avise) → `tabelas.py <pdf> --saida $E` → `tabelas.py $E\transcricao.md --saida $E` → `entidades.py $E\transcricao.md` → `caso.py ip <ID> $E\relatorio_extracao.json`.
-   - **MD:** copie para `$E\transcricao.md` → `tabelas.py` → `entidades.py`. **CSV:** copie para `$E\tabelas\`.
-3. **Complete o que a máquina não resolve:** para páginas em `pendentes_transcricao_visual` ou `conferir_visualmente` (`relatorio_extracao.json`), leia os PNGs de `$E\paginas_visao\` em lotes de ~20, grave `$E\transcricoes_visuais\pNNNN.md` pelas regras de transcrição da skill (tabelas em Markdown) e rode `extrair.py` de novo + `tabelas.py`/`entidades.py` sobre a transcrição. Se forem muitas páginas, informe o volume antes e pergunte se deve priorizar só as páginas críticas (extratos, comprovantes, qualificações).
-4. Atualize `registro-tratamento.md`, rode `python "$B\indexar.py"` e resuma: páginas por método, pendências, tabelas CSV, entidades. Próximo passo: `/analisar-ip <ID>`.
+   - **PDF:** `$env:PATH += ";C:\Program Files\Tesseract-OCR"`; se existir `ferramentas\tessdata\por.traineddata`, `$env:TESSDATA_PREFIX = "$PWD\ferramentas\tessdata"`. Rode `diagnostico.py` → `extrair.py <pdf> --saida $E --lang por` (use `eng` só se `por` não existir, e avise) → `tabelas.py <pdf> --saida $E` → `tabelas.py $E\transcricao.md --saida $E` → `entidades.py $E\transcricao.md` → `dados_json.py $E` → `caso.py ip <ID> $E\relatorio_extracao.json`.
+   - **MD:** copie para `$E\transcricao.md` → `tabelas.py` → `entidades.py` → `dados_json.py $E`. **CSV:** copie para `$E\tabelas\` → `dados_json.py $E`.
+3. **Complete o que a máquina não resolve:** para páginas em `pendentes_transcricao_visual` ou `conferir_visualmente` (`relatorio_extracao.json`), leia os PNGs de `$E\paginas_visao\` em lotes de ~20, grave `$E\transcricoes_visuais\pNNNN.md` pelas regras de transcrição da skill (tabelas em Markdown) e rode `extrair.py` de novo + `tabelas.py`/`entidades.py`/`dados_json.py` sobre a transcrição. Se forem muitas páginas, informe o volume antes e pergunte se deve priorizar só as páginas críticas (extratos, comprovantes, qualificações).
+4. Atualize `registro-tratamento.md`, rode `python "$B\indexar.py"` e resuma: páginas por método, pendências, tabelas CSV, entidades e JSON consolidado. Próximo passo: `/analisar-ip <ID>`.
 
 ## Fonte: `plugin/investigacao-cpj/skills/pdf-autos-policiais/SKILL.md`
 
@@ -94,7 +101,7 @@ Dois caminhos:
 - **Scripts:** `$S = "plugin\investigacao-cpj\skills\pdf-autos-policiais\scripts"`.
 - **Caso:** `casos\<ID>\`, onde `<ID>` deriva da **Ordem de Serviço** (O.S. `123/2026` → `OS-123-2026`).
   - `00-originais\` — arquivos originais (somente leitura), **nunca modificados**.
-  - `01-extracao\<documento>\` — uma pasta por arquivo original (nome do arquivo sem extensão): `transcricao.md`, `tabelas\`, `entidades.csv`, `relatorio_extracao.json`, `diagnostico.json`, `processamento.log`.
+  - `01-extracao\<documento>\` — uma pasta por arquivo original (nome do arquivo sem extensão): `transcricao.md`, `tabelas\`, `entidades.csv`, `dados_extraidos.json`, `relatorio_extracao.json`, `diagnostico.json`, `processamento.log`.
   - `02-analise\`, `03-relatorios\` — etapas seguintes.
   - `caso.json`, `processamento.json`, `registro-tratamento.md`.
 - **Central CPJ** (`http://127.0.0.1:8765`, atalho `Central CPJ.bat`): o usuário normalmente envia os PDFs por ela, e ela já executa diagnóstico, extração/OCR, tabelas, entidades e indexação. **Antes de processar, verifique `processamento.json`**: se o documento já está `concluido`, não refaça — vá direto à transcrição visual das páginas pendentes/⚠ (se houver) e à análise.
@@ -189,6 +196,12 @@ Gera `$E\transcricao.md` (seção `## Página N` por página, método em coment�
 
 2. **Transcrição visual das páginas pendentes ou a conferir:** leia os PNGs em lotes (até ~20 por rodada) e grave cada transcrição em `$E\transcricoes_visuais\pNNNN.md`, seguindo as **regras de transcrição** abaixo — **tabelas sempre em Markdown** (`| col | col |`), para virarem CSV. Depois rode `extrair.py` de novo com os mesmos parâmetros: ele incorpora as transcrições (método `transcricao-visual-llm`). Se houver centenas de páginas pendentes, avise o tempo/consumo antes e sugira instalar o Tesseract.
 
+   **Pela Central CPJ:** na ficha do caso, use **Transcrever páginas a conferir**. O servidor seleciona a união de `pendentes_transcricao_visual`, `conferir_visualmente` e páginas com `precisa_ia` em `qualidade.json`. O aviso lista os destinos possíveis; Aceitar autoriza somente o escopo `transcricao_visual`, e Recusar/Esc não cria pedido. Somente o PNG de cada página selecionada e uma instrução fixa são enviados, pelo roteador com capacidade `vision`; o modelo configurado também deve aceitar imagens. Não são enviados o PDF inteiro, nomes de arquivos nem textos das outras páginas. DeepSeek/Groq sem visão não participam dessa rota.
+
+   `scripts/transcrever_visual.py` grava arquivos novos com origem (provedor/modelo, página, hash do PNG) e aviso **CONFERIR**; nunca sobrescreve transcrição existente, inclusive gravação concorrente. Dígitos duvidosos devem ser `? [dígito incerto]`; a conferência humana continua obrigatória. O pedido compartilha o orçamento entre páginas, retries e fallback. A chamada enviada pode ultrapassar um teto antes da medição; a próxima é bloqueada, sem prometer limite rígido de faturamento.
+
+   A Central valida o hash do original, os checkpoints e a disponibilidade de Tesseract antes do envio. Com os mesmos parâmetros, incorpora as transcrições sem novo OCR e atualiza tabelas Markdown, entidades, JSON estruturado, qualidade e índice. Se original/checkpoint/ambiente mudou, interrompe com aviso para executar processamento local primeiro. Retomar preserva arquivos já transcritos e incorpora também resultados de um pedido interrompido.
+
 3. **Tabelas → CSV** (extratos, relações de transferências, planilhas de quebra):
 
 ```powershell
@@ -206,7 +219,15 @@ python "$S\entidades.py" "$E\transcricao.md"
 
 Gera `$E\entidades.csv` (CPF, CNPJ, placa, telefone, valor, data, e-mail, fls. por página). São candidatos por padrão de texto: status "pendente de conferência" até alguém confrontar com a imagem da página.
 
-5. **Estruturar** a partir da transcrição (não do PDF bruto), em `$E\estrutura.md`:
+5. **JSON consolidado da extração:**
+
+```powershell
+python "$S\dados_json.py" $E
+```
+
+Gera `$E\dados_extraidos.json`, reunindo as páginas da transcrição com o método usado, as linhas dos CSVs de tabelas e os candidatos de `entidades.csv`. Ele preserva página, arquivo de origem e status de conferência; não substitui o Markdown, os CSVs nem `relatorio_extracao.json`.
+
+6. **Estruturar** a partir da transcrição (não do PDF bruto), em `$E\estrutura.md`:
    - **Índice de peças:** peça, data, págs. do PDF, fls. dos autos (quando legíveis), síntese de uma linha.
    - **Pessoas:** nome como consta, qualificação como consta, condição (vítima, testemunha, investigado, indiciado, comunicante), páginas.
    - **Cronologia:** data/hora, fato, fonte (peça e página), natureza (fato documentado / relato / informação de terceiro).
@@ -228,7 +249,7 @@ A análise e o relatório seguem nas skills `analise-ip-fraude` e `relatorio-ip-
 
 ### Output
 
-- **B:** `transcricao.md`, `estrutura.md`, `entidades.csv`, `tabelas\*.csv` + `indice_tabelas.csv`, `relatorio_extracao.json`.
+- **B:** `transcricao.md`, `estrutura.md`, `entidades.csv`, `dados_extraidos.json`, `tabelas\*.csv` + `indice_tabelas.csv`, `relatorio_extracao.json`.
 - **A:** partes `NOME_parteXXdeYY_pagsINICIO-FIM.pdf` + `MANIFESTO.json` + modelo de Ficha da Parte.
 
 Atualize `registro-tratamento.md` do caso e feche com o quadro:

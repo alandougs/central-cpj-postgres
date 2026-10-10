@@ -5,7 +5,7 @@ para uso por qualquer agente/IA (Codex, Gemini, modelos locais, chat) quando o C
 Uso: python exportar-portatil.py      (rode após editar o plugin; o atualizar-plugin.ps1 já chama)
 Não edite portatil\\ à mão: edite o plugin e gere de novo.
 """
-import datetime, os, re
+import datetime, os, re, textwrap
 
 WS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PL = os.path.join(WS, "plugin", "investigacao-cpj")
@@ -73,7 +73,17 @@ def peca(rel):
     m = re.match(r"---\n(.*?)\n---\n", txt, flags=re.S)
     if m:
         d = re.search(r"^description:\s*(.+)$", m.group(1), flags=re.M)
-        desc = f"> {d.group(1).strip()}\n\n" if d else ""
+        if d:
+            descricao = d.group(1).strip()
+            if re.fullmatch(r"[>|][+-]?", descricao):
+                linhas = []
+                for linha in m.group(1)[d.end():].splitlines():
+                    if linha.strip() and not linha[:1].isspace(): break
+                    linhas.append(linha)
+                bloco = textwrap.dedent("\n".join(linhas)).strip()
+                descricao = re.sub(r"(?<=\S)\n(?=\S)", " ", bloco) if descricao.startswith(">") else bloco
+            if descricao:
+                desc = "\n".join("> " + linha for linha in descricao.splitlines()) + "\n\n"
         txt = txt[m.end():]
     for a, b in SUBST: txt = re.sub(a, b, txt)
     txt = re.sub(r"^(#{1,5}) ", lambda mm: "#" + mm.group(1) + " ", txt, flags=re.M)  # rebaixa títulos

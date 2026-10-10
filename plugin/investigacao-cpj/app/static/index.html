@@ -294,7 +294,7 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 <ul class="lista-arq" id="lista-arq"></ul><div class="muted" id="dados-os-auto">Selecione o IP/processo: os dados serão detectados. O que faltar será tentado após o OCR; você pode completar manualmente.</div><div class="prog" id="prog-up" hidden><i aria-hidden="true"></i></div><div class="muted" id="prog-up-tx"></div>
 
-<div class="acoes"><button type="button" class="btn" id="b-salvar-os">Salvar dados</button><button type="submit" class="btn pri" id="b-enviar">Processar PDF</button><button type="button" class="btn" id="b-nova-os">Novo cadastro</button></div><div class="muted" id="msg-up" role="status" aria-live="polite"></div></form>
+<div class="acoes"><button type="button" class="btn" id="b-salvar-os">Salvar dados</button><label for="modo-processamento">Modo</label><select id="modo-processamento" name="modo_processamento"><option value="rapido">Rápido — somente local</option><option value="inteligente" selected>Inteligente — páginas a conferir</option><option value="ia_completa">IA Completa — todas as páginas</option></select><button type="submit" class="btn pri" id="b-enviar">Processar PDF</button><button type="button" class="btn" id="b-nova-os">Novo cadastro</button></div><div class="muted" id="msg-up" role="status" aria-live="polite"></div></form>
 
 <div class="card"><div style="display:flex;justify-content:space-between"><h4>Fila de processamento</h4><span class="muted" id="ocr-lang"></span></div><div id="fila"></div></div></div>
 
@@ -302,7 +302,15 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 
 
-<section class="aba" id="casos"><h2>Casos</h2><p class="sub">Ordenados por urgência de prazo. Pesquise por O.S., BO, IP, processo, partes ou modalidade.</p>
+<section class="aba" id="pendencias"><h2>Pendentes de Processamento</h2><p class="sub">Arquivos aguardando OCR, extração de texto e planilhas.</p>
+<div class="card" style="padding:4px 10px">
+<div class="barra"><button id="b-processar-pendentes" class="btn pri" disabled>Processar OS em Lote</button></div>
+<table><thead><tr><th style="width:30px"><input type="checkbox" id="pend-chk-todos" checked></th><th>O.S. / Caso</th><th>Arquivo</th><th>Status Anterior</th></tr></thead>
+<tbody id="t-pendencias"></tbody></table>
+<div id="pendencias-vazio" class="vazio" hidden>✅ Nenhum arquivo novo pendente de processamento.</div>
+</div></section>
+
+<section class="aba" id="casos"><h2>Casos</h2><p class="sub">Ordens de Serviço em ordem numérica crescente. Pesquise por O.S., BO, IP, processo, partes ou modalidade.</p>
 
 <div class="barra"><input id="q-casos" placeholder="Buscar…"><select id="st-casos"><option value="">todos os status</option></select>
 
@@ -386,7 +394,7 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
   <div class="barra" style="margin:0;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
 
-    <select id="gr-caso" style="width:230px"><option value="">Todos os casos (conexões gerais)</option></select>
+    <select id="gr-caso" aria-label="Selecionar O.S. para o grafo" style="width:230px"><option value="">Todos os casos (conexões gerais)</option></select>
 
     <input id="gr-busca" placeholder="Buscar no grafo (nome, CPF, conta, Pix)…" style="width:230px">
 
@@ -426,7 +434,8 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
   <div class="card" style="padding:0;position:relative;overflow:hidden;background:#080e1a;border-color:#1e3250;display:flex;flex-direction:column">
 
-    <canvas id="cv-grafo" style="width:100%;height:100%;cursor:grab;display:block"></canvas>
+    <canvas id="cv-grafo" aria-label="Grafo de vínculos da O.S." style="width:100%;height:100%;cursor:grab;display:block"></canvas>
+    <div id="gr-mensagem" role="status" aria-live="polite" hidden style="position:absolute;inset:35% 12% auto;text-align:center;padding:20px;border:1px solid var(--line);border-radius:8px;background:var(--surface);pointer-events:none"></div>
 
     <div style="position:absolute;bottom:10px;left:10px;background:rgba(9,17,30,0.85);border:1px solid #1e3250;border-radius:6px;padding:5px 10px;font-size:11.5px;color:var(--muted);pointer-events:none">
 
@@ -519,15 +528,15 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
  <div class="acoes"><button class="btn" id="b-claude-login">Entrar no Claude</button><button class="btn sm" id="b-claude-rec">Verificar novamente</button></div></div>
 
 <div class="card" data-perm="ia" id="card-config-ia"><h3>CONFIGURAÇÕES — processamento por agente ou por API</h3>
- <p class="muted">Define quem executa os botões de IA e a esteira por padrão: <b>agente de plantão</b> (sessão de chat ou CLI local) ou <b>API</b> do provedor cadastrado abaixo. Na API, o modelo recebe como instruções o AGENTS.md, os procedimentos, os papéis dos agentes (analista-documental, analista-financeiro, revisor) e as skills do plugin, mais o texto que você escrever aqui. <b>Atenção ao sigilo:</b> na via API o conteúdo extraído do caso é enviado ao provedor escolhido (exceção autorizada à regra 6; cada uso fica na auditoria). Chaves e modelos ficam no cartão logo abaixo.</p>
+ <p class="muted">Define quem executa os botões de IA e a esteira por padrão: <b>agente de plantão</b> (sessão de chat ou CLI local) ou <b>API</b> dos provedores cadastrados abaixo. No modo automático, tenta Claude, GPT, Gemini e depois os demais provedores ativos, avançando quando uma chamada falha. Na API, cada modelo recebe como instruções o AGENTS.md, os procedimentos, os papéis dos agentes (analista-documental, analista-financeiro, revisor) e as skills do plugin, mais o texto que você escrever aqui. <b>Atenção ao sigilo:</b> o conteúdo extraído do caso pode ser enviado a mais de um provedor ativo até uma chamada funcionar (exceção autorizada à regra 6; cada uso fica na auditoria). Chaves e modelos ficam no cartão logo abaixo.</p>
  <div class="campos" style="grid-template-columns:1fr 1fr"><div><label>Modo padrão</label><select id="cfgia-modo"><option value="agente">Agente de plantão (recomendado)</option><option value="api">API do provedor</option></select></div>
- <div><label>Provedor da API</label><select id="cfgia-prov"><option value="">— selecione —</option></select></div></div>
+ <div><label>Ordem de provedores</label><select id="cfgia-prov"><option value="auto">Automático: Claude → GPT → Gemini → demais</option></select></div></div>
  <label>Instruções adicionais do investigador (prompt de sistema da via API)</label><textarea id="cfgia-prompt" rows="5" maxlength="8000" placeholder="Opcional: estilo, cautelas, prioridades. Não coloque dados de caso aqui."></textarea>
  <div class="acoes"><button class="btn pri" id="b-cfgia" data-perm="usuarios">Salvar configurações</button><span class="muted" id="msg-cfgia"></span></div></div>
 
-<div class="card" data-perm="usuarios"><h3>Chaves de API e Modelos de LLM (GPT, Claude, Gemini, DeepSeek, Copilot)</h3>
+<div class="card" data-perm="usuarios"><h3>Chaves de API e Modelos de LLM (GPT, Claude, Gemini, Groq, OpenRouter, NVIDIA e outros)</h3>
 
- <p class="muted">Cadastre as chaves de API e modelos para acionamento direto ou agentes de IA. As chaves são salvas localmente de forma segura neste computador (<code>config\chaves_llm.json</code>).</p>
+ <p class="muted">Cadastre as chaves de API e modelos para acionamento direto ou agentes de IA. As chaves são salvas localmente neste computador (<code>config\chaves_llm.json</code>). Consultar modelos envia apenas a chave e metadados ao provedor, sem autos. Escolha na lista ou digite um identificador. Sem escolha preenchida, um modelo equilibrado retornado pela API é sugerido no formulário; confira e clique em Salvar. A consulta não salva nem ativa o provedor.</p>
 
  <div class="g2" id="grid-llm">
 
@@ -537,7 +546,9 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
      <label>Chave API (sk-...)</label><input type="password" id="llm-openai-chave" placeholder="Chave da OpenAI" autocomplete="off">
 
-     <label style="margin-top:6px">Modelo padrão</label><input id="llm-openai-modelo" placeholder="ex.: gpt-4o, gpt-4o-mini">
+     <label style="margin-top:6px">Modelo padrão</label><input id="llm-openai-modelo" list="modelos-openai" oninput="this.dataset.manual='1'" placeholder="ex.: gpt-6.1-sol">
+     <datalist id="modelos-openai"></datalist>
+     <div class="acoes"><button type="button" class="btn sm" onclick="atualizarModelosLLM('openai')">Consultar modelos</button><span class="muted" id="msg-modelos-openai" aria-live="polite"></span></div>
 
      <div class="acoes"><button type="button" class="btn sm pri" onclick="salvarLLM('openai')">Salvar OpenAI</button><span class="muted" id="msg-llm-openai"></span></div>
 
@@ -549,7 +560,9 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
      <label>Chave API (sk-ant-...)</label><input type="password" id="llm-anthropic-chave" placeholder="Chave da Anthropic" autocomplete="off">
 
-     <label style="margin-top:6px">Modelo padrão</label><input id="llm-anthropic-modelo" placeholder="ex.: claude-3-7-sonnet-latest">
+     <label style="margin-top:6px">Modelo padrão</label><input id="llm-anthropic-modelo" list="modelos-anthropic" oninput="this.dataset.manual='1'" placeholder="ex.: claude-sonnet-5-5">
+     <datalist id="modelos-anthropic"></datalist>
+     <div class="acoes"><button type="button" class="btn sm" onclick="atualizarModelosLLM('anthropic')">Consultar modelos</button><span class="muted" id="msg-modelos-anthropic" aria-live="polite"></span></div>
 
      <div class="acoes"><button type="button" class="btn sm pri" onclick="salvarLLM('anthropic')">Salvar Claude</button><span class="muted" id="msg-llm-anthropic"></span></div>
 
@@ -561,7 +574,9 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
      <label>Chave API (AIza...)</label><input type="password" id="llm-gemini-chave" placeholder="Chave do Google AI Studio" autocomplete="off">
 
-     <label style="margin-top:6px">Modelo padrão</label><input id="llm-gemini-modelo" placeholder="ex.: gemini-2.0-flash">
+     <label style="margin-top:6px">Modelo padrão</label><input id="llm-gemini-modelo" list="modelos-gemini" oninput="this.dataset.manual='1'" placeholder="ex.: gemini-3.8-flash">
+     <datalist id="modelos-gemini"></datalist>
+     <div class="acoes"><button type="button" class="btn sm" onclick="atualizarModelosLLM('gemini')">Consultar modelos</button><span class="muted" id="msg-modelos-gemini" aria-live="polite"></span></div>
 
      <div class="acoes"><button type="button" class="btn sm pri" onclick="salvarLLM('gemini')">Salvar Gemini</button><span class="muted" id="msg-llm-gemini"></span></div>
 
@@ -573,7 +588,9 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
      <label>Chave API (sk-...)</label><input type="password" id="llm-deepseek-chave" placeholder="Chave da DeepSeek" autocomplete="off">
 
-     <label style="margin-top:6px">Modelo padrão</label><input id="llm-deepseek-modelo" placeholder="ex.: deepseek-chat">
+     <label style="margin-top:6px">Modelo padrão</label><input id="llm-deepseek-modelo" list="modelos-deepseek" oninput="this.dataset.manual='1'" placeholder="ex.: deepseek-flash">
+     <datalist id="modelos-deepseek"></datalist>
+     <div class="acoes"><button type="button" class="btn sm" onclick="atualizarModelosLLM('deepseek')">Consultar modelos</button><span class="muted" id="msg-modelos-deepseek" aria-live="polite"></span></div>
 
      <div class="acoes"><button type="button" class="btn sm pri" onclick="salvarLLM('deepseek')">Salvar DeepSeek</button><span class="muted" id="msg-llm-deepseek"></span></div>
 
@@ -581,9 +598,62 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
    <div class="card" style="background:var(--surface-2);border:1px solid var(--line);padding:12px">
 
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>xAI (Grok)</b><label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" id="llm-xai-ativo" style="width:auto"> Ativo</label></div>
+     <label>Chave API</label><input type="password" id="llm-xai-chave" placeholder="Chave da xAI" autocomplete="off">
+     <label style="margin-top:6px">Modelo padrão</label><input id="llm-xai-modelo" list="modelos-xai" oninput="this.dataset.manual='1'" placeholder="ex.: grok-4.7">
+     <datalist id="modelos-xai"></datalist>
+     <div class="acoes"><button type="button" class="btn sm" onclick="atualizarModelosLLM('xai')">Consultar modelos</button><span class="muted" id="msg-modelos-xai" aria-live="polite"></span></div>
+     <div class="acoes"><button type="button" class="btn sm pri" onclick="salvarLLM('xai')">Salvar xAI</button><span class="muted" id="msg-llm-xai"></span></div>
+   </div>
+
+   <div class="card" style="background:var(--surface-2);border:1px solid var(--line);padding:12px">
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>Groq</b><label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" id="llm-groq-ativo" style="width:auto"> Ativo</label></div>
+
+     <label>Chave API</label><input type="password" id="llm-groq-chave" placeholder="Chave da Groq" autocomplete="off">
+
+     <label style="margin-top:6px">Modelo padrão</label><input id="llm-groq-modelo" list="modelos-groq" oninput="this.dataset.manual='1'" placeholder="ex.: openai/gpt-oss-120b">
+     <datalist id="modelos-groq"></datalist>
+     <div class="acoes"><button type="button" class="btn sm" onclick="atualizarModelosLLM('groq')">Consultar modelos</button><span class="muted" id="msg-modelos-groq" aria-live="polite"></span></div>
+
+     <div class="acoes"><button type="button" class="btn sm pri" onclick="salvarLLM('groq')">Salvar Groq</button><span class="muted" id="msg-llm-groq"></span></div>
+
+   </div>
+
+   <div class="card" style="background:var(--surface-2);border:1px solid var(--line);padding:12px">
+
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>OpenRouter</b><label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" id="llm-openrouter-ativo" style="width:auto"> Ativo</label></div>
+
+     <label>Chave API</label><input type="password" id="llm-openrouter-chave" placeholder="Chave da OpenRouter" autocomplete="off">
+
+     <label style="margin-top:6px">Modelo padrão</label><input id="llm-openrouter-modelo" list="modelos-openrouter" oninput="this.dataset.manual='1'" placeholder="ex.: openai/gpt-6.1-sol">
+     <datalist id="modelos-openrouter"></datalist>
+     <div class="acoes"><button type="button" class="btn sm" onclick="atualizarModelosLLM('openrouter')">Consultar modelos</button><span class="muted" id="msg-modelos-openrouter" aria-live="polite"></span></div>
+
+     <div class="acoes"><button type="button" class="btn sm pri" onclick="salvarLLM('openrouter')">Salvar OpenRouter</button><span class="muted" id="msg-llm-openrouter"></span></div>
+
+   </div>
+
+   <div class="card" style="background:var(--surface-2);border:1px solid var(--line);padding:12px">
+
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>NVIDIA NIM</b><label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" id="llm-nvidia-ativo" style="width:auto"> Ativo</label></div>
+
+     <label>Chave API</label><input type="password" id="llm-nvidia-chave" placeholder="Chave da NVIDIA NIM" autocomplete="off">
+
+     <label style="margin-top:6px">Modelo padrão</label><input id="llm-nvidia-modelo" list="modelos-nvidia" oninput="this.dataset.manual='1'" placeholder="ex.: nvidia/llama-3.3-nemotron-super-49b-v1.5">
+     <datalist id="modelos-nvidia"></datalist>
+     <div class="acoes"><button type="button" class="btn sm" onclick="atualizarModelosLLM('nvidia')">Consultar modelos</button><span class="muted" id="msg-modelos-nvidia" aria-live="polite"></span></div>
+
+     <div class="acoes"><button type="button" class="btn sm pri" onclick="salvarLLM('nvidia')">Salvar NVIDIA</button><span class="muted" id="msg-llm-nvidia"></span></div>
+
+   </div>
+
+   <div class="card" style="background:var(--surface-2);border:1px solid var(--line);padding:12px">
+
      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>GitHub Copilot</b><label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" id="llm-copilot-ativo" style="width:auto"> Ativo</label></div>
 
-     <label>Modelo / Configuração</label><input id="llm-copilot-modelo" placeholder="ex.: copilot-chat, default">
+     <label>Modelo / Configuração</label><input id="llm-copilot-modelo" list="modelos-copilot" oninput="this.dataset.manual='1'" placeholder="ex.: claude-sonnet-5.5">
+     <datalist id="modelos-copilot"></datalist>
+     <div class="acoes"><button type="button" class="btn sm" onclick="atualizarModelosLLM('copilot')">Consultar modelos</button><span class="muted" id="msg-modelos-copilot" aria-live="polite"></span></div>
 
      <div class="acoes"><button type="button" class="btn sm pri" onclick="salvarLLM('copilot')">Salvar Copilot</button><span class="muted" id="msg-llm-copilot"></span></div>
 
@@ -671,6 +741,12 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 
 
+<div class="modal" id="visualizador-relatorio" role="dialog" aria-modal="true" aria-labelledby="vis-titulo" hidden><div class="card">
+ <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><h3 id="vis-titulo" style="margin:0">Relatório</h3><div class="acoes" style="margin:0"><a class="btn sm" id="vis-original" target="_blank" rel="noopener">Abrir original</a><button type="button" class="btn sm" id="vis-fechar">Fechar</button></div></div>
+ <p class="muted" id="vis-aviso" hidden>Prévia de texto e tabelas do DOCX. Para a formatação completa, abra o original no Word.</p>
+ <iframe id="vis-frame" title="Visualização do relatório" style="width:100%;height:72vh;border:1px solid var(--line);margin-top:12px;background:white"></iframe>
+</div></div>
+
 <div class="modal" id="editor" hidden><div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><h3 style="margin:0" id="ed-tit">Editar minuta</h3>
 
 <div class="acoes" style="margin:0"><button class="btn" id="ed-cancelar">Fechar</button><button class="btn pri" id="ed-salvar">Salvar nova versão e gerar DOCX</button></div></div>
@@ -699,7 +775,7 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 <div class="acoes" style="margin-top:12px"><button type="submit" class="btn pri">Criar Vínculo</button><button type="button" class="btn" id="b-canc-mv">Cancelar</button><span class="muted" id="msg-vinc-novo"></span></div></form></div></div>
 
-<div class="modal" id="modal-final-ressalva" hidden><div class="card" style="max-width:700px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">Conferência da Minuta (Gate de Entrega)</h3><button type="button" class="btn sm" id="b-fecha-final-ressalva">✕</button></div>
+<div class="modal" id="modal-consentimento" hidden><div class="card" style="max-width:500px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">AVISO: PROCESSAMENTO FORA DO AMBIENTE LOCAL</h3></div><div style="margin-bottom:12px;padding:12px;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:6px;font-size:14px;line-height:1.5">Aviso legal: O processamento desta tarefa enviará os documentos selecionados a provedores e servidores externos (<span id="cons-destinos" style="font-weight:bold"></span>). O sigilo  aplicável. Deseja prosseguir com o envio?</div><div class="acoes"><button type="button" class="btn" id="b-cons-recusar">Não aceitar</button><button type="button" class="btn pri" id="b-cons-aceitar">Aceitar</button></div></div></div><div class="modal" id="modal-final-ressalva" hidden><div class="card" style="max-width:700px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">Conferência da Minuta (Gate de Entrega)</h3><button type="button" class="btn sm" id="b-fecha-final-ressalva">✕</button></div>
 <div id="final-ressalva-aviso" style="margin-bottom:12px;padding:8px 12px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:6px;font-size:13px;line-height:1.4">A conferência automática detectou apontamentos bloqueantes na minuta do relatório.</div>
 <div id="final-ressalva-lista" style="max-height:220px;overflow:auto;margin-bottom:12px;font-size:12px;border:1px solid var(--borda,#ddd);border-radius:6px;padding:8px"></div>
 <div style="margin-bottom:12px"><label style="display:block;font-weight:600;margin-bottom:4px;font-size:13px">Justificativa para entrega com ressalva (mínimo 15 caracteres):</label><textarea id="final-ressalva-texto" rows="3" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px" placeholder="Descreva a justificativa para prosseguir mesmo com as pendências acima..."></textarea></div>
@@ -783,7 +859,7 @@ $("#b-sair").onclick=async()=>{await api("/api/sair",{method:"POST"});location.h
 
 
 
-const ABAS=[["inicio","Início","casos"],["nova","Nova O.S.","os"],["casos","Casos","casos"],["fluxograma","Fluxograma","casos"],["pesquisa","Pesquisa","pesquisa"],["grafo","Grafo","pesquisa"],["estatisticas","Estatísticas","estatisticas"],["sistema","Sistema",null]];
+const ABAS=[["inicio","Início","casos"],["nova","Nova O.S.","os"],["pendencias","Pendentes","trabalho"],["casos","Casos","casos"],["fluxograma","Fluxograma","casos"],["pesquisa","Pesquisa","pesquisa"],["grafo","Grafo","pesquisa"],["estatisticas","Estatísticas","estatisticas"],["sistema","Sistema",null]];
 
 const MOD=["","falso-parente","whatsapp-clonado","falsa-central","boleto-falso","falso-vendedor","falso-intermediario","falso-investimento","falso-emprego","emprestimo-falso","golpe-afetivo","falso-sequestro","maquininha","fraude-cartao","fraude-documental","outro"];
 
@@ -813,9 +889,9 @@ function montar(){$("#u-nome").textContent=S.usuario.cargo?`${S.usuario.nome} ·
 
 function abrirAba(a){$$("#nav button").forEach(x=>x.classList.toggle("on",x.dataset.a===a));$$("section.aba").forEach(s=>s.classList.toggle("on",s.id===a));history.replaceState(null,"","#"+a);
 
- if(a==="inicio")carregarInicio();if(a==="casos")carregarCasos();if(a==="fluxograma")carregarAbaFluxograma();if(a==="nova")atualizarFila();if(a==="grafo")carregarGrafo();if(a==="estatisticas")$("#if-painel").src="/painel?t="+Date.now();if(a==="sistema")carregarSistema()}
+ if(a==="inicio")carregarInicio();if(a==="casos")carregarCasos();if(a==="pendencias")carregarPendencias();if(a==="fluxograma")carregarAbaFluxograma();if(a==="nova")atualizarFila();if(a==="grafo")carregarGrafo();if(a==="estatisticas")$("#if-painel").src="/painel?t="+Date.now();if(a==="sistema")carregarSistema()}
 
-let tc=0,nCiclo=0;async function ciclo(){clearTimeout(tc);if(!S.usuario)return;nCiclo++;try{await atualizarTarefas();if($("#nova").classList.contains("on")||$("#inicio").classList.contains("on"))await atualizarFila();if(casoAberto)await atualizarIA();
+let tc=0,nCiclo=0;async function ciclo(){clearTimeout(tc);if(!S.usuario)return;nCiclo++;try{await atualizarTarefas();if($("#nova").classList.contains("on")||$("#inicio").classList.contains("on"))await atualizarFila();if($("#pendencias").classList.contains("on"))await carregarPendencias();if(casoAberto)await atualizarIA();
 
  if(nCiclo%3===0&&$("#sistema").classList.contains("on"))await carregarAgentes()}catch(e){}tc=setTimeout(ciclo,1600)}
 
@@ -885,6 +961,16 @@ function addArqs(fl){for(const f of fl)if(/\.(pdf|md|csv)$/i.test(f.name)&&!arqu
 
 function listaArqs(){$("#lista-arq").innerHTML=arquivos.map((f,i)=>`<li><span>${esc(f.name)}</span><span class="muted">${kb(f.size)} · <a class="lk" data-i="${i}">remover</a></span></li>`).join("");$$("#lista-arq a").forEach(a=>a.onclick=()=>{arquivos.splice(+a.dataset.i,1);listaArqs();detectarOS()})}
 
+async function processarPDFComAviso(enviarPedido){
+ let cons=null;
+ while(true){
+  const r=await enviarPedido(cons);
+  if(!r.requer_consentimento)return r;
+  const espera=pedirConsentimentoExterno(r.destinos);
+  $("#cons-destinos").textContent+=` · ${r.paginas} página(s). ${r.aviso||""}`;
+  cons={...await espera,escopo:r.escopo};
+ }
+}
 async function salvarRecebimento(processar){const f=$("#f-os");if(!f.reportValidity())return;
 
  if(processar&&!arquivos.length){$("#msg-up").textContent="Selecione o PDF do IP/processo antes de clicar em Processar PDF.";return}
@@ -893,11 +979,13 @@ async function salvarRecebimento(processar){const f=$("#f-os");if(!f.reportValid
 
  const botoes=[$("#b-enviar"),$("#b-salvar-os"),$("#b-nova-os")];botoes.forEach(b=>b.disabled=true);
 
- try{const j=await enviar("/api/os",fd,processar?$("#prog-up"):null,processar?$("#prog-up-tx"):null);f.elements.caso_id.value=j.caso;
+ try{const j=await processarPDFComAviso(cons=>{if(cons)fd.set("consentimento_externo",JSON.stringify(cons));return enviar("/api/os",fd,processar?$("#prog-up"):null,processar?$("#prog-up-tx"):null)});
+  if(j.recusado){$("#msg-up").textContent=j.mensagem;return}
+  f.elements.caso_id.value=j.caso;
 
   $("#msg-up").innerHTML=`Dados ${j.criado?"salvos":"atualizados"} · <b>${esc(j.caso)}</b>${processar?" · "+j.recebidos.length+" arquivo(s) na fila":". Os arquivos selecionados serão enviados quando clicar em Processar PDF."}${j.ignorados.length?" · ignorados: "+esc(j.ignorados.join("; ")):""}`;
 
-  if(processar){arquivos=[];autoOS={};listaArqs();$("#dados-os-auto").textContent="Processamento iniciado. Confira os campos preenchidos e pendentes na ficha do caso.";atualizarFila().catch(x=>toast(x.message))}
+  if(processar){arquivos=[];autoOS={};listaArqs();$("#dados-os-auto").textContent="Processamento iniciado. Confira os campos preenchidos e pendentes na ficha do caso."+(j.limitacao?" "+j.limitacao:"");atualizarFila().catch(x=>toast(x.message))}
 
  }catch(x){$("#msg-up").textContent=x.message}finally{botoes.forEach(b=>b.disabled=false)}}
 
@@ -917,9 +1005,14 @@ async function atualizarFila(){const j=await api("/api/fila");$("#ocr-lang").tex
 
 // ---------------- casos
 
+function compararNumeroOS(a,b){
+ const numero=c=>{const m=String(c.ordem_servico||c.id||"").match(/\d+/);return m?Number(m[0]):Infinity};
+ return numero(a)-numero(b)||String(a.ordem_servico||a.id||"").localeCompare(String(b.ordem_servico||b.id||""),"pt-BR",{numeric:true});
+}
 let tq;$("#q-casos").oninput=()=>{clearTimeout(tq);tq=setTimeout(carregarCasos,250)};$("#st-casos").onchange=carregarCasos;$("#pz-casos").onchange=carregarCasos;$("#meus-casos").onchange=carregarCasos;
 
 async function carregarCasos(){const cs=await api(`/api/casos?q=${enc($("#q-casos").value)}&status=${$("#st-casos").value}&prazo=${$("#pz-casos").value}&meus=${$("#meus-casos").checked?1:""}`);
+ cs.sort(compararNumeroOS);
 
  $("#casos-vazio").hidden=!!cs.length;$("#t-casos").innerHTML=cs.map(c=>`<tr data-id="${esc(c.id)}"><td><b>${esc(c.ordem_servico||c.id)}</b>${!c.visto&&pode("trabalho")?' <span class="badge b-wait"><i aria-hidden="true"></i>nova</span>':""}${c.prioridade&&c.prioridade!=="normal"?` <span class="badge pz-hoje">${esc(c.prioridade)}</span>`:""}</td>
 
@@ -930,6 +1023,93 @@ async function carregarCasos(){const cs=await api(`/api/casos?q=${enc($("#q-caso
  $$("#t-casos tr").forEach(tr=>tr.onclick=()=>abrirCaso(tr.dataset.id,true))}
 
 let casoAberto=null;
+let origemVisualizador=null;
+function fecharVisualizadorRelatorio(){
+ $("#visualizador-relatorio").hidden=true;$("#vis-frame").removeAttribute("src");$("#vis-frame").removeAttribute("sandbox");
+ if(origemVisualizador&&origemVisualizador.isConnected)origemVisualizador.focus();origemVisualizador=null;
+}
+function visualizarRelatorio(id,arquivo,origem){
+ const caminho="03-relatorios/"+arquivo,rel=caminho.split("/").map(enc).join("/"),docx=/\.docx$/i.test(arquivo),frame=$("#vis-frame");
+ origemVisualizador=origem;$("#vis-titulo").textContent=arquivo;$("#vis-aviso").hidden=false;
+ $("#vis-aviso").textContent=docx?"Prévia de texto e tabelas do DOCX. Para a formatação completa, abra o original no Word.":"Se o navegador não exibir o PDF, clique em Abrir original.";
+ $("#vis-original").href=`/arquivo/${enc(id)}/${rel}`;
+ if(docx)frame.setAttribute("sandbox","allow-same-origin");else frame.removeAttribute("sandbox");
+ frame.src=`/${docx?"visualizar":"arquivo"}/${enc(id)}/${rel}`;$("#visualizador-relatorio").hidden=false;$("#vis-fechar").focus();
+}
+$("#vis-fechar").onclick=fecharVisualizadorRelatorio;
+$("#visualizador-relatorio").onclick=e=>{if(e.target===$("#visualizador-relatorio"))fecharVisualizadorRelatorio()};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#visualizador-relatorio").hidden)fecharVisualizadorRelatorio()});
+
+let pendenciasItens = [];
+async function carregarPendencias(){
+  if(!pode("trabalho"))return;
+  const p = await api("/api/pendencias-ocr");
+  pendenciasItens = p.pendentes || [];
+  renderPendencias();
+}
+
+function atualizarBotaoPendencias() {
+  const chks = $$(".pend-chk");
+  const numMarcados = Array.from(chks).filter(c => c.checked).length;
+  $("#b-processar-pendentes").disabled = numMarcados === 0;
+  $("#pend-chk-todos").checked = chks.length > 0 && numMarcados === chks.length;
+}
+
+function renderPendencias(){
+  const t = $("#t-pendencias");
+  if(!pendenciasItens.length){
+    t.innerHTML = "";
+    $("#pendencias-vazio").hidden = false;
+    $("#b-processar-pendentes").disabled = true;
+    $("#pend-chk-todos").disabled = true;
+    return;
+  }
+  $("#pendencias-vazio").hidden = true;
+  $("#pend-chk-todos").disabled = false;
+  
+  t.innerHTML = pendenciasItens.map((i, idx) => `
+    <tr>
+      <td><input type="checkbox" class="pend-chk" data-idx="${idx}" checked></td>
+      <td><b>${esc(i.os)}</b></td>
+      <td>${esc(i.arquivo)}</td>
+      <td>${i.status?badge(i.status):(i.erro?badge("erro"):esc("-"))}${i.erro?` <span style="color:var(--crit)">${esc(i.erro)}</span>`:""}</td>
+    </tr>
+  `).join("");
+  
+  $$(".pend-chk").forEach(c => c.onchange = atualizarBotaoPendencias);
+  atualizarBotaoPendencias();
+}
+
+$("#pend-chk-todos").onchange = e => {
+  $$(".pend-chk").forEach(c => c.checked = e.target.checked);
+  atualizarBotaoPendencias();
+};
+
+$("#b-processar-pendentes").onclick = async () => {
+  const selecionados = [];
+  $$(".pend-chk").forEach(c => {
+    if(c.checked) selecionados.push(pendenciasItens[parseInt(c.dataset.idx)]);
+  });
+  if(!selecionados.length) return;
+  
+  $("#b-processar-pendentes").disabled = true;
+  $("#b-processar-pendentes").textContent = "Processando...";
+  
+  try {
+    const r = await api("/api/pendencias-ocr/processar", { method: "POST", json: selecionados });
+    let enfileirados = 0;
+    r.resultados.forEach(res => {
+      if(res.status === "enfileirado") enfileirados++;
+    });
+    toast(`${enfileirados} arquivo(s) enviado(s) para a fila`);
+    await carregarPendencias();
+  } catch(e) {
+    toast("Erro ao processar: " + (e.message || "Erro desconhecido"));
+  } finally {
+    $("#b-processar-pendentes").textContent = "Processar OS em Lote";
+    atualizarBotaoPendencias();
+  }
+};
 
 const NOMES_OS={ordem_servico:"O.S.",bo:"BO",inquerito:"IP",processo:"Processo",natureza:"Natureza",requisitante:"Delegado requisitante",escrivao:"Escrivão do feito",prazo:"Prazo",determinacao:"Determinação"};
 
@@ -959,9 +1139,9 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
 
  const link=a=>`/arquivo/${enc(id)}/${a.split("/").map(enc).join("/")}`;
 
- const rels=j.relatorios.map(f=>{const a="03-relatorios/"+f.arquivo,dx=f.arquivo.endsWith(".docx");return `<tr><td><a class="lk" href="${link(a)}" target="_blank">${esc(f.arquivo)}</a></td><td>${esc(f.tipo)}</td><td class="muted">${esc(f.modificado.replace("T"," "))}</td>
+ const rels=j.relatorios.map(f=>{const a="03-relatorios/"+f.arquivo,dx=/\.docx$/i.test(f.arquivo),visual=dx||/\.pdf$/i.test(f.arquivo);return `<tr><td><a class="lk" href="${link(a)}" target="_blank">${esc(f.arquivo)}</a></td><td>${esc(f.tipo)}</td><td class="muted">${esc(f.modificado.replace("T"," "))}</td>
 
-  <td>${T&&f.tipo==="minuta"?`<button class="btn sm" data-edit="${esc(f.arquivo)}">editar</button> <button class="btn sm" data-gdocx="${esc(f.arquivo)}">gerar DOCX</button>`:""}${T&&dx?`<button class="btn sm" data-pdf="${esc(f.arquivo)}">PDF</button> ${j.local!==false?`<button class="btn sm" data-word="${esc(a)}">abrir no Word</button>`:""} ${f.tipo!=="final"?`<button class="btn sm" data-final="${esc(f.arquivo)}">definir FINAL</button>`:""} <button class="btn sm" data-calibrar="${esc(f.arquivo)}" title="Calibrar estilo com este relatório">calibrar estilo</button>`:""}</td></tr>`}).join("");
+  <td>${visual?`<button class="btn sm" data-visualizar="${esc(f.arquivo)}" title="Visualizar relatório no sistema">Visualizar</button> `:""}${T&&f.tipo==="minuta"?`<button class="btn sm" data-edit="${esc(f.arquivo)}">editar</button> <button class="btn sm" data-gdocx="${esc(f.arquivo)}">gerar DOCX</button>`:""}${T&&dx?`<button class="btn sm" data-pdf="${esc(f.arquivo)}">PDF</button> ${j.local!==false?`<button class="btn sm" data-word="${esc(a)}">abrir no Word</button>`:""} ${f.tipo!=="final"?`<button class="btn sm" data-final="${esc(f.arquivo)}">definir FINAL</button>`:""} <button class="btn sm" data-calibrar="${esc(f.arquivo)}" title="Calibrar estilo com este relatório">calibrar estilo</button>`:""}</td></tr>`}).join("");
 
  const baixa=c.status==="entregue"?`<div>${badge("concluido")} Baixa em <b>${dt((c.datas||{}).entregue)}</b> · origem: ${esc((c.baixa||{}).origem||"—")} ${T?'<button class="btn sm" id="b-desfazer">Desfazer baixa</button>':""}</div>`
 
@@ -971,10 +1151,11 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
 
  <div class="acoes" style="margin:0">${T?'<button class="btn sm" id="b-pasta">Abrir pasta</button><button class="btn sm" id="b-caso-ver-fluxo">Ver Fluxograma</button><a class="btn sm" id="b-caso-fluxo-csv" href="/api/casos/'+enc(id)+'/fluxo-csv" target="_blank">Planilha (CSV)</a><button class="btn sm" id="b-cruzar">Cruzar com outros casos</button>':""}${podeGestao?'<button class="btn sm pri" id="b-salvar">Salvar</button>':""}</div></div>
 
- <div class="acoes" style="margin:10px 0 0"><button class="btn sm" data-ir="nv-ficha">Ficha</button>${T?'<button class="btn sm" data-ir="nv-ia">IA</button><button class="btn sm" data-ir="nv-cal">Calibração</button>':""}</div>
+ <div class="acoes" style="margin:10px 0 0"><button class="btn sm" data-ir="nv-ficha">Ficha</button><button class="btn sm" data-ir="nv-relatorios">Relatórios</button>${T&&j.local!==false?'<button class="btn sm" id="b-pasta-relatorios" title="Abrir pasta dos relatórios de investigação">📁 Relatórios</button>':""}${T?'<button class="btn sm" data-ir="nv-ia">IA</button><button class="btn sm" data-ir="nv-cal">Calibração</button>':""}</div>
  <div class="campos" id="nv-ficha" style="margin-top:12px">${dados}</div>${c.preenchimento_os?`<div class="muted">Preenchimento automático: ${esc(ESTADO_IA_OS[c.preenchimento_os.ia]||"aguardando processamento")}. Pendentes: ${esc((c.preenchimento_os.pendentes||[]).map(k=>NOMES_OS[k]||k).join(", ")||"nenhum")}. ${Object.keys(c.preenchimento_os.conflitos||{}).length?"Dados divergentes: "+esc(Object.keys(c.preenchimento_os.conflitos).map(k=>NOMES_OS[k]||k).join(", "))+". Confira no IP antes de preencher.":""}<details><summary>Fontes dos dados preenchidos</summary>${Object.entries(c.preenchimento_os.fontes||{}).map(([k,d])=>`<p>${esc(NOMES_OS[k]||k)}: ${esc(d.documento)}, pág. ${d.pagina} — ${esc(d.trecho)} (${esc(d.metodo)})</p>`).join("")}</details></div>`:""}<label>Determinação da autoridade</label><textarea data-k="determinacao" rows="2" ${podeGestao?"":"disabled"}>${esc(c.determinacao||"")}</textarea>
 
  ${T?`<div class="card" id="nv-ia" style="margin-top:14px;background:var(--page)"><h4>Inteligência artificial</h4><div class="acoes" style="margin:0 0 8px">
+  <button class="btn" id="b-transcricao-visual">Transcrever páginas a conferir</button>
 
   <button class="btn pri" data-ia="esteira" style="background:#1b5e20;border-color:#1b5e20;color:#fff;font-weight:600" title="Executa a esteira completa: OCR, RAG, analistas, redação, revisão e DOCX">⚡ Esteira Completa 1-Clique</button><button class="btn" data-ia="analisar">Analisar IP</button><button class="btn pri" data-ia="relatorio">Gerar relatório</button><button class="btn" data-ia="completo">Análise + relatório</button><button class="btn" data-ia="revisar">Revisar relatório</button><button class="btn" id="b-ia-ver-fluxo">Ver Fluxograma</button><a class="btn" href="/api/casos/${enc(id)}/fluxo-csv" target="_blank">Planilha de Rastreio (CSV)</a></div>
 
@@ -990,13 +1171,13 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
 
  <div class="g2" style="margin-top:14px"><div>
 
-  <h4>Relatórios</h4>${rels?`<table><tbody>${rels}</tbody></table>`:'<div class="muted">Nenhum relatório ainda.</div>'}${T?'<div class="acoes"><button class="btn sm" id="b-nova-minuta">Escrever/editar minuta</button></div>':""}
+  <h4 id="nv-relatorios">Relatórios</h4>${rels?`<table><tbody>${rels}</tbody></table>`:'<div class="muted">Nenhum relatório ainda.</div>'}${T?'<div class="acoes"><button class="btn sm" id="b-nova-minuta">Escrever/editar minuta</button></div>':""}
 
   <h4 style="margin-top:14px">Produção</h4>${baixa}
 
   <h4 style="margin-top:14px">Documentos</h4>${docs?`<table><thead><tr><th>Arquivo</th><th class="n">Págs.</th><th>Métodos</th></tr></thead><tbody>${docs}</tbody></table>`:'<div class="muted">—</div>'}
 
-  <h4 style="margin-top:14px">Processamento</h4>${proc||'<div class="muted">—</div>'}<div id="cruz"></div></div>
+  <h4 style="margin-top:14px">Processamento</h4>${T?'<label for="modo-reprocessar">Modo ao reprocessar</label><select id="modo-reprocessar"><option value="rapido">Rápido — somente local</option><option value="inteligente" selected>Inteligente — páginas a conferir</option><option value="ia_completa">IA Completa — todas as páginas</option></select>':""}${proc||'<div class="muted">—</div>'}<div id="cruz"></div></div>
 
  <div><h4>Arquivos</h4><div class="arqs">${j.arquivos.map(a=>`<div><a href="${link(a.caminho)}" target="_blank">${esc(a.caminho)}</a><span class="muted">${kb(a.tamanho)}</span></div>`).join("")||'<span class="muted">—</span>'}</div></div></div></div>`;
 
@@ -1025,18 +1206,21 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
  if($("#b-salvar"))$("#b-salvar").onclick=async()=>{const d={};$$("#detalhe [data-k]").forEach(e=>{if(!e.disabled)d[e.dataset.k]=e.value});try{await post("",d);toast("Salvo");carregarCasos()}catch(x){toast(x.message)}};
 
  if($("#b-pasta"))$("#b-pasta").onclick=()=>post("/abrir",{}).catch(x=>toast(x.message));
+ if($("#b-pasta-relatorios"))$("#b-pasta-relatorios").onclick=()=>post("/abrir",{sub:"03-relatorios"}).catch(x=>toast(x.message));
+ $$("#detalhe [data-visualizar]").forEach(b=>b.onclick=()=>visualizarRelatorio(id,b.dataset.visualizar,b));
 
  if($("#b-cruzar"))$("#b-cruzar").onclick=async()=>{const r=await api("/api/cruzar/"+enc(id));$("#cruz").innerHTML=`<h4 style="margin-top:14px">Conexões com outros casos</h4>`+(r.length?`<table><tbody>${r.map(x=>`<tr><td>${esc(x.tipo)}</td><td>${esc(x.valor)}</td><td>também em <b>${esc(x.outro_caso)}</b> (págs. ${esc(x.paginas)})</td></tr>`).join("")}</tbody></table><div class="muted">Indícios de vinculação a verificar nos originais.</div>`:'<div class="muted">Nenhuma conexão encontrada.</div>')};
 
- $$("#detalhe [data-rep]").forEach(b=>b.onclick=async()=>{await post(`/reprocessar/${enc(b.dataset.rep)}`);toast("Reenviado para a fila")});
+ $$("#detalhe [data-rep]").forEach(b=>b.onclick=async()=>{try{const modo=$("#modo-reprocessar").value;const r=await processarPDFComAviso(cons=>post(`/reprocessar/${enc(b.dataset.rep)}`,{modo,...(cons?{consentimento_externo:cons}:{})}));toast(r.recusado?r.mensagem:"Reenviado para a fila"+(r.limitacao?" · "+r.limitacao:""))}catch(x){toast(x.message)}});
 
  if($("#b-baixa"))$("#b-baixa").onclick=async()=>{try{await post("/baixa",{data:$("#d-baixa").value});toast("Baixa registrada");abrirCaso(id);carregarCasos()}catch(x){toast(x.message)}};
 
  if($("#b-desfazer"))$("#b-desfazer").onclick=async()=>{if(!confirm("Desfazer a baixa? O caso volta para 'minuta'."))return;await post("/baixa",{desfazer:true});abrirCaso(id);carregarCasos()};
 
+ if($("#b-transcricao-visual"))$("#b-transcricao-visual").onclick=async()=>{try{await enviarPedidoIA((u,d)=>post("/transcricao-visual",d),{})}catch(x){toast(x.message)}};
  $$("#detalhe [data-ia]").forEach(b=>b.onclick=async()=>{const acao=b.dataset.ia;if(!confirm(`Acionar o agente de IA: ${b.textContent}? Ele trabalha sozinho e pode levar vários minutos.`))return;
 
-  try{await post("/ia",{acao,observacoes:$("#ia-obs").value,agente:$("#ia-agente")?$("#ia-agente").value:""});toast("Pedido enviado ao plantão");atualizarIA()}catch(x){toast(x.message)}});
+  try{await enviarPedidoIA(post,{acao,observacoes:$("#ia-obs").value,agente:$("#ia-agente")?$("#ia-agente").value:""})}catch(x){toast(x.message)}});
 
  if($("#ia-agente"))carregarAgentes().then(g=>{if(!g||!$("#ia-agente"))return;
 
@@ -1093,6 +1277,32 @@ function mostrarModalFinalRessalva(id, docxNome, data){
 if($("#b-fecha-final-ressalva"))$("#b-fecha-final-ressalva").onclick=()=>{$("#modal-final-ressalva").hidden=true};
 if($("#b-canc-final-ressalva"))$("#b-canc-final-ressalva").onclick=()=>{$("#modal-final-ressalva").hidden=true};
 
+function pedirConsentimentoExterno(destinos){
+ const modal=$("#modal-consentimento"),aceitar=$("#b-cons-aceitar"),recusar=$("#b-cons-recusar");
+ if(!Array.isArray(destinos)||!destinos.length)return Promise.reject(new Error("Destinos externos não informados."));
+ if(!modal.hidden)return Promise.reject(new Error("Responda ao aviso de processamento externo já aberto."));
+ $("#cons-destinos").textContent=destinos.map(d=>d.startsWith("cli:")?d.slice(4)+" (CLI)":d).join(", ");
+ modal.hidden=false;
+ return new Promise(resolve=>{
+  const fechar=aceito=>{modal.hidden=true;aceitar.onclick=null;recusar.onclick=null;document.removeEventListener("keydown",tecla);resolve(aceito?{aceito:true,destinos:destinos.slice()}:{recusado:true})};
+  const tecla=e=>{if(e.key==="Escape"){e.preventDefault();fechar(false)}};
+  aceitar.onclick=()=>fechar(true);recusar.onclick=()=>fechar(false);
+  document.addEventListener("keydown",tecla);recusar.focus();
+ });
+}
+async function enviarPedidoIA(post,dados){
+ let r=await post("/ia",dados);
+ while(r.requer_consentimento){
+  const espera=pedirConsentimentoExterno(r.destinos);
+  if(r.paginas)$("#cons-destinos").textContent+=` · ${r.paginas} página(s) indicada(s); transcrições existentes serão preservadas.`;
+  const cons=await espera;
+  r=await post("/ia",{...dados,consentimento_externo:{...cons,escopo:r.escopo||"api_ia"}});
+  if(cons.recusado){toast(r.mensagem||"Envio recusado.");return r}
+ }
+ if(r.tarefa){toast("Pedido enviado ao plantão");atualizarIA()}
+ else throw new Error(r.erro||"O pedido não foi enfileirado.");
+ return r;
+}
 async function atualizarIA(){if(!casoAberto||!$("#ia-painel"))return;const ts=(await api("/api/tarefas")).filter(t=>t.tipo==="ia"&&t.caso===casoAberto).slice(0,3);
 
  $("#ia-painel").innerHTML=ts.map(t=>{const run=["executando","na_fila"].includes(t.status);return `<div class="job"><div class="l1"><span><b>${esc(t.titulo)}</b></span><span>${badge(t.status)} ${run?`<button class="btn sm dan" data-cancel="${t.id}">cancelar</button>`:""}</span></div>
@@ -1288,6 +1498,8 @@ let grDraggingNode=null, grHoveredNode=null, grSelectedNode=null;
 let grIsPanning=false, grStartPan={x:0,y:0}, grMouseDownPos={x:0,y:0};
 
 let grAnimId=null, grEnergy=1.0, grInitialized=false;
+let grCarga=0, grEstado="pronto", grErro="";
+let grAjustarAoEstabilizar=false;
 
 
 
@@ -1353,36 +1565,48 @@ function grResizeCanvas(){
 
 }
 
+function grAtualizarCasos(data, selecionado){
+  const sel=$("#gr-caso");if(!sel)return;
+  const ordens=Array.isArray(data.ordens_servico)?data.ordens_servico:
+    (data.casos||[]).map(id=>({id,ordem_servico:id}));
+  const lista=ordens.slice().sort(compararNumeroOS);
+  sel.innerHTML='<option value="">Todas as O.S. (conexões gerais)</option>'+lista.map(c=>{
+    const os=c.ordem_servico||c.id;
+    return `<option value="${esc(c.id)}">${esc(os===c.id?os:"O.S. "+os)}</option>`;
+  }).join("");
+  sel.value=lista.some(c=>c.id===selecionado)?selecionado:"";
+}
+
+function grAtualizarEstado(visNodes, conexoes){
+  const msg=$("#gr-mensagem"),status=$("#gr-status");let texto="";
+  if(grEstado==="carregando")texto="Carregando vínculos e lista de O.S.…";
+  else if(grEstado==="erro")texto="Não foi possível carregar o grafo: "+grErro+". Clique em Buscar para tentar novamente.";
+  else if(grDados.indice_disponivel===false)texto="O índice de vínculos ainda não está disponível. As O.S. cadastradas continuam disponíveis no seletor.";
+  else if(!grNodes.length){
+    const q=$("#gr-busca").value.trim(),caso=$("#gr-caso").value;
+    texto=q?"Nenhum vínculo encontrado para esta busca"+(caso?" nesta O.S.":"")+". Experimente outro nome ou identificador, ou limpe a busca.":
+      caso?"Esta O.S. ainda não possui vínculos disponíveis no índice. O cadastro da O.S. pode ser consultado na aba Casos.":
+      "Ainda não há vínculos disponíveis no índice. Selecione uma O.S. ou consulte o cadastro na aba Casos.";
+  }else if(!visNodes.length)texto="Todos os nós estão ocultos pelos filtros. Marque um dos tipos acima para exibir o grafo.";
+  if(msg){msg.textContent=texto;msg.hidden=!texto}
+  if(status)status.textContent=grEstado==="carregando"?"Carregando…":grEstado==="erro"?"Falha no carregamento":`${visNodes.length} nós visíveis · ${conexoes} conexões`;
+}
+
 async function carregarGrafo(){
-
   grInitEvents();
-
-  const caso=$("#gr-caso")?$("#gr-caso").value:"",q=$("#gr-busca")?$("#gr-busca").value.trim():"";
-
-  $("#gr-status").textContent="Carregando rede relacional…";
-
+  const carga=++grCarga,caso=$("#gr-caso").value,q=$("#gr-busca").value.trim();
+  grEstado="carregando";grErro="";grAtualizarEstado([],0);
   try{
-
     const data=await api(`/api/grafo?caso=${enc(caso)}&q=${enc(q)}`);
-
-    grDados=data;
-
-    if($("#gr-caso")&&$("#gr-caso").options.length<=1&&data.casos&&data.casos.length){
-
-      const selVal=$("#gr-caso").value;
-
-      let h='<option value="">Todos os casos (conexões gerais)</option>';
-
-      for(const c of data.casos)h+=`<option value="${esc(c)}">${esc(c)}</option>`;
-
-      $("#gr-caso").innerHTML=h;$("#gr-caso").value=selVal;
-
-    }
-
-    grMontarGrafo();
-
-  }catch(x){$("#gr-status").textContent="Erro: "+x.message}
-
+    if(carga!==grCarga)return;
+    grDados=data;grAtualizarCasos(data,caso);grEstado="pronto";
+    grInspecionarNo(null);grHoveredNode=null;grDraggingNode=null;
+    grMontarGrafo();grDesenhar();
+  }catch(x){
+    if(carga!==grCarga)return;
+    grDados={nos:[],arestas:[]};grNodes=[];grEdges=[];grNodeMap.clear();
+    grEstado="erro";grErro=x.message;grInspecionarNo(null);grDesenhar();
+  }
 }
 
 function grMontarGrafo(){
@@ -1434,6 +1658,7 @@ function grMontarGrafo(){
   grResetView();
 
   grEnergy=1.0;
+  grAjustarAoEstabilizar=true;
 
   grStartLoop();
 
@@ -1487,7 +1712,7 @@ function grTickPhysics(){
 
     if(a!==grDraggingNode){a.vx+=fx;a.vy+=fy;}
 
-    if(b!==grDraggingNode){b.vx+=fx;b.vy+=fy;}
+    if(b!==grDraggingNode){b.vx-=fx;b.vy-=fy;}
 
   }
 
@@ -1595,7 +1820,7 @@ function grDesenhar(){
 
   ctx.restore();ctx.restore();
 
-  $("#gr-status").textContent=`${visNodes.length} nós visíveis · ${grEdges.length} conexões`;
+  grAtualizarEstado(visNodes,grEdges.filter(e=>visSet.has(e.source)&&visSet.has(e.target)).length);
 
 }
 
@@ -1613,7 +1838,7 @@ function grStartLoop(){
 
       grDesenhar();grAnimId=requestAnimationFrame(step);
 
-    }else{grDesenhar();grAnimId=null}
+    }else{if(grAjustarAoEstabilizar){grAjustarAoEstabilizar=false;grResetView()}else grDesenhar();grAnimId=null}
 
   }
 
@@ -1772,6 +1997,7 @@ function grInitEvents(){
   cv.addEventListener("wheel",e=>{
 
     e.preventDefault();
+    grAjustarAoEstabilizar=false;
 
     const rect=cv.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;
 
@@ -1786,6 +2012,7 @@ function grInitEvents(){
   },{passive:false});
 
   cv.addEventListener("mousedown",e=>{
+    grAjustarAoEstabilizar=false;
 
     const pt=grScreenToWorld(e.clientX,e.clientY);grMouseDownPos={x:e.clientX,y:e.clientY};
 
@@ -2055,21 +2282,42 @@ async function carregarConfigIA(){
   try{
     const c=await api("/api/sistema/ia-config");
     const sel=$("#cfgia-prov");
-    sel.innerHTML='<option value="">— selecione —</option>'+c.provedores_prontos.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join("");
-    modo.value=c.modo_padrao; sel.value=c.provedor_api||""; $("#cfgia-prompt").value=c.prompt_sistema||"";
+    sel.innerHTML='<option value="auto">Automático: Claude → GPT → Gemini → demais</option>'+c.provedores_prontos.map(p=>`<option value="${esc(p)}">Começar por ${esc(p)}</option>`).join("");
+    modo.value=c.modo_padrao; sel.value=c.provedor_api||"auto"; $("#cfgia-prompt").value=c.prompt_sistema||"";
     if(!c.provedores_prontos.length) $("#msg-cfgia").textContent="Nenhum provedor pronto: ative e salve chave e modelo no cartão de chaves.";
   }catch(x){}
 }
 if($("#b-cfgia"))$("#b-cfgia").onclick=async()=>{
   const modo=$("#cfgia-modo").value, prov=$("#cfgia-prov").value, msg=$("#msg-cfgia");
-  if(modo==="api"&&!prov){msg.textContent="Escolha o provedor da API.";return}
-  if(modo==="api"&&!confirm("Na via API o conteúdo dos autos extraídos será enviado ao provedor "+prov+". Confirma que isso é compatível com o sigilo do caso?"))return;
+  if(modo==="api"&&!confirm("Na via API o conteúdo dos autos extraídos será enviado aos provedores ativos, na ordem escolhida, até uma chamada funcionar. Confirma que isso é compatível com o sigilo do caso?"))return;
   msg.textContent="salvando…";
   try{await api("/api/sistema/ia-config",{json:{modo_padrao:modo,provedor_api:prov,prompt_sistema:$("#cfgia-prompt").value}});msg.textContent="Salvo!";toast("Configurações salvas");setTimeout(()=>msg.textContent="",3000)}
   catch(x){msg.textContent="Erro: "+x.message}
 };
 
 // ---------------- chaves LLM
+
+async function atualizarModelosLLM(prov){
+  const mo=$(`#llm-${prov}-modelo`), ch=$(`#llm-${prov}-chave`), lista=$(`#modelos-${prov}`), msg=$(`#msg-modelos-${prov}`);
+  if(!mo||!lista||!msg)return;
+  msg.textContent=prov==="copilot"?"Consultando lista documental…":"Consultando catálogo do provedor, sem enviar autos…";
+  const body={provedor:prov};
+  if(ch&&ch.value.trim())body.chave=ch.value.trim();
+  try{
+    const r=await api("/api/sistema/llm/modelos",{json:body});
+    const modelos=Array.isArray(r.modelos)?r.modelos:[];
+    lista.replaceChildren();
+    for(const m of modelos){
+      const o=document.createElement("option");o.value=m.id;o.textContent=m.nome||m.id;lista.appendChild(o);
+    }
+    const disponivel=modelos.some(m=>m.id===r.modelo_equilibrado);
+    if(!mo.value.trim()&&!mo.dataset.manual&&r.dinamico&&disponivel){mo.value=r.modelo_equilibrado;mo.dataset.manual="1";}
+    if(!r.dinamico){msg.textContent=r.aviso||"Lista documental; confirme acesso na sua conta e escolha explicitamente.";}
+    else if(!modelos.length){msg.textContent="Catálogo textual vazio; escolha preservada. Você pode digitar o identificador manualmente.";}
+    else if(mo.value.trim()&&!modelos.some(m=>m.id===mo.value.trim())){msg.textContent="Escolha preservada; identificador não consta deste catálogo. Confira compatibilidade no provedor e clique em Salvar se desejar mantê-lo.";}
+    else{msg.textContent=`${modelos.length} modelos consultados. ${disponivel?"Sugestão equilibrada disponível. ":"Sem sugestão equilibrada confirmada; escolha ou digite o modelo. "}Confira e clique em Salvar.`;}
+  }catch(x){msg.textContent="Erro: "+x.message+" Escolha preservada.";}
+}
 
 async function carregarLLM(){
 
@@ -2081,7 +2329,7 @@ async function carregarLLM(){
 
       const ch=$(`#llm-${p}-chave`), mo=$(`#llm-${p}-modelo`), at=$(`#llm-${p}-ativo`);
 
-      if(mo&&cfg.modelo) mo.value=cfg.modelo;
+      if(mo&&cfg.modelo&&!mo.dataset.manual) mo.value=cfg.modelo;
 
       if(at) at.checked=!!cfg.ativo;
 
@@ -2120,6 +2368,7 @@ async function salvarLLM(prov){
   try{
 
     await api("/api/sistema/llm",{json:body});
+    if(mo)mo.dataset.manual="";
 
     if(msg){msg.textContent="Salvo!";setTimeout(()=>msg.textContent="",3000)}
 
@@ -2448,4 +2697,3 @@ async function grRemoverVinculo(aTipo,aVal,bTipo,bVal,rel){
 iniciar();
 
 </script></body></html>
-

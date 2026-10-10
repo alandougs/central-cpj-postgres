@@ -292,9 +292,13 @@ def rodar_central() -> tuple[int, float, str]:
                     encoding="utf-8", errors="replace", timeout=600,
                 )
                 detalhe = proc_teste.stdout + proc_teste.stderr
+                detalhe = f"=== Saída de teste_central.py (código {proc_teste.returncode}) ===\n{proc_teste.stdout}{proc_teste.stderr}\n"
                 if proc_teste.returncode:
                     log.flush()
                     detalhe += "\n--- log da Central ---\n" + log_path.read_text(encoding="utf-8", errors="replace")[-12000:]
+                    log_texto = log_path.read_text(encoding="utf-8", errors="replace")
+                    linhas_log = log_texto.splitlines()[-40:]
+                    detalhe += "\n=== Log da Central (últimas 40 linhas) ===\n" + "\n".join(linhas_log)
                 return proc_teste.returncode, time.monotonic() - inicio, detalhe
             finally:
                 proc.terminate()
@@ -347,7 +351,11 @@ def main() -> int:
     if detalhes_falha:
         print("\nFalhas:")
         for nome, detalhe in detalhes_falha:
-            print(f"\n--- {nome} ---\n{detalhe[-12000:]}")
+            if len(detalhe) > 12000:
+                detalhe_exibir = detalhe[:6000] + "\n... [truncado] ...\n" + detalhe[-6000:]
+            else:
+                detalhe_exibir = detalhe
+            print(f"\n--- {nome} ---\n{detalhe_exibir}")
     if pulados:
         print("\nTestes não executados (requisitos de ambiente):")
         for nome, motivo in pulados:

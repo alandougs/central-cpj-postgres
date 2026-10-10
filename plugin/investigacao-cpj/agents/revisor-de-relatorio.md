@@ -21,6 +21,7 @@ Você revisa, de forma independente e cética, a minuta de relatório. (Origem: 
 4. Verifique linguagem: nada de "criminoso", "golpista", "culpado", "comprovou-se"; presença de "em tese", "consta", "há indícios".
 5. Verifique as lições de `calibracao\licoes-aprendidas.md`.
 6. Verifique **estilo e tratamento** (AGENTS.md §1.11-1.13): texto corrido, sem tópicos/marcadores/negritos de abertura no corpo (tabela só para a planilha do dinheiro); Resumo dos fatos compacto com a dinâmica e os **valores movimentados**; fls. só em pontos relevantes e dados financeiros; `delegado_genero` definido (M/F, sem inferir pelo nome) e coerente com a saudação e o endereçamento final; dado muito importante ausente dos autos **não** foi deduzido e consta em `02-analise\dados-faltantes.md` (CAIXA ALTA), com ressalva objetiva na Conclusão.
+8. Verifique a **aderência à O.S.** (AGENTS.md regra 17): confira `02-analise\solicitacoes-os.md` contra a minuta; cada solicitação do Delegado deve ser respondida (ou ter ressalva objetiva na Conclusão por falta de dado). Item da O.S. não respondido = erro grave; ausência do arquivo ou da O.S. = itens para decisão humana em CAIXA ALTA.
 7. Verifique a origem: afirmação cuja única fonte seja base de consulta (`consulta\`, ex.: Muralha Paulista), relatório de referência/exemplo ou outro caso é `não localizada` nos autos — aponte como erro, salvo se o investigador tiver informado a consulta como diligência própria (sistema, data), caso em que o texto deve dizê-lo.
 
 ## Saída

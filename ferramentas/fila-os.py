@@ -28,6 +28,11 @@ _pasta_interna = RAIZ / "ordens-de-servico"
 PASTA_OS = Path(os.environ.get("CPJ_PASTA_OS", _pasta_interna if _pasta_interna.is_dir() else r"E:\ORDENS DE SERVIÇO CPJ"))
 # Workspaces onde agentes criam casos (o paralelo em E: existe por uso histórico).
 WORKSPACES = [RAIZ] + [Path(p) for p in (r"E:\CPJ - TRABALHO",) if Path(p).resolve() != RAIZ.resolve() and Path(p).is_dir()]
+_ws_env = os.environ.get("CPJ_WORKSPACES")
+if _ws_env:
+    WORKSPACES = [Path(p) for p in _ws_env.split(";") if p.strip()]
+else:
+    WORKSPACES = [RAIZ] + [Path(p) for p in (r"E:\CPJ - TRABALHO",) if Path(p).resolve() != RAIZ.resolve() and Path(p).is_dir()]
 VALIDADE_H = 4
 REGISTRO = "_CONTROLE-OS.json"
 QUADRO = "_CONTROLE-OS.md"
@@ -39,11 +44,37 @@ def agora():
     return datetime.datetime.now().replace(microsecond=0)
 
 
+def numeros_os(nome):
+    """Extrai todos os números de O.S. e anos presentes no nome da pasta.
+    Suporta separadores usuais (-, ., /, _) e múltiplas O.S. (ex.: 'OS 9999_99 e OS 9998_99 IP 8888_99 PESSOA FICTICIA').
+    Desconsidera números explicitamente rotulados como IP, Processo ou BO."""
+    achados = []
+    # Remove menções a IP, Processo ou BO para não confundi-los com número de O.S.
+    texto = re.sub(r"\b(?:IP|BO|PROC|PROCESSO|INQU[ÉE]RITO)\s*n?[º°o.]*\s*\d{1,7}\s*[-./_]\s*\d{2,4}\b", " ", nome, flags=re.I)
+
+    # 1. Tenta identificar O.S. explicitamente identificadas com prefixo OS/O.S.
+    for m in re.finditer(r"\b(?:OS|O\.S\.|ORDEM(?:\s+DE\s+SERVI[ÇC]O)?)\s*n?[º°o.]*\s*(\d{3,5})\s*[-./_]\s*(\d{2,4})\b", texto, re.I):
+        ano = m.group(2)
+        achados.append((m.group(1).lstrip("0") or "0", "20" + ano if len(ano) == 2 else ano))
+
+    # 2. Se não houver prefixo OS explícito, busca o padrão geral número/ano
+    if not achados:
+        for m in re.finditer(r"\b(\d{3,5})\s*[-./_]\s*(\d{2,4})\b", texto):
+            ano = m.group(2)
+            achados.append((m.group(1).lstrip("0") or "0", "20" + ano if len(ano) == 2 else ano))
+
+    vistos = set()
+    unicos = []
+    for par in achados:
+        if par not in vistos:
+            vistos.add(par)
+            unicos.append(par)
+    return unicos
+
+
 def numero_os(nome):
-    m = re.search(r"(\d{3,5})\s*[-./]\s*(\d{2,4})", nome)
-    if not m: return None
-    ano = m.group(2)
-    return m.group(1), ("20" + ano if len(ano) == 2 else ano)
+    achados = numeros_os(nome)
+    return achados[0] if achados else None
 
 
 def relatorios_na_pasta(pasta):
@@ -72,14 +103,21 @@ def inventario():
     itens = {}
     if not PASTA_OS.is_dir(): raise SystemExit(f"Pasta das O.S. não encontrada: {PASTA_OS} (defina CPJ_PASTA_OS)")
     for pasta in sorted(p for p in PASTA_OS.iterdir() if p.is_dir() and not p.name.startswith(".")):
-        chave = numero_os(pasta.name)
-        if not chave: continue
-        num, ano = chave
-        item = itens.setdefault(num, {"os": num, "ano": ano, "pastas": [], "pdfs": [], "relatorios": []})
-        item["pastas"].append(str(pasta))
-        item["pdfs"] += [str(p) for p in pasta.iterdir() if p.suffix.lower() == ".pdf" and "ocred" not in p.name.lower()
-                         and not re.search(r"relat", p.name, re.I)]
-        item["relatorios"] += [str(p) for p in relatorios_na_pasta(pasta)]
+        chaves = numeros_os(pasta.name)
+        if not chaves: continue
+        pdfs_pasta = [str(p) for p in pasta.iterdir() if p.suffix.lower() == ".pdf" and "ocred" not in p.name.lower()
+                      and not re.search(r"relat", p.name, re.I)]
+        rels_pasta = [str(p) for p in relatorios_na_pasta(pasta)]
+        for num, ano in chaves:
+            item = itens.setdefault(num, {"os": num, "ano": ano, "pastas": [], "pdfs": [], "relatorios": []})
+            if str(pasta) not in item["pastas"]:
+                item["pastas"].append(str(pasta))
+            for pdf in pdfs_pasta:
+                if pdf not in item["pdfs"]:
+                    item["pdfs"].append(pdf)
+            for rel in rels_pasta:
+                if rel not in item["relatorios"]:
+                    item["relatorios"].append(rel)
     for item in itens.values():
         item["casos"] = casos_do_numero(item["os"], item["ano"])
     return itens

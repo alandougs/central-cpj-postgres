@@ -1,0 +1,11 @@
+# CL05 — plugin final 0.3.1
+
+Após ENV02, ENV03, TS04 e AI03 concluídas e a integração HTTP final do integrador aprovada em 128,66 s, foi executada **uma única atualização oficial**: `ferramentas/atualizar-plugin.ps1`, usando a venv local válida e a CLI nativa 2.1.287. O comando elevou os dois manifestos de 0.3.0 para 0.3.1, atualizou staging e cache e regenerou onze procedimentos portáteis, com retorno zero.
+
+`claude plugin list --json` confirmou `investigacao-cpj@cpj-local`, versão **0.3.1**, `enabled: true`, `scope: user`, caminho `C:/Users/alan_/.claude/plugins/cache/cpj-local/investigacao-cpj/0.3.1`. O marketplace continua em `C:/Users/alan_/AppData/Local/CPJ/plugin`. Validação estrita do marketplace, pacote no staging e cache: zero erros e avisos. A CLI pede uma nova sessão para aplicar a atualização.
+
+Inventário conferido: **77 arquivos genéricos no staging e 76 no cache**, todos com SHA256 iguais às fontes atuais. Isso inclui os arquivos finais de AI03 (rotas/sistema.py e static/index.html), ENV03 (plantao.py) e TS04 (gerar_diagrama_financeiro.py). Sem testes, fixtures, casos, configuração local, originais, caches Python, chaves ou SQLite. Nenhum arquivo inesperado foi incluído.
+
+Onze portáteis e seu README existem e não estão vazios. Os doze adaptadores CPJ passaram em `configurar-codex.py --verificar`, sem alteração de skills. README principal atualizado para 0.3.1; verificação de whitespace passou. **Limitação encontrada e registrada em CL06:** o exportador trata `description: >-` como texto literal e gera `> >-` no bloco do analista documental, embora o corpo permaneça íntegro. O YAML do plugin está válido; a correção do exportador e nova geração dos portáteis são externas ao bundle e não exigem nova versão ou atualização CLI.
+
+Evidências e estado anterior: `C:/Users/alan_/AppData/Local/Temp/cpj-cl05-final-20261010`, com `atualizacao-oficial.log`, `plugin-antes.json`, `plugin-final.json`, `marketplace-final.json`, `inventario-sha256.json`, `portateis-sha256.json`, três validações estritas e pasta `antes`. Nenhuma credencial, OAuth, caso real, política de confiança, PRD ou Git remoto foi acessado ou alterado. Não houve inferência ou chamada de API de modelos. A atualização comprova o pacote instalado; não comprova uso em sessão de IA, boot real ou CI remota.

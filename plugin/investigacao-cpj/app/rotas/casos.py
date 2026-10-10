@@ -2,12 +2,15 @@
 """Rotas de O.S., casos, pendências, arquivos do caso e fila de processamento."""
 import csv
 import datetime
+import html
 import json
 import os
 import re
 import tempfile
 import time
-from flask import Blueprint, abort, jsonify, request, send_file
+import zipfile
+from flask import Blueprint, abort, jsonify, request, send_file, url_for
+from werkzeug.exceptions import HTTPException
 from rotas.comum import (
     C,
     D_OS,
@@ -27,6 +30,7 @@ from rotas.comum import (
     ler_proc,
     nome_seguro,
     pode_alterar_os,
+    preparar_modo,
     requer,
     resumo,
     sha256,
@@ -278,6 +282,29 @@ def api_os():
         except ValueError:
             return jsonify({"erro": "Identificador de cadastro inválido."}), 400
     id_ = id_informado or (C.id_de_os(os_num) if os_num else "RECEBIDO-" + os.urandom(12).hex())
+    modo = f.get("modo_processamento", "inteligente")
+    cons, limitacao = None, None
+    if not somente_cadastro and arquivos:
+        if C.existe(id_) and not pode_alterar_os(u, C.carregar(id_)):
+            return jsonify({"erro": "Só quem cadastrou a O.S. (ou o delegado) pode alterá-la."}), 403
+        try:
+            cons_cliente = json.loads(f["consentimento_externo"]) if "consentimento_externo" in f else None
+            with tempfile.TemporaryDirectory(prefix="cpj-previa-pdf-") as tmp:
+                pdfs = []
+                if modo != "rapido":
+                    for i, a in enumerate(arquivos):
+                        if os.path.splitext(a.filename)[1].lower() == ".pdf":
+                            p = os.path.join(tmp, f"p{i}.pdf"); a.save(p); a.stream.seek(0); pdfs.append(p)
+                cons, limitacao, aviso = preparar_modo(modo, u, pdfs, cons_cliente)
+            if aviso:
+                if aviso.get("recusado"):
+                    auditar("consentimento_recusado", f"{id_}: PDF {modo}")
+                    if C.existe(id_):
+                        from rotas.comum import registrar_tratamento
+                        registrar_tratamento(id_, [f"- Processamento {modo}: envio externo recusado em {datetime.datetime.now().isoformat(timespec='seconds')}; não iniciado."])
+                return jsonify(aviso)
+        except (ValueError, OSError, RuntimeError) as e:
+            return jsonify({"erro": str(e)}), 400
     criado = False
     extras = {
         "prazo": f.get("prazo") or None,
@@ -336,6 +363,7 @@ def api_os():
     orig_dir = os.path.join(C.caminho(id_), "00-originais")
     os.makedirs(orig_dir, exist_ok=True)
     recebidos, ignorados = [], []
+    grupo_ia = "pdf-" + os.urandom(12).hex() if cons else None
     for a in arquivos:
         base, ext = nome_seguro(a.filename)
         if ext not in EXT_OK:
@@ -360,10 +388,12 @@ def api_os():
             os.chmod(os.path.join(orig_dir, nome), 0o444)
         except Exception:
             pass
-        enfileirar(id_, os.path.splitext(nome)[0], nome)
+        enfileirar(id_, os.path.splitext(nome)[0], nome, modo=modo, usuario=u["login"], consentimento=cons,
+                   grupo_ia=grupo_ia, limitacao=limitacao)
         recebidos.append(nome)
     auditar("os_cadastrada" if criado else "os_atualizada", f"{id_}: {len(recebidos)} arquivo(s)")
-    return jsonify({"caso": id_, "criado": criado, "recebidos": recebidos, "ignorados": ignorados})
+    if cons: auditar("consentimento_aceito", f"{id_}: PDF {modo}; {cons['destinos']}")
+    return jsonify({"caso": id_, "criado": criado, "recebidos": recebidos, "ignorados": ignorados, "modo": modo, "limitacao": limitacao})
 
 
 @bp_casos.post("/api/casos/<id_>/reprocessar/<doc>")
@@ -372,9 +402,26 @@ def api_reprocessar(id_, doc):
     t = next((t for t in ler_proc(id_).get("trabalhos", []) if t["doc"] == doc), None)
     if not t:
         abort(404)
-    enfileirar(id_, doc, t["arquivo"])
+    d = request.get_json(silent=True) or {}
+    if not isinstance(d, dict): return jsonify({"erro": "Pedido inválido."}), 400
+    modo = d.get("modo", "inteligente")
+    try:
+        arq = t["arquivo"]
+        if os.path.basename(arq) != arq: raise ValueError("Arquivo inválido.")
+        original = os.path.join(C.caminho(id_), "00-originais", arq)
+        cons, limitacao, aviso = preparar_modo(modo, request.usuario, [original] if arq.lower().endswith(".pdf") else [], d.get("consentimento_externo"))
+    except (ValueError, OSError, RuntimeError) as e: return jsonify({"erro": str(e)}), 400
+    if aviso:
+        if aviso.get("recusado"):
+            auditar("consentimento_recusado", f"{id_}/{doc}: {modo}")
+            from rotas.comum import registrar_tratamento
+            registrar_tratamento(id_, [f"- Reprocessamento {modo}: envio externo recusado; não iniciado."])
+        return jsonify(aviso)
+    enfileirar(id_, doc, arq, modo=modo, usuario=request.usuario["login"], consentimento=cons,
+               grupo_ia="pdf-" + os.urandom(12).hex() if cons else None, limitacao=limitacao)
+    if cons: auditar("consentimento_aceito", f"{id_}/{doc}: {modo}; {cons['destinos']}")
     auditar("reprocessar", f"{id_}/{doc}")
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "modo": modo, "limitacao": limitacao})
 
 
 @bp_casos.post("/api/casos/<id_>/baixa")
@@ -403,32 +450,152 @@ def api_abrir(id_):
     if not eh_local():
         return jsonify({"erro": "Disponível apenas no computador da Central."}), 403
     sub = (request.get_json(silent=True) or {}).get("sub", "")
-    alvo = os.path.normpath(os.path.join(C.caminho(id_), sub))
-    if not alvo.startswith(os.path.normpath(C.caminho(id_))) or not os.path.exists(alvo):
+    alvo = _caminho_do_caso(id_, sub)
+    if not os.path.exists(alvo):
         abort(404)
     if hasattr(os, "startfile"):
         os.startfile(alvo)
     return jsonify({"ok": True})
 
 
-@bp_casos.get("/arquivo/<id_>/<path:rel>")
-@requer("casos")
-def api_arquivo(id_, rel):
-    base = os.path.normpath(C.caminho(id_))
-    alvo = os.path.normpath(os.path.join(base, rel))
-    if not alvo.startswith(base + os.sep) or not os.path.isfile(alvo):
+def _caminho_do_caso(id_, rel):
+    try:
+        if not isinstance(rel, str) or "\x00" in rel or os.path.isabs(rel) or os.path.splitdrive(rel)[0]:
+            abort(404)
+        base = os.path.realpath(C.caminho(id_))
+        casos = os.path.realpath(C.CASOS)
+        if base == casos or os.path.normcase(os.path.commonpath((casos, base))) != os.path.normcase(casos):
+            abort(404)
+        alvo = os.path.realpath(os.path.join(base, rel))
+        if os.path.normcase(os.path.commonpath((base, alvo))) != os.path.normcase(base):
+            abort(404)
+    except (OSError, ValueError):
         abort(404)
+    return alvo
+
+
+def _autorizar_arquivo(rel):
     u = request.usuario
     if not auth.pode(u["perfil"], "trabalho"):
         r = rel.replace("\\", "/")
         final = r.startswith("03-relatorios/") and "final" in r.lower()
         if not (final or r.startswith("00-originais/")):
             abort(403)
+
+
+@bp_casos.get("/arquivo/<id_>/<path:rel>")
+@requer("casos")
+def api_arquivo(id_, rel):
+    alvo = _caminho_do_caso(id_, rel)
+    if not os.path.isfile(alvo):
+        abort(404)
+    _autorizar_arquivo(os.path.relpath(alvo, os.path.realpath(C.caminho(id_))))
     auditar("download", f"{id_}/{rel}")
     ext = os.path.splitext(alvo)[1].lower()
     if ext in (".md", ".csv", ".json", ".log", ".txt", ".jsonl"):
         return send_file(alvo, mimetype="text/plain; charset=utf-8")
     return send_file(alvo, as_attachment=ext in (".docx", ".xlsx"))
+
+
+PREVIA_DOCX_BYTES = 20 * 1024 * 1024
+PREVIA_DOCX_EXPANDIDO = 64 * 1024 * 1024
+PREVIA_DOCX_XML = 4 * 1024 * 1024
+PREVIA_DOCX_HTML = 1024 * 1024
+
+
+def _previa_docx(alvo):
+    from docx import Document
+    from docx.oxml.ns import qn
+    from docx.table import Table, _Cell
+    from docx.text.paragraph import Paragraph
+    from docx.text.run import Run
+
+    if os.path.getsize(alvo) > PREVIA_DOCX_BYTES:
+        abort(413, description="DOCX acima de 20 MB. Abra o arquivo original.")
+    try:
+        with zipfile.ZipFile(alvo) as pacote:
+            partes = pacote.infolist()
+            if (len(partes) > 2048 or sum(p.file_size for p in partes) > PREVIA_DOCX_EXPANDIDO
+                    or any(p.file_size > 1024 * 1024 and p.file_size > 200 * max(p.compress_size, 1) for p in partes)
+                    or pacote.getinfo("word/document.xml").file_size > PREVIA_DOCX_XML):
+                abort(413, description="DOCX extenso demais para a prévia. Abra o arquivo original.")
+        doc = Document(alvo)
+    except HTTPException:
+        raise
+    except Exception:
+        abort(422, description="Não foi possível ler este DOCX. Abra o arquivo original.")
+    if len(doc.element.xpath(".//w:p|.//w:tc")) > 10000:
+        abort(413, description="DOCX extenso demais para a prévia. Abra o arquivo original.")
+
+    fragmentos = []
+    tamanho = 0
+
+    def adicionar(fragmento):
+        nonlocal tamanho
+        tamanho += len(fragmento)
+        if tamanho > PREVIA_DOCX_HTML:
+            abort(413, description="Texto extenso demais para a prévia. Abra o arquivo original.")
+        fragmentos.append(fragmento)
+
+    def blocos(elemento, pai, nivel=0):
+        if nivel > 10:
+            abort(413, description="Tabela complexa demais para a prévia. Abra o arquivo original.")
+        for bloco in elemento.iterchildren():
+            if bloco.tag == qn("w:p"):
+                paragrafo = Paragraph(bloco, pai)
+                adicionar("<p>")
+                for item in paragrafo._p.xpath("./w:r|./w:hyperlink/w:r"):
+                    trecho = Run(item, paragrafo)
+                    texto = html.escape(trecho.text).replace("\n", "<br>")
+                    if trecho.bold:
+                        texto = "<strong>" + texto + "</strong>"
+                    if trecho.italic:
+                        texto = "<em>" + texto + "</em>"
+                    adicionar(texto)
+                adicionar("</p>")
+            elif bloco.tag == qn("w:tbl"):
+                tabela = Table(bloco, pai)
+                adicionar("<table><tbody>")
+                for linha in tabela._tbl.tr_lst:
+                    adicionar("<tr>")
+                    for celula in linha.tc_lst:
+                        adicionar("<td>")
+                        blocos(celula, _Cell(celula, tabela), nivel + 1)
+                        adicionar("</td>")
+                    adicionar("</tr>")
+                adicionar("</tbody></table>")
+
+    blocos(doc.element.body, doc)
+    return "".join(fragmentos)
+
+
+@bp_casos.get("/visualizar/<id_>/<path:rel>")
+@requer("casos")
+def api_visualizar(id_, rel):
+    alvo = _caminho_do_caso(id_, rel)
+    relativo = os.path.relpath(alvo, os.path.realpath(C.caminho(id_))).replace("\\", "/")
+    if not relativo.startswith("03-relatorios/") or os.path.splitext(alvo)[1].lower() != ".docx" or not os.path.isfile(alvo):
+        abort(404)
+    _autorizar_arquivo(relativo)
+    conteudo = _previa_docx(alvo)
+    nome = html.escape(os.path.basename(alvo))
+    original = html.escape(url_for("casos.api_arquivo", id_=id_, rel=relativo), quote=True)
+    auditar("previa_relatorio", f"{id_}/{relativo}")
+    pagina = ("<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>"
+              "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+              f"<title>{nome}</title><style>"
+              "body{font:16px/1.6 system-ui,sans-serif;color:#202b3d;background:#f5f7fb;margin:0;padding:24px}"
+              "header,main{max-width:900px;margin:auto}h1{font-size:18px;overflow-wrap:anywhere}"
+              "header p{font-size:14px}main{background:white;padding:24px;box-sizing:border-box}"
+              "main p{white-space:pre-wrap;overflow-wrap:anywhere;min-height:1em}"
+              "table{border-collapse:collapse;width:100%;margin:16px 0;table-layout:fixed}"
+              "td{border:1px solid #ccd3df;padding:8px;vertical-align:top;overflow-wrap:anywhere}"
+              "a{color:#145cb7}</style></head><body>"
+              f"<header><h1>{nome}</h1><p>Prévia de texto e tabelas. "
+              "A formatação completa está no arquivo original.</p>"
+              f"<p><a href='{original}'>Baixar arquivo original</a></p></header><main>{conteudo}</main></body></html>")
+    return pagina, 200, {"Content-Type": "text/html; charset=utf-8",
+                         "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'self'; base-uri 'none'"}
 
 
 @bp_casos.get("/api/fila")
@@ -701,3 +868,96 @@ def api_calibrar_aprovar(id_):
         return jsonify({"erro": str(e)}), 400
     auditar("calibracao_aprovada", f"{len(novas)} lição(ões) gravada(s)")
     return jsonify({"ok": True, "gravadas": novas, "ja_existentes": existentes})
+
+
+@bp_casos.get("/api/pendencias-ocr")
+@requer("trabalho")
+def api_pendencias_ocr():
+    u = request.usuario
+    pendentes = []
+    for c in visiveis(u):
+        orig_dir = os.path.join(C.caminho(c["id"]), "00-originais")
+        if not os.path.isdir(orig_dir):
+            continue
+        
+        proc_info = ler_proc(c["id"])
+        trabalhos = proc_info.get("trabalhos", [])
+        
+        for arq in sorted(os.listdir(orig_dir)):
+            if not arq.lower().endswith((".pdf", ".md", ".csv")):
+                continue
+                
+            doc_nome = os.path.splitext(arq)[0]
+            
+            ext_dir = os.path.join(C.caminho(c["id"]), "01-extracao", doc_nome)
+            tem_md = os.path.isfile(os.path.join(ext_dir, "transcricao.md"))
+            tem_csv = arq.lower().endswith(".csv") and os.path.isfile(os.path.join(ext_dir, "tabelas", arq))
+            
+            if tem_md or tem_csv:
+                continue
+                
+            trab_atual = next((t for t in trabalhos if t.get("doc") == doc_nome and t.get("arquivo") == arq), None)
+            if trab_atual and trab_atual.get("status") in ("na_fila", "processando"):
+                continue
+                
+            pendentes.append({
+                "caso": c["id"],
+                "os": c.get("ordem_servico") or c["id"],
+                "arquivo": arq,
+                "doc": doc_nome,
+                "caminho_relativo": f"00-originais/{arq}",
+                "status": trab_atual.get("status") if trab_atual else None,
+                "erro": trab_atual.get("erro") if trab_atual else None
+            })
+            
+    return jsonify({"pendentes": pendentes})
+
+
+@bp_casos.post("/api/pendencias-ocr/processar")
+@requer("trabalho")
+def api_pendencias_ocr_processar():
+    itens = request.get_json(silent=True) or []
+    if not isinstance(itens, list):
+        return jsonify({"erro": "Espera lista de itens"}), 400
+        
+    u = request.usuario
+    vis = {c["id"]: c for c in visiveis(u)}
+    
+    resultados = []
+    
+    for item in itens:
+        id_ = item.get("caso")
+        arq = item.get("arquivo")
+        doc = item.get("doc")
+        
+        if not id_ or not arq or not doc:
+            resultados.append({"caso": id_, "arquivo": arq, "status": "erro", "motivo": "Dados incompletos"})
+            continue
+            
+        if id_ not in vis:
+            resultados.append({"caso": id_, "arquivo": arq, "status": "erro", "motivo": "Caso não visível ou não autorizado"})
+            continue
+            
+        orig_dir = os.path.join(C.caminho(id_), "00-originais")
+        base, ext = nome_seguro(arq)
+        nome_validado = base + ext
+        
+        if arq != nome_validado:
+            resultados.append({"caso": id_, "arquivo": arq, "status": "erro", "motivo": "Nome de arquivo inválido"})
+            continue
+            
+        alvo = os.path.join(orig_dir, arq)
+        if not os.path.isfile(alvo):
+            resultados.append({"caso": id_, "arquivo": arq, "status": "erro", "motivo": "Arquivo não encontrado"})
+            continue
+            
+        try:
+            enfileirar(id_, doc, arq)
+            resultados.append({"caso": id_, "arquivo": arq, "status": "enfileirado"})
+        except Exception as e:
+            resultados.append({"caso": id_, "arquivo": arq, "status": "erro", "motivo": str(e)})
+            
+    if resultados:
+        auditar("processar_lote", f"{len([r for r in resultados if r['status'] == 'enfileirado'])} enfileirados")
+        
+    return jsonify({"resultados": resultados})

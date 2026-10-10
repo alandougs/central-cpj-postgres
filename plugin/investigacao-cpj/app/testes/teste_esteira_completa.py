@@ -43,13 +43,14 @@ class TesteEsteiraCompleta(unittest.TestCase):
         os.environ["CPJ_WORKSPACE"] = self.tmp
         os.environ["CPJ_SEM_AGENTE_EMBUTIDO"] = "1"
         os.makedirs(os.path.join(self.tmp, "casos"), exist_ok=True)
+        # modelo DOCX institucional (sem dado de caso), exigido pelo gerar_docx
+        shutil.copytree(os.path.join(RAIZ, "modelos"), os.path.join(self.tmp, "modelos"))
         C.WS = self.tmp
         C.CASOS = os.path.join(self.tmp, "casos")
         C.MODELO = os.path.join(RAIZ, "casos", "_MODELO-CASO")
         self.auth = Auth(self.tmp)
         self.auth.salvar_usuario("investigador.teste", "Investigador Teste", "investigador", "SenhaForte123!")
         self.auth.salvar_usuario("delegado.teste", "Delegado Teste", "delegado", "SenhaForte123!")
-        shutil.copytree(os.path.join(RAIZ, "modelos"), os.path.join(self.tmp, "modelos"))
         self.pl = Plantao(self.tmp)
 
         # Configura cliente de teste do Flask e rotas compartilhadas
@@ -161,7 +162,11 @@ class TesteEsteiraCompleta(unittest.TestCase):
         # Cria uma minuta simples
         minuta_path = os.path.join(pasta_rel, "minuta-v01.md")
         with open(minuta_path, "w", encoding="utf-8") as f:
-            f.write("## RESUMO DOS FATOS\nFatos fictícios.\n## DILIGÊNCIAS REALIZADAS\nConferência fictícia.\n## CONCLUSÃO\nSem atribuição de autoria.\n")
+            # contrato do gerar_docx (RV09): as 3 seções obrigatórias precisam ter conteúdo
+            f.write("# RELATÓRIO DE INVESTIGAÇÃO\n\n"
+                    "## RESUMO DOS FATOS\n\nTexto fictício do resumo.\n\n"
+                    "## DILIGÊNCIAS REALIZADAS\n\nTexto fictício das diligências.\n\n"
+                    "## CONCLUSÃO\n\nTexto fictício da conclusão.\n")
 
         resultado = pos_processar(self.tmp, caso_id, "esteira")
         self.assertIn("minuta", resultado)

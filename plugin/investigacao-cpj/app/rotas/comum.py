@@ -351,6 +351,127 @@ def rodar(cmd, env, log, progresso=None):
         return "".join(saida)
 
 
+def modulo_visual():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("transcrever_visual_cpj", os.path.join(S_PDF, "transcrever_visual.py"))
+    m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+    return m
+
+
+def plano_transcricao_visual(id_, todas=False, documentos=None):
+    """Seleciona páginas pelo diagnóstico local, nunca por parâmetros do cliente."""
+    from pathlib import Path
+    raiz = Path(C.caminho(id_)).resolve()
+    extracao = raiz / "01-extracao"
+    m = modulo_visual()
+    plano = []
+    if not extracao.exists(): return plano
+    for pasta in sorted(extracao.iterdir()):
+        if not pasta.is_dir(): continue
+        if documentos is not None and pasta.name not in documentos: continue
+        if not pasta.resolve().is_relative_to(raiz): raise ValueError("Extração fora do caso.")
+        rel = m.ler_json(pasta, "relatorio_extracao.json")
+        if not rel: continue
+        arquivo = rel.get("arquivo", "")
+        if not isinstance(arquivo, str) or os.path.basename(arquivo) != arquivo or not arquivo.lower().endswith(".pdf"):
+            continue
+        original = (raiz / "00-originais" / arquivo).resolve()
+        if not original.is_relative_to(raiz / "00-originais"): raise ValueError("Original fora do caso.")
+        if not m.caminho(pasta, "qualidade.json").exists() and original.is_file():
+            rodar([PY, os.path.join(S_PDF, "qualidade.py"), str(pasta), "--pdf", str(original)], ambiente_ocr(), str(pasta / "qualidade.log"))
+        paginas = list(range(1, rel.get("paginas", 0) + 1)) if todas else m.paginas_pendentes(pasta)
+        if paginas: plano.append({"doc": pasta.name, "paginas": paginas, "arquivo": arquivo})
+    return plano
+
+
+def transcricao_visual(tid, id_, plano, consentimento):
+    from pathlib import Path
+    import executores_llm as EL
+    raiz = Path(C.caminho(id_)).resolve()
+    m = modulo_visual()
+    job = {"id": tid, "solicitante": consentimento["usuario"], "consentimento": consentimento,
+           "grupo": (tarefas.obter(tid) or {}).get("grupo_ia")}
+    destinos = EL.validar_consentimento(job, escopo="transcricao_visual")
+    class Uso:
+        def pedido(self, pedido):
+            t = tarefas.obter(pedido) or {}
+            return {"cancelar": t.get("status") == "cancelada"}
+        def registrar_uso_ia(self, pedido, limites, uso): tarefas.at(pedido, orcamento=limites, uso_ia=uso)
+    orcamento = EL.OrcamentoIA(WS, job, Uso())
+    total = sum(len(d["paginas"]) for d in plano)
+    feitas = 0
+    resultados = []
+    for d in plano:
+        pasta = (raiz / "01-extracao" / d["doc"]).resolve()
+        original = (raiz / "00-originais" / d["arquivo"]).resolve()
+        if not pasta.is_relative_to(raiz / "01-extracao") or not original.is_relative_to(raiz / "00-originais"):
+            raise ValueError("Documento fora do caso.")
+        meta = m.validar_replay(pasta, original, ambiente=ambiente_ocr())
+        assinatura = m.assinatura_checkpoints(pasta)
+        def progresso(i, n, pagina):
+            if Uso().pedido(tid)["cancelar"]: raise RuntimeError("Cancelado pela Central.")
+            tarefas.at(tid, etapa=f"transcrição visual · {d['doc']} · página {pagina}", progresso=int(80 * (feitas + i) / max(1, total)))
+        def executor(png):
+            return EL.rotear(WS, capacidades=["vision"], destinos_aceitos=destinos,
+                executor=lambda prov, cfg: EL.transcrever_png(WS, job, prov, cfg, png, orcamento))
+        if Uso().pedido(tid)["cancelar"]: return {"cancelada": True}
+        try: r = m.transcrever(pasta, executor, original, progresso, paginas=d["paginas"])
+        except RuntimeError:
+            if Uso().pedido(tid)["cancelar"]: return {"cancelada": True}
+            raise
+        if Uso().pedido(tid)["cancelar"]: return {"cancelada": True}
+        feitas += len(d["paginas"])
+        if m.assinatura_checkpoints(pasta) != assinatura:
+            raise RuntimeError("Checkpoint mudou durante a chamada visual; replay bloqueado. Retome após concluir o processamento local.")
+        m.validar_replay(pasta, original, ambiente=ambiente_ocr())
+        # O replay também incorpora arquivos de uma execução interrompida.
+        cmd = [PY, os.path.join(S_PDF, "extrair.py"), str(original), "--saida", str(pasta), "--sem-reaproveitar"]
+        for campo, flag in (("lang", "--lang"), ("dpi", "--dpi"), ("min_chars", "--min-chars"), ("conf_min", "--conf-min"), ("ocr", "--ocr"), ("texto_misto", "--texto-misto")):
+            if campo in meta: cmd += [flag, str(meta[campo])]
+        log = str(pasta / f"transcricao-visual-{tid}.log")
+        rodar(cmd, ambiente_ocr(), log)
+        for script, args in (("tabelas.py", [str(pasta / "transcricao.md"), "--saida", str(pasta / "tabelas")]),
+                             ("entidades.py", [str(pasta / "transcricao.md"), "--saida", str(pasta / "entidades.csv")]),
+                             ("dados_json.py", [str(pasta)]), ("qualidade.py", [str(pasta), "--pdf", str(original)])):
+            rodar([PY, os.path.join(S_PDF, script), *args], ambiente_ocr(), log)
+        C.importar_ip(id_, str(pasta / "relatorio_extracao.json"))
+        registrar_tratamento(id_, [f"- Transcrição visual por API: {d['doc']}, páginas {d['paginas']}; origem registrada em cada arquivo; CONFERIR. Originais preservados; replay dos checkpoints."])
+        resultados.append({"doc": d["doc"], **r})
+    tarefas.indexar()
+    return {"documentos": resultados, "paginas": total}
+
+
+MODOS_PROCESSAMENTO = {"rapido", "inteligente", "ia_completa"}
+
+
+def preparar_modo(modo, usuario, pdfs, consentimento=None):
+    """Prévia local de páginas; nenhum pedido combinado sem confirmação positiva."""
+    import executores_llm as EL
+    if modo not in MODOS_PROCESSAMENTO: raise ValueError("Modo de processamento inválido.")
+    if modo == "rapido" or not pdfs: return None, None, None
+    destinos = [p for p, _ in EL.provedores_api_configurados(WS) if "vision" in EL.CAPACIDADES_PROVEDOR.get(p, set())]
+    if not destinos or not auth.pode(usuario["perfil"], "ia"):
+        if modo == "ia_completa": raise ValueError("IA Completa exige permissão de IA e provedor ativo com modelo de visão.")
+        return None, "Inteligente: apenas processamento local; API de visão indisponível ou sem permissão de IA.", None
+    import pypdfium2 as pdfium
+    from contextlib import closing
+    total = 0
+    for pdf in pdfs:
+        with closing(pdfium.PdfDocument(str(pdf))) as doc: total += len(doc)
+    if consentimento is None:
+        return None, None, {"requer_consentimento": True, "escopo": "transcricao_visual", "destinos": destinos, "paginas": total, "modo": modo,
+                            "aviso": "IA Completa: todas as páginas serão enviadas." if modo == "ia_completa" else "Inteligente: somente páginas reprovadas pelo diagnóstico local serão enviadas, até o total indicado."}
+    if not isinstance(consentimento, dict) or any(k in consentimento and not isinstance(consentimento[k], bool) for k in ("aceito", "recusado")):
+        raise ValueError("Consentimento inválido.")
+    if consentimento.get("recusado") is True or consentimento.get("aceito") is False:
+        return None, None, {"ok": True, "recusado": True, "mensagem": "Envio recusado; processamento combinado não iniciado."}
+    aceitos = consentimento.get("destinos")
+    if (consentimento.get("aceito") is not True or consentimento.get("escopo", "transcricao_visual") != "transcricao_visual" or
+        not isinstance(aceitos, list) or not aceitos or not all(isinstance(p, str) and p in destinos for p in aceitos)):
+        raise ValueError("Confirme o envio externo e os destinos apresentados.")
+    return EL.criar_consentimento(usuario["login"], aceitos, escopo="transcricao_visual"), None, None
+
+
 def processar(trab, app_logger=None):
     id_, doc, arq = trab["caso"], trab["doc"], trab["arquivo"]
     base = C.caminho(id_)
@@ -402,6 +523,8 @@ def processar(trab, app_logger=None):
         if os.path.exists(os.path.join(dest, "transcricao.md")):
             etapa("dados críticos", progresso=94)
             rodar([PY, os.path.join(S_PDF, "entidades.py"), os.path.join(dest, "transcricao.md")], env, log)
+        etapa("consolidação JSON", progresso=95)
+        rodar([PY, os.path.join(S_PDF, "dados_json.py"), dest], env, log)
         etapa("registro", progresso=96)
         rel = os.path.join(dest, "relatorio_extracao.json")
         if os.path.exists(rel):
@@ -432,6 +555,28 @@ def processar(trab, app_logger=None):
                 D_OS.aplicar(C, id_, f.read(), arq, usar_ia=True)
         etapa("indexação", progresso=98)
         rodar([PY, os.path.join(S_BASE, "indexar.py")], env, log)
+        modo = trab.get("modo", "inteligente")
+        if ext == ".pdf" and modo != "rapido":
+            plano = plano_transcricao_visual(id_, todas=modo == "ia_completa", documentos=[doc])
+            cons = trab.get("consentimento")
+            if plano and cons:
+                etapa("transcrição visual por IA", progresso=99)
+                tid = tarefas.nova("ia", f"PDF {modo}: {arq}", trab["usuario"], caso=id_, consentimento=cons, grupo_ia=trab.get("grupo_ia"))
+                tarefas.at(tid, status="executando")
+                try:
+                    resultado = transcricao_visual(tid, id_, plano, cons)
+                    if (tarefas.obter(tid) or {}).get("status") != "cancelada":
+                        tarefas.at(tid, status="concluida", progresso=100, etapa="concluído", fim=agora(), resultado=resultado)
+                    else:
+                        atualizar_trabalho(id_, doc, status="cancelado", etapa="transcrição visual cancelada", fim=agora())
+                        return
+                except Exception as e:
+                    tarefas.at(tid, status="erro", erro=str(e), fim=agora())
+                    raise
+            elif plano:
+                limitacao = "Inteligente concluído apenas localmente: transcrição visual pendente, sem API ativa/aceite."
+                atualizar_trabalho(id_, doc, limitacao=limitacao)
+                registrar_tratamento(id_, [f"- {arq}: {limitacao}"])
         atualizar_trabalho(id_, doc, status="concluido", etapa="concluído", fim=agora(), progresso=100)
     except Exception as e:
         atualizar_trabalho(id_, doc, status="erro", erro=str(e), fim=agora())
@@ -448,23 +593,27 @@ def trabalhador():
             fila.task_done()
 
 
-def enfileirar(id_, doc, arquivo):
+def enfileirar(id_, doc, arquivo, modo="inteligente", usuario="", consentimento=None, grupo_ia=None, limitacao=None):
+    if modo not in MODOS_PROCESSAMENTO: raise ValueError("Modo de processamento inválido.")
+    if modo == "rapido": consentimento = None
+    dados = {"modo": modo, "usuario": usuario, "consentimento": consentimento, "grupo_ia": grupo_ia, "limitacao": limitacao}
     def _mutar(d):
         trabs = d.setdefault("trabalhos", [])
         d["trabalhos"] = [t for t in trabs if t.get("doc") != doc]
         d["trabalhos"].append({
-            "doc": doc, "arquivo": arquivo, "status": "na_fila", "etapa": "na fila", "enfileirado": agora(), "progresso": 0
+            "doc": doc, "arquivo": arquivo, "status": "na_fila", "etapa": "na fila", "enfileirado": agora(), "progresso": 0, **dados
         })
         return d
     alterar_proc(id_, _mutar)
-    fila.put({"caso": id_, "doc": doc, "arquivo": arquivo})
+    registrar_tratamento(id_, [f"- Processamento {modo}: {arquivo}; usuário {usuario or 'local'}." + (f" {limitacao}" if limitacao else "")])
+    fila.put({"caso": id_, "doc": doc, "arquivo": arquivo, **dados})
 
 
 def retomar_pendentes():
     for c in C.listar():
         for t in ler_proc(c["id"]).get("trabalhos", []):
             if t.get("status") in ("na_fila", "processando"):
-                enfileirar(c["id"], t["doc"], t["arquivo"])
+                enfileirar(c["id"], t["doc"], t["arquivo"], **{k: t.get(k) for k in ("usuario", "consentimento", "grupo_ia", "limitacao")}, modo=t.get("modo", "inteligente"))
 
 
 # ================================================================== casos helpers

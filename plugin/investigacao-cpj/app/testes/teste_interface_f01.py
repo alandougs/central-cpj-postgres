@@ -89,11 +89,14 @@ class TesteInterfaceF01(unittest.TestCase):
     def test_meta_theme_color(self):
         self.assertIn('name="theme-color"', self.html)
 
-    # Orçamento da interface atual, incluindo provedores, esteira e progresso.
+    # ---- teto de tamanho (CL01, 02/10/2026) ----
+    # O limite antigo (+15% sobre 85 881 bytes, da tarefa F01) ficou obsoleto: a Central ganhou abas
+    # (configurações, esteira etc.). A proteção que importa é o arquivo único, sem dependência externa
+    # (testes acima); aqui fica só um teto folgado contra inchaço acidental (ex.: dado embutido).
     def test_tamanho_dentro_do_limite(self):
         tamanho = len(self.html.encode("utf-8"))
-        limite = 150 * 1024
-        self.assertLessEqual(tamanho, limite, f"index.html excedeu o orçamento de 150 KiB: {tamanho} bytes (limite {limite})")
+        limite = 300_000
+        self.assertLessEqual(tamanho, limite, f"index.html acima do teto: {tamanho} bytes (limite {limite})")
 
 
 if __name__ == "__main__":

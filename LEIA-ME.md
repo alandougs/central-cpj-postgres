@@ -1,6 +1,8 @@
 # Ambiente de Investigação CPJ — guia rápido
 
-## Guia de uso de amanhã (29/09/2026)
+Versão do plugin nos manifestos: **0.3.3**, instalada e habilitada em 10/10/2026, com hashes fonte/staging/cache conferidos. Confira a versão instalada com `claude plugin list --json`; o número no manifesto, sozinho, não comprova instalação. Abra uma nova sessão Claude Code para carregar a atualização. As versões 0.3.0–0.3.2 foram instaladas neste loop; o piloto foi executado com 0.3.2.
+
+## Guia de uso local
 
 1. Duplo clique em `Central CPJ.bat` — abre `http://127.0.0.1:8765` direto na Central (sem senha, modo solo).
 2. **Nova O.S.** → preencha O.S./BO/IP/processo (o que faltar é detectado no PDF) → arraste o PDF do IP → *Processar PDF*. Acompanhe o OCR em *Tarefas* e na ficha do caso.
