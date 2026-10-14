@@ -135,6 +135,8 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 
 **AST09 / issue #9:** ficha contextual com material, lacunas e próximo passo conforme estágio, exploração da O.S. no ASTRA e retorno com filtros preservados. Uma consulta ao abrir, sem contagens inventadas/POST de navegação; fontes, dinheiro e hipótese usam ações existentes. Guarda do editor e respostas atrasadas preservam o caso atual. Integrador repetiu 6 Edge e agente aprovou 49 regressões adicionais. Homologação humana pendente.
 
+**AST13 / issue #13:** layout por ID/ordem, preservação de câmera/posição/seleção, força por proximidade, RAF com visibilidade e agrupamento expansível sem perda das referências. Integrador repetiu2 testes (18 verificações Node e3 cenários Edge), agente GF02 10/10. Oitenta medições pareadas mais80 ablações comprovam ganho de desenho denso, com parte explicada por rótulos adaptativos; animação/heap podem aumentar e agrupamento não trouxe ganho de desempenho. Métricas, fontes, hashes e limitações em revisoes/metricas-astra/grafo/README.md. Homologação pendente.
+
 **AST16 / issue #16:** frontend separado literalmente em 16 scripts clássicos locais + CSS, com bootstrap único, globais/IDs/rotas preservados e testes leitores adaptados sem reduzir cobertura. Comparação independente normalizada LF/CRLF e testes reais HTTP/Edge aprovados; mapa em revisoes/astra-modulos.md. Rodada ampla de snapshot e limites descritos no checkpoint, sem alegar homologação. SIG02 ajustou somente o teste F04 ao contrato solicitado de folhas/assinatura, mantendo preservação do modelo: 5/5 F04 e 12/12 SIG01 aprovados.
 
 **AST07 / issue #7:** exclusão somente por UUID manual, O.S. e versão, com autorização de trabalho, histórico preservado e cache recuperável. Relações documentais não são removidas; cliques do inspetor usam handlers DOM e confirmação, inclusive com apóstrofos. 13 testes API + 1 Edge e regressões AST05/GF01/GF02 aprovados; rodada ampla e adaptação do contrato DOCX antigo F04 registradas no checkpoint, sem alegar suíte geral verde.
@@ -259,6 +261,7 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
 - **14/10/2026 — AST08:** todas as referências por relação, proveniência estruturada, identidades por registro/linha e fontes seguras; provas e limites no checkpoint.
 - **14/10/2026 — AST11:** conferência individual de fontes com responsável/data/histórico persistente e inspetor por aresta; API14 e Edge3 aprovados, originais preservados e classificação investigativa independente. Suíte geral P0 final 91/93 com duas exceções conhecidas.
 - **14/10/2026 — AST09:** jornada contextual pela O.S., exploração/retorno e próximo passo com fontes e controles preservados; 6 Edge e 49 regressões adicionais aprovados.
+- **14/10/2026 — AST13:** grafo estável, renderização/visibilidade e agrupamento; benchmark pareado com ganhos e regressões documentados, testes funcionais aprovados e brutos preservados sem perda.
 
 - **14/10/2026 — AST16 / SIG02:** extração conservadora JS/CSS com testes locais/HTTP em ordem; F04 alinhado ao pedido de folhas e assinatura. Detalhes e provas no checkpoint.
 

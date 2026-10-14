@@ -1,0 +1,55 @@
+{
+  "schema": "astra-measurements-package/1",
+  "gzipMtime": 0,
+  "rawBackup": "C:\\Users\\alan_\\AppData\\Local\\Temp\\cpj-astra-ast13-raw-20261014",
+  "files": {
+    "results-all-labels.json": {
+      "sha256": "2cbbaefaaca95deef49f17e5bc8a9311fcd93f404ea95c169ae99100f545b93d",
+      "gzipSha256": "6795883d33e406f98bed7aff562408bc5dcfbe9a06136a7fa18c172f9c29e6a0",
+      "bytes": 86797,
+      "gzipBytes": 6592
+    },
+    "results-grouped.json": {
+      "sha256": "23b0e18d02141431bdcc59d0fe08a07b435cf6957dc615125773caf29ccf22ce",
+      "gzipSha256": "fd8e2878a9463a337b314269f3278646023a9f0f4d13287a43f925416dba697d",
+      "bytes": 86728,
+      "gzipBytes": 6699
+    },
+    "results-paired-after.json": {
+      "sha256": "c45bc3411cbf03e362639ec606290baa0140735db064355652c12e62620c962c",
+      "gzipSha256": "efa2396100b6ab12bf298b76a938f5764159e2133dc8d1202cda5ff6364ebe1f",
+      "bytes": 1175348,
+      "gzipBytes": 63956
+    },
+    "results-paired-before.json": {
+      "sha256": "3c0c77a926e33753757c2174662d33ba482f2b5f2cee04b9613032eaa91addaa",
+      "gzipSha256": "5bf48e42ce4c933f65c79317e22d8b8e7ed4f9896487a5b377d3a713acb52f7f",
+      "bytes": 726285,
+      "gzipBytes": 41764
+    },
+    "historical-results.json": {
+      "sha256": "5bc13d3ff723de4c4d98e6cd15c3d46290aeb58f6e711a04854fa1f751b5629a",
+      "gzipSha256": "4e58de976c9308d60ddb328a2c519b7d1a35cac059c78a63d5a66fde80d98aa0",
+      "bytes": 724436,
+      "gzipBytes": 47374
+    },
+    "snapshots/after-final.html": {
+      "sha256": "86631bf2e9ed45edf874c3053e9e9f306e1cfc14be3d50a916c69879a9a0b7d1",
+      "gzipSha256": "703e6ed76577ef3c35f3e078366fcd36f3d5187d3bd3fb9c0e71c1cd4c478d59",
+      "bytes": 212683,
+      "gzipBytes": 60675
+    },
+    "snapshots/after.html": {
+      "sha256": "7839418c48885281d5c18ac5f08d9efb1c1cfe5dacdb2e60ea0cbc9be9d629fd",
+      "gzipSha256": "9633ebd0899ffa6c89baef5a2d0a6e83f91dc01f901a7f8cba01b2cbaa088fe9",
+      "bytes": 212107,
+      "gzipBytes": 60510
+    },
+    "snapshots/before.html": {
+      "sha256": "5763aa11d30773986793694394bef1c66af7c895e2e9bf24e942e4131188933f",
+      "gzipSha256": "2b96b9e434e57cfeeb7a3d67f691ef92ef5b7fa43b15bca7346ae6560b147cff",
+      "bytes": 163357,
+      "gzipBytes": 45600
+    }
+  }
+}

@@ -14,7 +14,7 @@ Missão autorizada pelo operador em 14/10/2026. Fonte dos requisitos: épico #4,
 | #10 Linguagem natural | Pendente | Pendente | Pendente |
 | #11 Inspetor | Nó/aresta e referência individual; conferência original/derivado, candidato e hipótese com histórico persistente | 14 API/persistência e 3 Edge finais, mais regressões P0 e backup real | Pendente |
 | #12 Rascunhos | Implementado e incorporado de branch isolada; backend existente preservado | 5 cenários Edge/HTTP e 23 regressões focadas; suíte 77/79 com duas falhas preexistentes | Pendente |
-| #13 Layout | Baseline anterior às mudanças concluído; otimização pendente | 40 execuções (8 cenários × 5), métricas brutas em TEMP | Pendente |
+| #13 Layout | Sementes/ordem estáveis, câmera/posição/seleção por ID, proximidade, RAF/visibilidade e agrupamento expansível | 2 testes com18 verificações Node+3Edge; GF02 10/10;80 medições pareadas+80 ablações, ganhos/regressões explícitos | Pendente |
 | #14 Paginação | Baseline anterior às mudanças concluído; implementação pendente | 6 datasets, 120 GETs e 24 aquecimentos; SQL somente leitura e hashes preservados | Pendente |
 | #15 Atualização adaptativa | Pendente; consultas duplicadas e erros silenciosos identificados | Pendente | Pendente |
 | #16 Módulos | 16 scripts clássicos locais e CSS extraídos literalmente; leitores adaptados | AST16 4/4, Edge05/07/12/Explorer e leitores afetados aprovados; rodada ampla em snapshot identificada | Pendente |
@@ -129,3 +129,25 @@ Backend também testou CAS entre processos, reinício, backup/restauração Powe
 A ficha mostra arquivos originais, documentos/páginas registrados, disponibilidade de extração/análise e lacunas documentadas, com próximo passo conforme status e processamento real. Explorar envia a O.S. antes de abrir o grafo e faz uma consulta; retorno mantém filtros e distingue contagens do recorte de dados ainda não consultados. Índice indisponível não aparece como zero vínculos. Fontes, fluxo financeiro e hipótese usam as ações existentes; navegar não inicia IA nem grava vínculos. Editor com texto não salvo bloqueia saída e mudança de seleção.
 
 Respostas antigas da ficha/grafo não substituem a O.S. atual; erro da ficha tem tentativa explícita. Controles de FINAL e geração permanecem explícitos. TDD reproduziu ausência da jornada; seis cenários Edge finais repetidos pelo integrador em 70,594 s. Agente aprovou mais 37 testes GF02/UX01/navegação/F01 e 12 testes Edge/HTTP de editor, Explorer, AR01 e módulos. Sem dados reais, alterações operacionais ou homologação automática. Próxima #10: quatro intenções locais, consultas parametrizadas, desambiguação e referências, sem LLM remoto.
+
+## Trabalho em andamento após #9/#11
+
+Marco remoto atual `e5ad860` no PR #19, árvore `7ed4ac87d1f368701149d198701fc35ca0334a5b` igual ao marco local `d2daf5d`. #9/#11 publicadas, comentários nas issues com provas; sem merge nem aplicação operacional. Triagem de padrões das linhas adicionadas nesse marco não encontrou dados sensíveis.
+
+AST10 reservada ao integrador: novo serviço/rota e módulo local com quatro intenções, desambiguação e histórico por sessão/caso. Primeira rodada foi 4 API verdes; após UI, 6 HTTP/Edge verdes em 16,980 s. Revisão posterior reproduziu falta de invalidação de consulta antiga ao exibir recorte; ajuste e teste de consulta Pix entre O.S. aguardam repetição final. Rótulos usam o helper em lote da AST14 ainda não commitada: integrar AST14 antes do commit AST10. Nada disso é conclusão final/homologação da #10.
+
+AST13 e AST14 estão reservadas a agentes distintos, sem arquivos compartilhados. Grafo: 80 medições pareadas before/after completas, ablações separadas em coleta; não há ganho final proclamado. Força/desenho/agrupamento testados; uma correção posterior de projeção agrupada terá snapshot separado do primário expandido. Scripts/resultados sintéticos em `revisoes/metricas-astra/grafo/`; JSON brutos serão comprimidos sem perda com hashes. Utilitários de teste vão para `app/testes/astra_layout/` porque o runner oficial não copia revisoes para a sandbox. SQL: paginação, fonte autoritativa, marca de revisão e rótulos em lote em desenvolvimento; provas finais e benchmark posterior ainda pendentes. Janela de benchmark do grafo começou 19:01:29 UTC; testes pesados paralelos foram pausados para reduzir interferência.
+
+AST15 tem plano somente TEMP `cpj-astra15-plan-20261014/plano-ast15.md`, aguardando validação final10 e reserva. Roteiro humano17 e matriz em TEMP `cpj-astra17-homologacao-20261014/`, ainda não executados e sem homologação presumida. O pedido DOCX SIG01 permanece aplicado à Central primária, independente desta branch experimental.
+
+## #13 — layout e medição completa
+
+Posições iniciais por ID e ordem canônica eliminam Math.random; atualização conserva posição/arraste fixo, câmera e seleção de nó/aresta. Grade de proximidade mantém raio400 e força de referência, com pior caso quadrático declarado. RAF coalescido pausa quando oculto e por movimento/teto; agrupamento é projeção visual com membros/relações/fontes e expansão, sem alterar grNodes/grEdges. Aresta selecionada tira seus extremos do grupo para identificação. Inspetor11 foi preservado.
+
+Integrador repetiu AST13 **2/2 em2,972s**, agregando18 verificações Node e3 cenários Edge; agente aprovou GF02 10/10 e AST11 UI3/3. Utilitários ficam em app/testes/astra_layout e clone sem revisoes foi validado. Oito gzip com mtime0 foram verificados pelo integrador contra SHA e backup bruto completo em TEMP, sem perda de campos/amostras. Fontes e método em `revisoes/metricas-astra/grafo/README.md`.
+
+Comparação coordenada:40 before+40 after expandidos, mesmos50/100/500/1000nós e densidades2/10, contagens n/n*d verificadas; mais80 ablações separadas. Desenho p95 em500/5000 passou134,4→10,7ms e1000/10000 passou182,3→16,1ms; FPS derivada de ticks29,1→49,5 e23,6→34,6, sem alegar compositor/GPU. Nível de rótulos explica parte substancial do ganho; rótulos completos1000denso117,7ms e agrupado106,4ms, ambos piores que expandido adaptativo. Agrupamento melhora exploração, sem ganho de desempenho alegado.
+
+Regressões/limites: cenários pequenos têm pequenas pioras de montagem/física; todas40 after pararam no teto360ticks, sem comprovação de convergência. Animação mais longa e heap observado1000denso23,13→38,13MB; TaskDuration melhora no denso e piora no pequeno, sem percentual de CPU ou promessa de economia geral. Snapshot primário e correção agrupada posterior preservados separadamente; o ramo expandido medido não mudou. Homologação humana e validação17 seguem pendentes.
+
+Atualização AST10: repetição final **8/8 HTTP/Edge em15,636s**, incluindo recorte Pix entre O.S., invalidação de respostas antigas e histórico/reconexão; AST16 com novo módulo4/4 em5,315s. AST15 foi reservada após esses resultados e está em implementação; a fonte/commit10 aguarda integração do helper14. Não há confirmação de suíte final do projeto.
