@@ -785,6 +785,7 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 
 
+<script src="/static/js/fila-progresso.js"></script>
 <script>
 
 const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
@@ -995,11 +996,12 @@ $("#b-salvar-os").onclick=()=>salvarRecebimento(false);
 
 $("#b-nova-os").onclick=()=>{++deteccaoOS;$("#f-os").reset();$("#f-os").elements.caso_id.value="";$("#f-os").recebido.value=hoje();arquivos=[];autoOS={};listaArqs();$("#msg-up").textContent="Novo cadastro. Selecione o IP/processo ou preencha os campos.";$("#dados-os-auto").textContent="Os dados serão detectados ao selecionar o documento."};
 
-async function atualizarFila(){const j=await api("/api/fila");$("#ocr-lang").textContent=j.idioma_ocr?`OCR: ${j.idioma_ocr==="por"?"português":j.idioma_ocr}`:"";
-
- $("#fila").innerHTML=j.trabalhos.length?j.trabalhos.map(t=>{const run=t.status==="processando";return `<div class="job"><div class="l1"><div><b>${esc(t.caso)}</b> · ${esc(t.arquivo)}</div>${badge(t.status)}</div>
-
- <div class="muted">${esc(t.etapa||"")}${run&&t.paginas?` · página ${t.pagina_atual||0} de ${t.paginas}`:(t.paginas?` · ${t.paginas} págs.`:"")}${t.erro?` · <span style="color:var(--crit)">${esc(t.erro)}</span>`:""}</div>${run||t.status==="na_fila"?barraHTML(t.progresso):""}</div>`}).join(""):'<div class="vazio">Nada na fila</div>'}
+async function atualizarFila(){
+ let aviso=$("#fila-aviso");if(!aviso){aviso=document.createElement("div");aviso.id="fila-aviso";aviso.className="muted";aviso.setAttribute("role","status");$("#fila").before(aviso)}
+ try{const j=await api("/api/fila");$("#ocr-lang").textContent=j.idioma_ocr?`OCR: ${j.idioma_ocr==="por"?"português":j.idioma_ocr}`:"";
+  $("#fila").innerHTML=CPJFilaProgresso.html(CPJFilaProgresso.calcular(j.trabalhos),{esc,badge,barraHTML});aviso.textContent="";return j;
+ }catch(e){aviso.textContent=`Não foi possível atualizar a fila: ${e.message}. Os últimos dados continuam visíveis.`;throw e}
+}
 
 
 

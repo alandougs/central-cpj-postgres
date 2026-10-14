@@ -2,7 +2,7 @@
 
 > Documento de continuidade. Qualquer agente (Claude Code, Codex, Gemini, modelo local) deve ler **este arquivo + `AGENTS.md`** antes de alterar o sistema. Atualize a seção **9 (Estado atual)** e o **Registro de mudanças** a cada entrega.
 > Dono do produto: Alan Douglas Silva — Investigador de Polícia, Central de Polícia Judiciária (CPJ), Seccional de Presidente Prudente, DEINTER 8, PCSP.
-> Última atualização: 2026-10-14 (AR01 — O.S. em Markdown e análise com relatório; EX01 — arquivos no Explorer).
+> Última atualização: 2026-10-14 (FP01 — atividade e previsão da fila; AR01 — O.S. em Markdown e análise com relatório; EX01 — arquivos no Explorer).
 
 ---
 
@@ -129,6 +129,9 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 
 ## 9. Estado atual e próximos passos (atualizar sempre)
 
+**FP01 —14/10/2026:** fila mostra atividade/etapa, tempo decorrido, estimativas por arquivo e acumuladas; dados de início/fim/progresso/histórico já disponíveis, sem reiniciar o worker. Página corrente apenas no OCR; dados insuficientes indicam cálculo, duração superada recalcula e falha preserva cartões. Interface aplicada à Central primária preservando RP01; portabilidade ASTRA e limites em `revisoes/fila-progresso-2026-10-14.md`.
+
+
 **14/10/2026 — AR01:** a extração de PDF e a consolidação de derivados de Markdown separam automaticamente as páginas candidatas de Ordem de Serviço em `01-extracao/<documento>/ordens-de-servico/*.md`, com texto transcrito, páginas, SHA-256 da transcrição e `indice.json`. A busca começa pelas páginas finais, preserva continuações reconhecidas e todas as candidatas, sem presumir vigência pela posição. Reprocessamentos atualizam o índice; versões anteriores permanecem rastreáveis. Os prompts de consolidação, redação, revisão e ajuste apontam os MDs e exigem identificar a O.S. vigente, mapear cada solicitação em `02-analise/solicitacoes-os.md` e conferir sua resposta no relatório. Integralidade e vigência exigem conferência nos autos; ausência da O.S. determina interrupção da redação e aviso ao operador. A detecção é textual e depende da qualidade da extração/OCR.
 
 **Pedido de análise — AR01:** o botão **Analisar IP e gerar relatório** e a ação pública `analisar` criam o encadeamento existente `analisar → financeiro → relatorio → revisar`, incluindo a minuta DOCX. Mantidos dependências, consentimento do provedor, permissões e cancelamento. Etapas internas continuam exclusivas. Nove testes de O.S. e dois de análise/encadeamento aprovados em dados fictícios, incluindo extração de PDF real gerado para teste e clique no Edge headless com aceite de provedor. Replay visual via `runpy` também conferido, sem novo OCR nem alteração do original fictício. Procedimentos e portáteis regenerados.
@@ -237,6 +240,9 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
   - **Versionamento Git Local (GH01):** Repositório local inicializado na branch `consolidacao-2026-10-01` com `.gitignore` rigoroso contra vazamento de casos/dados e varredura de segurança aprovada com 0 bloqueios.
 
 ## Registro de mudanças
+
+- **14/10/2026 — FP01:** atividade/etapa e tempo decorrido, estimativa por arquivo, espera e previsão total na fila, com falta de base/atraso/erro explícitos. Interface aplicada sem reiniciar a Central e preservando RP01. Nove testes novos e regressões de interface/polling/fluxo aprovados; método e limites em revisoes/fila-progresso-2026-10-14.md.
+
 
 - **14/10/2026 — AR01:** extração automática da O.S. em Markdown por documento, busca a partir das páginas finais e índice com proveniência; consolidação, redação e revisão orientadas a todas as solicitações da O.S. Pedido público de análise inclui relatório DOCX e revisão. Onze testes novos aprovados em fixtures fictícias, com CLI de PDF e navegador Edge real; replay visual e consentimento também conferidos. Limitações da suíte geral registradas na seção 9.
 
