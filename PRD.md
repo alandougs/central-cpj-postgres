@@ -2,7 +2,7 @@
 
 > Documento de continuidade. Qualquer agente (Claude Code, Codex, Gemini, modelo local) deve ler **este arquivo + `AGENTS.md`** antes de alterar o sistema. Atualize a seção **9 (Estado atual)** e o **Registro de mudanças** a cada entrega.
 > Dono do produto: Alan Douglas Silva — Investigador de Polícia, Central de Polícia Judiciária (CPJ), Seccional de Presidente Prudente, DEINTER 8, PCSP.
-> Última atualização: 2026-10-10 (SY02 — integração com GitHub e inicialização automática).
+> Última atualização: 2026-10-14 (AR01 — O.S. em Markdown e análise com relatório; EX01 — arquivos no Explorer).
 
 ---
 
@@ -129,6 +129,14 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 
 ## 9. Estado atual e próximos passos (atualizar sempre)
 
+**14/10/2026 — AR01:** a extração de PDF e a consolidação de derivados de Markdown separam automaticamente as páginas candidatas de Ordem de Serviço em `01-extracao/<documento>/ordens-de-servico/*.md`, com texto transcrito, páginas, SHA-256 da transcrição e `indice.json`. A busca começa pelas páginas finais, preserva continuações reconhecidas e todas as candidatas, sem presumir vigência pela posição. Reprocessamentos atualizam o índice; versões anteriores permanecem rastreáveis. Os prompts de consolidação, redação, revisão e ajuste apontam os MDs e exigem identificar a O.S. vigente, mapear cada solicitação em `02-analise/solicitacoes-os.md` e conferir sua resposta no relatório. Integralidade e vigência exigem conferência nos autos; ausência da O.S. determina interrupção da redação e aviso ao operador. A detecção é textual e depende da qualidade da extração/OCR.
+
+**Pedido de análise — AR01:** o botão **Analisar IP e gerar relatório** e a ação pública `analisar` criam o encadeamento existente `analisar → financeiro → relatorio → revisar`, incluindo a minuta DOCX. Mantidos dependências, consentimento do provedor, permissões e cancelamento. Etapas internas continuam exclusivas. Nove testes de O.S. e dois de análise/encadeamento aprovados em dados fictícios, incluindo extração de PDF real gerado para teste e clique no Edge headless com aceite de provedor. Replay visual via `runpy` também conferido, sem novo OCR nem alteração do original fictício. Procedimentos e portáteis regenerados.
+
+**14/10/2026 — EX01:** na ficha da aba Casos, Relatórios e Arquivos separam Word (DOCX), inclusive extensão em maiúsculas, dos demais formatos. Cada arquivo oferece **Abrir na pasta**, disponível ao perfil de trabalho no computador da Central, abrindo o Explorer com o arquivo selecionado. O contrato existente `POST /api/casos/<id>/abrir` aceita `selecionar: true` e `sub` relativo; mantém abertura direta anterior, validação de caminho, autenticação, permissões e anti-CSRF. A ficha informa `local` para ocultar ações locais no acesso remoto. Nove testes de rotas/segurança e um de interface real no Edge headless aprovados com dados fictícios, incluindo nomes com espaços, acentos e vírgula; revisão visual aprovada. Central reiniciada e HTTP 200 confirmado com a interface nova.
+
+**Verificação EX01:** `ferramentas/testar-tudo.py` retornou 1: **72/80 suítes aprovadas**, incluindo ambas as suítes EX01, segurança e integração HTTP da Central. Seis falharam por ausência de `quickjs`: `teste_consentimento_interface_se01.py`, `teste_grafo_interface_gf02.py`, `teste_modelos_api_ai03.py`, `teste_modos_px06.py`, `teste_relatorios_interface_ux01.py` e `teste_transcricao_visual_px05.py`. As duas outras falhas foram reproduzidas também em snapshots temporários com `casos.py` e `index.html` restaurados de HEAD: `teste_dados_os_codex.py` (OCR não preenche escrivão fictício) e `teste_workspace_v01.py` (comparação de mtimes do workspace real com Central ativa). Existem skips de OCR/Tesseract e links simbólicos; não se declara a suíte inteira aprovada. Logs locais em `%TEMP%/cpj-ex01-suite-20261014.log` e `%TEMP%/cpj-ex01-baseline-20261014.log`. Dependências e testes fora do pedido preservados; nenhum arquivo de caso foi alterado pela implementação ou usado como fixture.
+
 ### Estado consolidado em 10/10/2026
 
 **Arquitetura escolhida pelo operador:** SQLite para a operação solo. `caso.json` permanece fonte do caso, `rag/cpj.sqlite` é índice regenerável e o plantão mantém sua fila SQLite. PostgreSQL/Docker continuam fora do caminho de execução; não foi comprovada sincronização de um PostgreSQL externo. Esta revisão usa código e fixtures fictícias, sem certificar dados reais da produção.
@@ -227,6 +235,10 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
   - **Versionamento Git Local (GH01):** Repositório local inicializado na branch `consolidacao-2026-10-01` com `.gitignore` rigoroso contra vazamento de casos/dados e varredura de segurança aprovada com 0 bloqueios.
 
 ## Registro de mudanças
+
+- **14/10/2026 — AR01:** extração automática da O.S. em Markdown por documento, busca a partir das páginas finais e índice com proveniência; consolidação, redação e revisão orientadas a todas as solicitações da O.S. Pedido público de análise inclui relatório DOCX e revisão. Onze testes novos aprovados em fixtures fictícias, com CLI de PDF e navegador Edge real; replay visual e consentimento também conferidos. Limitações da suíte geral registradas na seção 9.
+
+- **14/10/2026 — EX01:** agrupamento DOCX separado dos demais arquivos e relatórios na aba Casos; botão por arquivo para revelar sua localização no Explorer. Nove testes de rotas/segurança e um de interface Edge aprovados; suíte geral 72/80, com seis falhas por QuickJS ausente e duas falhas reproduzidas na versão anterior (OCR e mtimes). Central reiniciada e HTTP 200 confirmado, sem alterar arquivos dos casos.
 
 - **10/10/2026 — ENV01/TS06/CL07:** OAuth especificamente autorizado e login confirmado. Primeira tentativa real P01 bloqueada por saída financeira reutilizada, preservada como falha. TS06 explicita contrato sem relaxar gate e preserva log de sessão reprovada; três testes focados, squad 12/12, rápida 5/5 e plantão aprovados. Plugin 0.3.2 instalado/habilitado, hashes fonte/staging/cache conferidos. Segunda tentativa usa novo workspace e limite operacional 1800 s; conclusão não presumida.
 

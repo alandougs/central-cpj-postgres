@@ -134,7 +134,7 @@ th{color:var(--ink2);font-weight:600;font-size:12px;background:var(--surface-2)}
 
 .lista-os div.it{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer}.lista-os div.it:hover{color:var(--acc-2)}
 
-.arqs{font-size:13px;max-height:320px;overflow:auto}.arqs a,.lk{color:var(--acc-2);text-decoration:none;cursor:pointer;font-weight:500}.arqs a:hover,.lk:hover{text-decoration:underline}.arqs div{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.arqs{font-size:13px;max-height:320px;overflow:auto}.arqs a,.lk{color:var(--acc-2);text-decoration:none;cursor:pointer;font-weight:500}.arqs a:hover,.lk:hover{text-decoration:underline}.arqs div{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:4px 0;border-bottom:1px dashed var(--line)}.arqs a{overflow-wrap:anywhere;min-width:0}
 
 code{background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:12.5px;color:var(--acc-2)}
 
@@ -1138,10 +1138,13 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
  const proc=(j.processamento.trabalhos||[]).map(t=>`<div class="job"><div class="l1"><span>${esc(t.arquivo)} · <span class="muted">${esc(t.etapa||"")}</span></span><span>${badge(t.status)} ${T?`<button class="btn sm" data-rep="${esc(t.doc)}">reprocessar</button>`:""}</span></div>${["processando","na_fila"].includes(t.status)?barraHTML(t.progresso):""}${t.erro?`<div class="muted" style="color:var(--crit)">${esc(t.erro)}</div>`:""}</div>`).join("");
 
  const link=a=>`/arquivo/${enc(id)}/${a.split("/").map(enc).join("/")}`;
+ const pastaArquivo=a=>T&&j.local===true?`<button class="btn sm" data-pasta-arquivo="${esc(a)}" title="Mostrar ${esc(a)} no Explorador de Arquivos">Abrir na pasta</button>`:"";
 
- const rels=j.relatorios.map(f=>{const a="03-relatorios/"+f.arquivo,dx=/\.docx$/i.test(f.arquivo),visual=dx||/\.pdf$/i.test(f.arquivo);return `<tr><td><a class="lk" href="${link(a)}" target="_blank">${esc(f.arquivo)}</a></td><td>${esc(f.tipo)}</td><td class="muted">${esc(f.modificado.replace("T"," "))}</td>
+ const linhaRelatorio=f=>{const a="03-relatorios/"+f.arquivo,dx=/\.docx$/i.test(f.arquivo),visual=dx||/\.pdf$/i.test(f.arquivo);return `<tr><td><a class="lk" href="${link(a)}" target="_blank">${esc(f.arquivo)}</a></td><td>${esc(f.tipo)}</td><td class="muted">${esc(f.modificado.replace("T"," "))}</td>
 
-  <td>${visual?`<button class="btn sm" data-visualizar="${esc(f.arquivo)}" title="Visualizar relatório no sistema">Visualizar</button> `:""}${T&&f.tipo==="minuta"?`<button class="btn sm" data-edit="${esc(f.arquivo)}">editar</button> <button class="btn sm" data-gdocx="${esc(f.arquivo)}">gerar DOCX</button>`:""}${T&&dx?`<button class="btn sm" data-pdf="${esc(f.arquivo)}">PDF</button> ${j.local!==false?`<button class="btn sm" data-word="${esc(a)}">abrir no Word</button>`:""} ${f.tipo!=="final"?`<button class="btn sm" data-final="${esc(f.arquivo)}">definir FINAL</button>`:""} <button class="btn sm" data-calibrar="${esc(f.arquivo)}" title="Calibrar estilo com este relatório">calibrar estilo</button>`:""}</td></tr>`}).join("");
+  <td>${pastaArquivo(a)} ${visual?`<button class="btn sm" data-visualizar="${esc(f.arquivo)}" title="Visualizar relatório no sistema">Visualizar</button> `:""}${T&&f.tipo==="minuta"?`<button class="btn sm" data-edit="${esc(f.arquivo)}">editar</button> <button class="btn sm" data-gdocx="${esc(f.arquivo)}">gerar DOCX</button>`:""}${T&&dx?`<button class="btn sm" data-pdf="${esc(f.arquivo)}">PDF</button> ${j.local!==false?`<button class="btn sm" data-word="${esc(a)}">abrir no Word</button>`:""} ${f.tipo!=="final"?`<button class="btn sm" data-final="${esc(f.arquivo)}">definir FINAL</button>`:""} <button class="btn sm" data-calibrar="${esc(f.arquivo)}" title="Calibrar estilo com este relatório">calibrar estilo</button>`:""}</td></tr>`};
+ const rels=[["relatorios-docx","Word (DOCX)",true],["relatorios-outros","Outros relatórios",false]].map(([grupo,titulo,docx])=>{const arquivos=j.relatorios.filter(f=>/\.docx$/i.test(f.arquivo)===docx);return arquivos.length?`<section id="${grupo}"><h5>${titulo}</h5><table><tbody>${arquivos.map(linhaRelatorio).join("")}</tbody></table></section>`:""}).join("");
+ const arqs=[["arquivos-docx","Word (DOCX)",true],["arquivos-outros","Outros arquivos",false]].map(([grupo,titulo,docx])=>{const arquivos=j.arquivos.filter(a=>/\.docx$/i.test(a.caminho)===docx);return arquivos.length?`<section id="${grupo}"><h5>${titulo}</h5>${arquivos.map(a=>`<div><a href="${link(a.caminho)}" target="_blank">${esc(a.caminho)}</a><span class="muted">${kb(a.tamanho)}</span>${pastaArquivo(a.caminho)}</div>`).join("")}</section>`:""}).join("");
 
  const baixa=c.status==="entregue"?`<div>${badge("concluido")} Baixa em <b>${dt((c.datas||{}).entregue)}</b> · origem: ${esc((c.baixa||{}).origem||"—")} ${T?'<button class="btn sm" id="b-desfazer">Desfazer baixa</button>':""}</div>`
 
@@ -1157,7 +1160,7 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
  ${T?`<div class="card" id="nv-ia" style="margin-top:14px;background:var(--page)"><h4>Inteligência artificial</h4><div class="acoes" style="margin:0 0 8px">
   <button class="btn" id="b-transcricao-visual">Transcrever páginas a conferir</button>
 
-  <button class="btn pri" data-ia="esteira" style="background:#1b5e20;border-color:#1b5e20;color:#fff;font-weight:600" title="Executa a esteira completa: OCR, RAG, analistas, redação, revisão e DOCX">⚡ Esteira Completa 1-Clique</button><button class="btn" data-ia="analisar">Analisar IP</button><button class="btn pri" data-ia="relatorio">Gerar relatório</button><button class="btn" data-ia="completo">Análise + relatório</button><button class="btn" data-ia="revisar">Revisar relatório</button><button class="btn" id="b-ia-ver-fluxo">Ver Fluxograma</button><a class="btn" href="/api/casos/${enc(id)}/fluxo-csv" target="_blank">Planilha de Rastreio (CSV)</a></div>
+  <button class="btn pri" data-ia="esteira" style="background:#1b5e20;border-color:#1b5e20;color:#fff;font-weight:600" title="Executa a esteira completa: OCR, RAG, analistas, redação, revisão e DOCX">⚡ Esteira Completa 1-Clique</button><button class="btn" data-ia="completo">Analisar IP e gerar relatório</button><button class="btn pri" data-ia="relatorio">Gerar relatório</button><button class="btn" data-ia="revisar">Revisar relatório</button><button class="btn" id="b-ia-ver-fluxo">Ver Fluxograma</button><a class="btn" href="/api/casos/${enc(id)}/fluxo-csv" target="_blank">Planilha de Rastreio (CSV)</a></div>
 
   <div class="campos" style="margin:0 0 8px;grid-template-columns:minmax(0,2fr) minmax(0,1fr)"><div><input id="ia-obs" placeholder="Observações para o agente (opcional): diligências que você fez, consultas, foco pedido pelo delegado…"></div>
 
@@ -1171,7 +1174,7 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
 
  <div class="g2" style="margin-top:14px"><div>
 
-  <h4 id="nv-relatorios">Relatórios</h4>${rels?`<table><tbody>${rels}</tbody></table>`:'<div class="muted">Nenhum relatório ainda.</div>'}${T?'<div class="acoes"><button class="btn sm" id="b-nova-minuta">Escrever/editar minuta</button></div>':""}
+  <h4 id="nv-relatorios">Relatórios</h4>${rels||'<div class="muted">Nenhum relatório ainda.</div>'}${T?'<div class="acoes"><button class="btn sm" id="b-nova-minuta">Escrever/editar minuta</button></div>':""}
 
   <h4 style="margin-top:14px">Produção</h4>${baixa}
 
@@ -1179,7 +1182,7 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
 
   <h4 style="margin-top:14px">Processamento</h4>${T?'<label for="modo-reprocessar">Modo ao reprocessar</label><select id="modo-reprocessar"><option value="rapido">Rápido — somente local</option><option value="inteligente" selected>Inteligente — páginas a conferir</option><option value="ia_completa">IA Completa — todas as páginas</option></select>':""}${proc||'<div class="muted">—</div>'}<div id="cruz"></div></div>
 
- <div><h4>Arquivos</h4><div class="arqs">${j.arquivos.map(a=>`<div><a href="${link(a.caminho)}" target="_blank">${esc(a.caminho)}</a><span class="muted">${kb(a.tamanho)}</span></div>`).join("")||'<span class="muted">—</span>'}</div></div></div></div>`;
+ <div><h4>Arquivos</h4><div class="arqs">${arqs||'<span class="muted">—</span>'}</div></div></div></div>`;
 
  if(rolar||novoCaso)requestAnimationFrame(()=>$("#detalhe").scrollIntoView({behavior:"smooth",block:"start"}));
  const irPara=k=>{const e=$("#"+k);if(e)e.scrollIntoView({behavior:"smooth",block:"start"})};
@@ -1207,6 +1210,7 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
 
  if($("#b-pasta"))$("#b-pasta").onclick=()=>post("/abrir",{}).catch(x=>toast(x.message));
  if($("#b-pasta-relatorios"))$("#b-pasta-relatorios").onclick=()=>post("/abrir",{sub:"03-relatorios"}).catch(x=>toast(x.message));
+ $$("#detalhe [data-pasta-arquivo]").forEach(b=>b.onclick=()=>post("/abrir",{sub:b.dataset.pastaArquivo,selecionar:true}).catch(x=>toast(x.message)));
  $$("#detalhe [data-visualizar]").forEach(b=>b.onclick=()=>visualizarRelatorio(id,b.dataset.visualizar,b));
 
  if($("#b-cruzar"))$("#b-cruzar").onclick=async()=>{const r=await api("/api/cruzar/"+enc(id));$("#cruz").innerHTML=`<h4 style="margin-top:14px">Conexões com outros casos</h4>`+(r.length?`<table><tbody>${r.map(x=>`<tr><td>${esc(x.tipo)}</td><td>${esc(x.valor)}</td><td>também em <b>${esc(x.outro_caso)}</b> (págs. ${esc(x.paginas)})</td></tr>`).join("")}</tbody></table><div class="muted">Indícios de vinculação a verificar nos originais.</div>`:'<div class="muted">Nenhuma conexão encontrada.</div>')};
