@@ -1,18 +1,22 @@
 // ---------------- tarefas e sistema
 
-async function atualizarTarefas(){const ts=await api("/api/tarefas");const run=ts.filter(t=>["executando","na_fila"].includes(t.status));
-
- $("#chip-tarefas").textContent=run.length?`tarefas: ${run.length} em andamento · ${run[0].progresso}%`:"tarefas: nenhuma";
-
- if($("#sistema").classList.contains("on"))$("#lista-tarefas").innerHTML=ts.length?ts.map(t=>{const r=["executando","na_fila"].includes(t.status);return `<div class="job"><div class="l1"><span><b>${esc(t.titulo)}</b> <span class="muted">${esc(t.usuario)}</span></span><span>${badge(t.status)} ${r?`<button class="btn sm dan" data-cancel="${t.id}">cancelar</button>`:""}</span></div>
-
-  ${r?barraHTML(t.progresso)+`<div class="muted">${t.progresso}% · ${esc(t.etapa)} ${esc(t.detalhe||"")}</div>`:""}${t.erro?`<div class="muted" style="color:var(--crit)">${esc(t.erro)}</div>`:""}
-
-  ${t.resultado&&t.resultado.url?`<a class="btn sm" href="${t.resultado.url}">baixar ${esc(t.resultado.arquivo)} (${t.resultado.mb} MB)</a>`:""}${t.resultado&&!t.resultado.url&&t.status==="concluida"?`<div class="muted">${esc(JSON.stringify(t.resultado).slice(0,300))}</div>`:""}</div>`}).join(""):'<div class="vazio">Nenhuma tarefa nas últimas 24 h</div>';
-
- $$("#lista-tarefas [data-cancel]").forEach(b=>b.onclick=async()=>{await api(`/api/tarefas/${b.dataset.cancel}/cancelar`,{method:"POST"})});
-
- if(ts.some(t=>t.status==="concluida"&&t.tipo!=="ia"&&!atualizarTarefas.vistos.has(t.id))){ts.forEach(t=>atualizarTarefas.vistos.add(t.id));if($("#sistema").classList.contains("on"))carregarSistema(true)}}
+async function atualizarTarefas(dados){
+ const geracao=polling.geracao,login=S.usuario?.login;
+ let ts;try{ts=dados||await consultarTarefas()}catch(e){if(geracao===polling.geracao&&login===S.usuario?.login)pollingAviso(e);return null}
+ if(geracao!==polling.geracao||login!==S.usuario?.login)return null;
+ const run=ts.filter(t=>["executando","na_fila"].includes(t.status));
+ const chip=run.length?`tarefas: ${run.length} em andamento · ${run[0].progresso}%`:"tarefas: nenhuma";
+ if($("#chip-tarefas").textContent!==chip)$("#chip-tarefas").textContent=chip;
+ if($("#sistema").classList.contains("on")){
+  const html=ts.length?ts.map(t=>{const r=["executando","na_fila"].includes(t.status);return `<div class="job" data-tarefa="${esc(t.id)}"><div class="l1"><span><b>${esc(t.titulo)}</b> <span class="muted">${esc(t.usuario)}</span></span><span>${badge(t.status)} ${r?`<button class="btn sm dan" data-cancel="${esc(t.id)}">cancelar</button>`:""}</span></div>
+   ${r?barraHTML(t.progresso):""}<div class="muted">${r?`${t.progresso}% · `:""}${esc(etapaTarefa(t))}</div>${t.erro?`<div class="muted" style="color:var(--crit)">${esc(t.erro)}</div>`:""}
+   ${t.resultado&&t.resultado.url?`<a class="btn sm" href="${esc(t.resultado.url)}">baixar ${esc(t.resultado.arquivo)} (${esc(t.resultado.mb)} MB)</a>`:""}${t.resultado&&!t.resultado.url&&t.status==="concluida"?`<div class="muted">${esc(JSON.stringify(t.resultado).slice(0,300))}</div>`:""}</div>`}).join(""):'<div class="vazio">Nenhuma tarefa nas últimas 24 h</div>';
+  if(htmlAtualizado($("#lista-tarefas"),html))$$("#lista-tarefas [data-cancel]").forEach(b=>b.onclick=async()=>{
+   try{const r=await api(`/api/tarefas/${enc(b.dataset.cancel)}/cancelar`,{method:"POST"});if(!r.ok)throw new Error("Cancelamento não confirmado pelo servidor");await acordarPolling()}catch(e){toast(e.message)}
+  });
+ }
+ ts.forEach(t=>{if(t.status==="concluida")atualizarTarefas.vistos.add(t.id)});return ts;
+}
 
 atualizarTarefas.vistos=new Set();
 
@@ -92,7 +96,7 @@ const EST_AG={"ocioso":["b-ok","ocioso"],"ocupado":["b-run","ocupado"],"indispon
 
 const tempoSinal=s=>s==null?"—":s<90?`${s}s`:s<5400?`${Math.round(s/60)} min`:`${Math.round(s/3600)} h`;
 
-async function carregarAgentes(){if(!pode("ia"))return null;let g;try{g=await api("/api/plantao/agentes")}catch(x){return null}
+async function carregarAgentes(estrito=false){if(!pode("ia"))return null;let g;try{g=await lerAtualizacao("/api/plantao/agentes");polling.erroAgentes=false}catch(x){polling.erroAgentes=true;pollingAviso(x);if(estrito)throw x;return null}
 
  if($("#plantao-agentes")){
 

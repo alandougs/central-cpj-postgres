@@ -1,0 +1,562 @@
+{
+  "schema": "astra-polling-summary/1",
+  "raw_sha256": "034694fab394c385eee57b6cc2d4a2328680529f380cc19689d9b87904e5013c",
+  "snapshot": "C:\\Users\\alan_\\AppData\\Local\\Temp\\cpj-astra15-pair-n977fpvl",
+  "browser": "155.0.4283.45",
+  "host": {
+    "platform": "win32",
+    "arch": "x64",
+    "release": "10.0.26200"
+  },
+  "limits": [
+    "Synthetic HTTP APIs and actual local HTML/JS/CSS; bootstrap disabled. No operational server/data/executor.",
+    "Same instrument, scenarios, viewport and observation window before/after. Paired order alternates to limit ordering effects.",
+    "MutationObserver records are DOM mutations, not compositor repaints. CDP LayoutCount/RecalcStyleCount/TaskDuration measured separately.",
+    "Heap is renderer JavaScript heap, not RAM of whole browser/system. Timing on a shared host.",
+    "Hidden emulated through document.hidden and visibilitychange; not proof of native background throttling.",
+    "Each scenario has 3 repetitions per variant and 5200 ms observation after its initial request."
+  ],
+  "oracles": "36/36 counts, statuses, methods, DOM and source hashes validated",
+  "rows": [
+    {
+      "scenario": "idle-inicio",
+      "variant": "before",
+      "repetitions": 3,
+      "tasks": {
+        "n": 3,
+        "p50": 4,
+        "p95": 4
+      },
+      "fila": {
+        "n": 3,
+        "p50": 4,
+        "p95": 4
+      },
+      "steadyMutations": {
+        "n": 3,
+        "p50": 9,
+        "p95": 9
+      },
+      "latencyMs": {
+        "n": 24,
+        "p50": 6,
+        "p95": 50
+      },
+      "cdpTaskMs": {
+        "n": 3,
+        "p50": 67.406,
+        "p95": 88.835
+      },
+      "cdpLayoutCount": {
+        "n": 3,
+        "p50": 5,
+        "p95": 5
+      },
+      "cdpRecalcStyleCount": {
+        "n": 3,
+        "p50": 5,
+        "p95": 5
+      },
+      "jsHeapBytes": {
+        "n": 3,
+        "p50": 2263820,
+        "p95": 2265292
+      }
+    },
+    {
+      "scenario": "idle-inicio",
+      "variant": "after",
+      "repetitions": 3,
+      "tasks": {
+        "n": 3,
+        "p50": 1,
+        "p95": 1
+      },
+      "fila": {
+        "n": 3,
+        "p50": 1,
+        "p95": 1
+      },
+      "steadyMutations": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "latencyMs": {
+        "n": 6,
+        "p50": 10,
+        "p95": 57
+      },
+      "cdpTaskMs": {
+        "n": 3,
+        "p50": 61.015,
+        "p95": 67.15899999999999
+      },
+      "cdpLayoutCount": {
+        "n": 3,
+        "p50": 3,
+        "p95": 3
+      },
+      "cdpRecalcStyleCount": {
+        "n": 3,
+        "p50": 3,
+        "p95": 3
+      },
+      "jsHeapBytes": {
+        "n": 3,
+        "p50": 2246644,
+        "p95": 2246644
+      }
+    },
+    {
+      "scenario": "idle-case",
+      "variant": "before",
+      "repetitions": 3,
+      "tasks": {
+        "n": 3,
+        "p50": 8,
+        "p95": 8
+      },
+      "fila": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "steadyMutations": {
+        "n": 3,
+        "p50": 3,
+        "p95": 3
+      },
+      "latencyMs": {
+        "n": 24,
+        "p50": 4,
+        "p95": 69
+      },
+      "cdpTaskMs": {
+        "n": 3,
+        "p50": 69.29199999999999,
+        "p95": 85.977
+      },
+      "cdpLayoutCount": {
+        "n": 3,
+        "p50": 5,
+        "p95": 5
+      },
+      "cdpRecalcStyleCount": {
+        "n": 3,
+        "p50": 5,
+        "p95": 5
+      },
+      "jsHeapBytes": {
+        "n": 3,
+        "p50": 2265448,
+        "p95": 2265448
+      }
+    },
+    {
+      "scenario": "idle-case",
+      "variant": "after",
+      "repetitions": 3,
+      "tasks": {
+        "n": 3,
+        "p50": 1,
+        "p95": 1
+      },
+      "fila": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "steadyMutations": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "latencyMs": {
+        "n": 3,
+        "p50": 52,
+        "p95": 62
+      },
+      "cdpTaskMs": {
+        "n": 3,
+        "p50": 67.15499999999999,
+        "p95": 68.545
+      },
+      "cdpLayoutCount": {
+        "n": 3,
+        "p50": 2,
+        "p95": 2
+      },
+      "cdpRecalcStyleCount": {
+        "n": 3,
+        "p50": 2,
+        "p95": 2
+      },
+      "jsHeapBytes": {
+        "n": 3,
+        "p50": 2242372,
+        "p95": 2242372
+      }
+    },
+    {
+      "scenario": "active-case",
+      "variant": "before",
+      "repetitions": 3,
+      "tasks": {
+        "n": 3,
+        "p50": 8,
+        "p95": 8
+      },
+      "fila": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "steadyMutations": {
+        "n": 3,
+        "p50": 6,
+        "p95": 6
+      },
+      "latencyMs": {
+        "n": 24,
+        "p50": 5,
+        "p95": 54
+      },
+      "cdpTaskMs": {
+        "n": 3,
+        "p50": 82.40400000000001,
+        "p95": 87.42099999999999
+      },
+      "cdpLayoutCount": {
+        "n": 3,
+        "p50": 9,
+        "p95": 9
+      },
+      "cdpRecalcStyleCount": {
+        "n": 3,
+        "p50": 9,
+        "p95": 9
+      },
+      "jsHeapBytes": {
+        "n": 3,
+        "p50": 2279064,
+        "p95": 2279064
+      }
+    },
+    {
+      "scenario": "active-case",
+      "variant": "after",
+      "repetitions": 3,
+      "tasks": {
+        "n": 3,
+        "p50": 4,
+        "p95": 4
+      },
+      "fila": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "steadyMutations": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "latencyMs": {
+        "n": 12,
+        "p50": 4,
+        "p95": 63
+      },
+      "cdpTaskMs": {
+        "n": 3,
+        "p50": 68.162,
+        "p95": 89.55499999999999
+      },
+      "cdpLayoutCount": {
+        "n": 3,
+        "p50": 2,
+        "p95": 2
+      },
+      "cdpRecalcStyleCount": {
+        "n": 3,
+        "p50": 2,
+        "p95": 2
+      },
+      "jsHeapBytes": {
+        "n": 3,
+        "p50": 2287236,
+        "p95": 2287236
+      }
+    },
+    {
+      "scenario": "idle-other-tab-case-open",
+      "variant": "before",
+      "repetitions": 3,
+      "tasks": {
+        "n": 3,
+        "p50": 8,
+        "p95": 8
+      },
+      "fila": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "steadyMutations": {
+        "n": 3,
+        "p50": 3,
+        "p95": 3
+      },
+      "latencyMs": {
+        "n": 24,
+        "p50": 5,
+        "p95": 62
+      },
+      "cdpTaskMs": {
+        "n": 3,
+        "p50": 77.653,
+        "p95": 98.193
+      },
+      "cdpLayoutCount": {
+        "n": 3,
+        "p50": 5,
+        "p95": 5
+      },
+      "cdpRecalcStyleCount": {
+        "n": 3,
+        "p50": 5,
+        "p95": 5
+      },
+      "jsHeapBytes": {
+        "n": 3,
+        "p50": 2265476,
+        "p95": 2265476
+      }
+    },
+    {
+      "scenario": "idle-other-tab-case-open",
+      "variant": "after",
+      "repetitions": 3,
+      "tasks": {
+        "n": 3,
+        "p50": 1,
+        "p95": 1
+      },
+      "fila": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "steadyMutations": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "latencyMs": {
+        "n": 3,
+        "p50": 62,
+        "p95": 71
+      },
+      "cdpTaskMs": {
+        "n": 3,
+        "p50": 75.749,
+        "p95": 78.269
+      },
+      "cdpLayoutCount": {
+        "n": 3,
+        "p50": 2,
+        "p95": 2
+      },
+      "cdpRecalcStyleCount": {
+        "n": 3,
+        "p50": 2,
+        "p95": 2
+      },
+      "jsHeapBytes": {
+        "n": 3,
+        "p50": 2239080,
+        "p95": 2239080
+      }
+    },
+    {
+      "scenario": "error-case",
+      "variant": "before",
+      "repetitions": 3,
+      "tasks": {
+        "n": 3,
+        "p50": 4,
+        "p95": 4
+      },
+      "fila": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "steadyMutations": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "latencyMs": {
+        "n": 12,
+        "p50": 6,
+        "p95": 56
+      },
+      "cdpTaskMs": {
+        "n": 3,
+        "p50": 63.10199999999999,
+        "p95": 75.863
+      },
+      "cdpLayoutCount": {
+        "n": 3,
+        "p50": 1,
+        "p95": 1
+      },
+      "cdpRecalcStyleCount": {
+        "n": 3,
+        "p50": 1,
+        "p95": 1
+      },
+      "jsHeapBytes": {
+        "n": 3,
+        "p50": 2249008,
+        "p95": 2249008
+      }
+    },
+    {
+      "scenario": "error-case",
+      "variant": "after",
+      "repetitions": 3,
+      "tasks": {
+        "n": 3,
+        "p50": 2,
+        "p95": 2
+      },
+      "fila": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "steadyMutations": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "latencyMs": {
+        "n": 6,
+        "p50": 5,
+        "p95": 64
+      },
+      "cdpTaskMs": {
+        "n": 3,
+        "p50": 79.515,
+        "p95": 79.943
+      },
+      "cdpLayoutCount": {
+        "n": 3,
+        "p50": 2,
+        "p95": 2
+      },
+      "cdpRecalcStyleCount": {
+        "n": 3,
+        "p50": 2,
+        "p95": 2
+      },
+      "jsHeapBytes": {
+        "n": 3,
+        "p50": 2245824,
+        "p95": 2245824
+      }
+    },
+    {
+      "scenario": "hidden-case-emulated",
+      "variant": "before",
+      "repetitions": 3,
+      "tasks": {
+        "n": 3,
+        "p50": 8,
+        "p95": 8
+      },
+      "fila": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "steadyMutations": {
+        "n": 3,
+        "p50": 3,
+        "p95": 3
+      },
+      "latencyMs": {
+        "n": 24,
+        "p50": 5,
+        "p95": 46
+      },
+      "cdpTaskMs": {
+        "n": 3,
+        "p50": 67.16,
+        "p95": 76.64000000000001
+      },
+      "cdpLayoutCount": {
+        "n": 3,
+        "p50": 5,
+        "p95": 5
+      },
+      "cdpRecalcStyleCount": {
+        "n": 3,
+        "p50": 5,
+        "p95": 5
+      },
+      "jsHeapBytes": {
+        "n": 3,
+        "p50": 2265728,
+        "p95": 2265728
+      }
+    },
+    {
+      "scenario": "hidden-case-emulated",
+      "variant": "after",
+      "repetitions": 3,
+      "tasks": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "fila": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "steadyMutations": {
+        "n": 3,
+        "p50": 0,
+        "p95": 0
+      },
+      "latencyMs": {
+        "n": 0,
+        "p50": null,
+        "p95": null
+      },
+      "cdpTaskMs": {
+        "n": 3,
+        "p50": 57.889,
+        "p95": 87.779
+      },
+      "cdpLayoutCount": {
+        "n": 3,
+        "p50": 1,
+        "p95": 1
+      },
+      "cdpRecalcStyleCount": {
+        "n": 3,
+        "p50": 1,
+        "p95": 1
+      },
+      "jsHeapBytes": {
+        "n": 3,
+        "p50": 2215920,
+        "p95": 2215920
+      }
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Registro modular de rotas da Central CPJ."""
 from rotas.casos import bp_casos
+from rotas.astra import bp_astra
 from rotas.consulta import bp_consulta
 from rotas.relatorios import bp_relatorios
 from rotas.sistema import bp_sistema
@@ -13,5 +14,6 @@ def registrar_rotas(app):
     app.register_blueprint(bp_casos)
     app.register_blueprint(bp_relatorios)
     app.register_blueprint(bp_consulta)
+    app.register_blueprint(bp_astra)
     app.register_blueprint(bp_sistema)
 

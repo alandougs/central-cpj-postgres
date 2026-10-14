@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Rotas de bases de consulta, referências, pesquisa textual/relacional e cruzamento de dados."""
+import hashlib
 import json
 import os
 import re
@@ -28,28 +29,6 @@ def _manuais_grafo(caso=None):
     import vinculos_manuais as VM
     todos = VM.listar(WS, incluir_excluidos=True)
     return GE.fundir_manuais([], todos, caso), todos
-
-
-def _grafo_sem_indice(vazio, manuais, termo=''):
-    if termo:
-        busca=R._n(termo)
-        chaves={GE.chave(a) for a in manuais if busca in R._n(' '.join(str(a.get(k,'')) for k in
-                ('a_valor','b_valor','a_rotulo','b_rotulo','relacao')))}
-        manuais=[a for a in manuais if GE.chave(a) in chaves]
-    try:grupos = GE.agrupar(manuais, WS)
-    except (ValueError,OSError):return jsonify({'erro':'Não foi possível conferir o histórico de revisões. As fontes foram preservadas.'}),503
-    corte = len(grupos) > 400
-    grupos = grupos[:400]
-    nos = {}
-    rotulos={(a[lado+'_tipo'],a[lado+'_valor']):a[lado+'_rotulo'] for a in manuais for lado in ('a','b') if a.get(lado+'_rotulo')}
-    for a in grupos:
-        for lado in ("a", "b"):
-            t,v = a[f"{lado}_tipo"],a[f"{lado}_valor"]
-            nos[t,v] = {"tipo":t,"valor":v,"nivel":0,"rotulo":rotulos.get((t,v),v)}
-    return jsonify({**vazio,"nos":list(nos.values()),"arestas":grupos,
-                    "truncado":True if corte else None,"completude":"indice_indisponivel",
-                    "limites":{"relacoes":400},
-                    "aviso":"Índice indisponível. As anotações preservadas não representam toda a documentação."})
 
 
 @bp_consulta.get("/api/consulta/bases")
@@ -93,167 +72,174 @@ def api_bases_colar():
     return jsonify({"tarefa": tid})
 
 
-@bp_consulta.get("/api/vinculos")
-@requer("pesquisa")
-def api_vinculos():
-    tipo = request.args.get("tipo") or "PESSOA"
-    valor = request.args.get("valor") or ""
-    caso = request.args.get("caso") or None
+_cadastro_grafo = {}
+_cadastro_guard = threading.Lock()
+
+
+class GrafoAlterado(ValueError):
+    pass
+
+
+def _stat_grafo(p):
     try:
-        niveis = max(1, min(3, int(request.args.get("niveis") or 2)))
-    except ValueError:
-        niveis = 2
-    try:
-        manuais,todos = _manuais_grafo(caso)
-    except (OSError,ValueError):
-        return jsonify({"erro":"Não foi possível conferir a fonte dos vínculos manuais."}),503
-    try:
-        g = R.vinculos(tipo,valor,niveis,caso=caso,interno=True)
-        db = None if g.get('completude')=='indice_indisponivel' else R.conectar()
-    except FileNotFoundError:
-        g={"nos":[],"arestas":[],"truncado":None,"completude":"indice_indisponivel"}
-        db=None
-    except (OSError,sqlite3.Error):
-        return jsonify({"erro":"Não foi possível consultar o índice. As fontes foram preservadas."}),503
-    t=(tipo or '').upper()
-    if t=='PESSOA' and not valor.startswith('P:'):t='NOME'
-    k=R.chave_no(t,valor)
-    seeds=[(t,k)] if k else []
-    if t=='CONTA' and '|' not in k:
-        seeds=[(t,a[side+'_valor']) for a in g['arestas']+manuais for side in ('a','b')
-               if a[side+'_tipo']=='CONTA' and a[side+'_valor'].endswith('|'+k)] or seeds
-    linhas=GE.fundir_manuais(g['arestas'],todos,caso)
-    linhas,niveis_nos,corte=GE.subgrafo(linhas,seeds,niveis,400)
-    chaves=list(dict.fromkeys(GE.chave(a) for a in linhas))
-    try:
-        if db is not None:
-            linhas=R.referencias_relacoes(db,chaves,caso)
-            linhas=[a for a in GE.fundir_manuais(linhas,todos,caso) if GE.chave(a) in set(chaves)]
-        saida=_resposta_grafo(linhas,db,caso,niveis_nos)
-    except (OSError,sqlite3.Error,ValueError):
-        return jsonify({"erro":"Consulta incompleta por falha no índice; tente novamente."}),503
-    finally:
-        if db is not None:db.close()
-    truncado=True if corte or g.get('truncado') else None if g.get('truncado') is None or manuais else False
-    saida.update(indice_disponivel=db is not None,truncado=truncado,
-                 completude='parcial' if truncado else 'nao_aferida' if truncado is None else 'completa_no_escopo',
-                 limites={**g.get('limites',{}),'nos':400,'niveis':niveis})
-    auditar("pesquisa_vinculos", f"{tipo}: {valor[:80]}")
-    return jsonify(saida)
+        s=os.stat(p)
+        return [s.st_mtime_ns,s.st_ctime_ns,s.st_size,s.st_ino]
+    except FileNotFoundError:return None
 
 
 def _ordens_servico_grafo():
-    ordens = [{"id": c["id"], "ordem_servico": c.get("ordem_servico") or c["id"]}
-              for c in C.listar() if c.get("id")]
-
+    # A listagem/stat é refeita em todo GET; só o JSON inalterado é reutilizado.
+    raiz=os.path.abspath(C.CASOS);ordens=[]
+    with _cadastro_guard:
+        cache=_cadastro_grafo.setdefault(raiz,{})
+        atuais=set()
+        if os.path.isdir(raiz):
+            for d in os.scandir(raiz):
+                if d.name.startswith('_') or not d.is_dir():continue
+                assinatura=_stat_grafo(os.path.join(d.path,'caso.json'))
+                if assinatura is None:continue
+                atuais.add(d.name);anterior=cache.get(d.name)
+                if anterior is None or anterior[0]!=assinatura:
+                    try:
+                        c=C.carregar(d.name)
+                        item={'id':c['id'],'ordem_servico':c.get('ordem_servico') or c['id']} if c.get('id') else None
+                    except (OSError,ValueError,TypeError,AttributeError):item=None
+                    cache[d.name]=(assinatura,item)
+                if cache[d.name][1]:ordens.append(dict(cache[d.name][1]))
+        for nome in list(cache):
+            if nome not in atuais:del cache[nome]
     def ordem(c):
-        numeros = re.findall(r"\d+", str(c["ordem_servico"]))
-        return (0, tuple(int(n) for n in numeros), c["id"]) if numeros else (1, (), c["id"])
-
-    return sorted(ordens, key=ordem)
-
-
-def _arestas_busca_grafo(db, termo, caso, registros):
-    tipos=[t for t in R.TIPOS_NO if t!='CASO' and (t!='PESSOA' or termo.startswith('P:'))]
-    numerico=bool(re.fullmatch(r"[\d.\-/() +]+",termo))
-    tipos=[t for t in tipos if t not in ('CPF','CNPJ','TELEFONE','RG','PROCESSO','BO','CONTA')
-           or numerico or (t=='CONTA' and '|' in termo)]
-    chaves=[(t,R.chave_no(t,termo).lower()) for t in tipos if R.chave_no(t,termo)]
-    filtros=' OR '.join('(n.tipo=? AND instr(lower(n.valor),?)>0)' for _ in chaves)
-    escopo,params=R.escopo_grafo(caso)
-    seeds=db.execute(f"""WITH nos AS (
-        SELECT a_tipo tipo,a_valor valor FROM arestas WHERE {escopo}
-        UNION SELECT b_tipo,b_valor FROM arestas WHERE {escopo})
-        SELECT n.tipo,n.valor FROM nos n LEFT JOIN rotulos r ON r.tipo=n.tipo AND r.valor=n.valor
-        WHERE ({filtros or '0'}) OR (n.tipo!='CASO' AND instr(lower(coalesce(r.rotulo,'')),?)>0)
-        ORDER BY n.tipo,n.valor LIMIT 31""",params+params+[v for par in chaves for v in par]+[termo.lower()]).fetchall()
-    manuais=GE.fundir_manuais([],registros,caso)
-    busca=R._n(termo)
-    manuais_seeds=[]
-    for a in manuais:
-        if busca in R._n(' '.join(str(a.get(k,'')) for k in ('a_valor','b_valor','a_rotulo','b_rotulo','relacao'))):
-            manuais_seeds.extend((a[lado+'_tipo'],a[lado+'_valor']) for lado in ('a','b'))
-    seeds=list(dict.fromkeys(manuais_seeds+[tuple(s) for s in seeds]))
-    linhas={};corte=len(seeds)>30
-    for tipo,valor in seeds[:30]:
-        g=R.vinculos(tipo,valor,niveis=2,limite=300,caso=caso,interno=True)
-        corte=corte or bool(g.get('truncado'))
-        for a in g['arestas']:linhas[a['_rowid']]=a
-    combinadas=GE.fundir_manuais(list(linhas.values()),registros,caso)
-    combinadas,_,corte_fonte=GE.subgrafo(combinadas,seeds[:30],2,400)
-    return list(dict.fromkeys(GE.chave(a) for a in combinadas)),corte or corte_fonte
+        ns=re.findall(r'\d+',str(c['ordem_servico']))
+        return (0,tuple(int(n) for n in ns),c['id']) if ns else (1,(),c['id'])
+    return sorted(ordens,key=ordem)
 
 
-def _resposta_grafo(arestas,db,caso=None,niveis=None):
+def _paginacao_grafo():
+    valores=[]
+    for nome,padrao,maximo in (('pagina','1',None),('limite','400',400)):
+        texto=request.args.get(nome,padrao)
+        if len(request.args.getlist(nome))>1 or not re.fullmatch(r'[0-9]+',texto):raise ValueError('Página/limite inválidos.')
+        numero=int(texto)
+        if numero<1 or (maximo and numero>maximo):raise ValueError('Página/limite fora do intervalo permitido.')
+        valores.append(numero)
+    if (valores[0]-1)*valores[1]>2**63-1:raise ValueError('Página fora do intervalo permitido.')
+    if len(request.args.getlist('revisao'))>1:raise ValueError('Revisão repetida.')
+    revisao=request.args.get('revisao')
+    if revisao is not None and not re.fullmatch(r'[0-9a-f]{64}',revisao):raise ValueError('Revisão de consulta inválida.')
+    return valores
+
+
+def _estado_grafo():
+    wal=_stat_grafo(R.DB+'-wal')
+    # Abrir um banco WAL para ler pode criar só o cabeçalho, sem alteração de dados.
+    estado=[_stat_grafo(R.DB),wal if wal and wal[2]>32 else None]
+    for sub in ('eventos','conferencias'):
+        pasta=os.path.join(WS,'consulta','_grafo-manual',sub)
+        estado.append(sorted((d.name,_stat_grafo(d.path)) for d in os.scandir(pasta) if d.name.endswith('.json')) if os.path.isdir(pasta) else [])
+    return estado
+
+
+def _resposta_grafo(arestas,db,caso=None,niveis=None,manuais=None):
     grupos=GE.agrupar(arestas,WS,caso)
-    nos={}
-    for a in grupos:
+    chaves=list(dict.fromkeys((a[l+'_tipo'],a[l+'_valor']) for a in grupos for l in ('a','b')))
+    rot=R.rotulos_em_lote(db,chaves,manuais) if db is not None else {}
+    for a in manuais or arestas:
         for lado in ('a','b'):
-            t,v=a[lado+'_tipo'],a[lado+'_valor']
-            if (t,v) in nos:continue
-            rotulo=v
-            if db is not None:
-                r=db.execute('SELECT rotulo FROM rotulos WHERE tipo=? AND valor=?',(t,v)).fetchone()
-                if r and r[0]:rotulo=r[0]
-                elif t=='PESSOA':
-                    r=db.execute("SELECT b_valor FROM arestas WHERE a_tipo='PESSOA' AND a_valor=? AND b_tipo='NOME' LIMIT 1",(v,)).fetchone()
-                    if r and r[0]:rotulo=r[0].title()
-            for origem in arestas:
-                for side in ('a','b'):
-                    if (origem[side+'_tipo'],origem[side+'_valor'])==(t,v) and origem.get(side+'_rotulo'):
-                        rotulo=origem[side+'_rotulo']
-            nos[t,v]={'tipo':t,'valor':v,'nivel':(niveis or {}).get((t,v),0),'rotulo':rotulo}
-    return {'nos':list(nos.values()),'arestas':grupos}
+            if a.get(lado+'_rotulo'):rot[a[lado+'_tipo'],a[lado+'_valor']]=a[lado+'_rotulo']
+    nos=[{'tipo':t,'valor':v,'nivel':(niveis or {}).get((t,v),0),'rotulo':rot.get((t,v),v)} for t,v in chaves]
+    return {'nos':nos,'arestas':grupos}
 
 
-@bp_consulta.get("/api/grafo")
-@requer("pesquisa")
-def api_grafo():
-    caso=request.args.get('caso') or ''
-    termo=(request.args.get('q') or '').strip()
-    ordens=_ordens_servico_grafo()
-    vazio={'nos':[],'arestas':[],'casos':[c['id'] for c in ordens],
-           'ordens_servico':ordens,'indice_disponivel':False}
-    try:manuais,todos=_manuais_grafo(caso)
-    except (OSError,ValueError):
-        return jsonify({'erro':'Não foi possível ler a fonte de vínculos manuais. Preserve os arquivos e confira a integridade.'}),503
-    db=None
-    try:
-        db=R.conectar()
-        db.execute('SELECT 1 FROM arestas LIMIT 1');db.execute('SELECT 1 FROM rotulos LIMIT 1')
-    except (FileNotFoundError,sqlite3.OperationalError):
-        if db is not None:db.close()
-        return _grafo_sem_indice(vazio,manuais,termo)
-    except (OSError,sqlite3.Error):
-        if db is not None:db.close()
-        return jsonify({'erro':'Índice indisponível por falha de leitura; as fontes foram preservadas.'}),503
-    try:
-        if termo:
-            chaves,corte=_arestas_busca_grafo(db,termo,caso,todos)
-            lim={'relacoes':400,'seeds':30,'nos':400,'nos_por_expansao':300,'niveis':2}
+def _pagina_manuais(manuais,termo,pagina,limite,seed,niveis):
+    chaves=list(dict.fromkeys(GE.chave(a) for a in manuais))
+    niveis_nos={}
+    if termo or seed is not None:
+        if seed is None:
+            busca=R._n(termo)
+            seeds=[(a[l+'_tipo'],a[l+'_valor']) for a in manuais for l in ('a','b') if busca in R._n(' '.join(str(a.get(k,'')) for k in ('a_valor','b_valor','a_rotulo','b_rotulo','relacao')))]
         else:
+            t,v=seed
+            seeds=[(a[l+'_tipo'],a[l+'_valor']) for a in manuais for l in ('a','b') if a[l+'_tipo']==t and
+                   (a[l+'_valor'].endswith('|'+v) if t=='CONTA' and '|' not in v else a[l+'_valor']==v)]
+        linhas,niveis_nos,_=GE.subgrafo(manuais,seeds,niveis,max(1,len(manuais)*2+len(seeds)))
+        chaves=list(dict.fromkeys(GE.chave(a) for a in linhas))
+    chaves.sort(key=lambda k:tuple((v is not None,v or '') for v in k))
+    selecionadas=chaves[(pagina-1)*limite:pagina*limite]
+    meta=R.metadados_pagina(len(chaves),pagina,limite,len(selecionadas))
+    meta.update(total=None,total_disponivel=len(chaves),truncado=True if len(chaves)>len(selecionadas) else None,
+                completude='nao_aferida',niveis_nos=niveis_nos)
+    return selecionadas,meta
+
+
+def _consultar_grafo_paginado(caso,termo,pagina,limite,ordens,seed=None,niveis=2):
+    inicial=_estado_grafo()
+    revisao=hashlib.sha256(json.dumps([ordens,inicial,caso,termo,seed,niveis,limite],ensure_ascii=False,sort_keys=True).encode('utf-8')).hexdigest()
+    if request.args.get('revisao') not in (None,revisao):raise GrafoAlterado('O grafo foi alterado; recarregue a primeira página.')
+    _,registros=_manuais_grafo(caso);db=None;disponivel=False
+    try:
+        try:
+            db=R.conectar();db.execute('BEGIN')
+            db.execute('SELECT 1 FROM arestas LIMIT 1');db.execute('SELECT 1 FROM rotulos LIMIT 1')
+            disponivel=True
+        except (FileNotFoundError,sqlite3.OperationalError):
+            if db is not None:db.close();db=None
+        if disponivel:
             escopo,params=R.escopo_grafo(caso)
-            campos=','.join(R.COLUNAS_GRAFO[:5])
-            filtro='' if caso else " AND relacao!='consta nos autos'"
-            rows=db.execute(f'SELECT {campos} FROM arestas WHERE {escopo}{filtro} GROUP BY {campos} '
-                            f"ORDER BY min(CASE WHEN origem='manual' THEN 0 ELSE 1 END),{campos} LIMIT 401",params).fetchall()
-            chaves=[tuple(r) for r in rows[:400]];corte=len(rows)>400;lim={'relacoes':400}
-        busca=R._n(termo)
-        manuais_chaves=[GE.chave(a) for a in manuais if not termo or busca in R._n(' '.join(str(a.get(k,'')) for k in
-                        ('a_valor','b_valor','a_rotulo','b_rotulo','relacao')))]
-        selecionadas=list(dict.fromkeys(manuais_chaves+chaves))
-        corte=corte or len(selecionadas)>400;selecionadas=selecionadas[:400]
-        arestas=R.referencias_relacoes(db,selecionadas,caso)
-        conjunto=set(selecionadas)
-        arestas=[a for a in GE.fundir_manuais(arestas,todos,caso) if GE.chave(a) in conjunto]
-        saida=_resposta_grafo(arestas,db,caso)
-    except (OSError,sqlite3.Error,ValueError):
-        return jsonify({'erro':'Consulta incompleta por falha no índice; tente novamente.'}),503
-    finally:db.close()
-    saida.update(casos=vazio['casos'],ordens_servico=ordens,indice_disponivel=True,
-                 limites=lim,truncado=True if corte else None if termo else False,
-                 completude='parcial' if corte else 'nao_aferida' if termo else 'completa_no_escopo')
-    auditar('grafo_consultado',f'caso={caso}; q={termo}')
+            rows=db.execute('SELECT '+','.join(GE.CAMPOS)+" FROM arestas WHERE origem='manual' AND "+escopo,params).fetchall()
+            manuais=GE.fundir_manuais([dict(zip(GE.CAMPOS,r)) for r in rows],registros,caso)
+            manuais=[a for a in manuais if not caso or a.get('caso',a.get('fonte'))==caso]
+            meta=R.pagina_grafo(db,caso,termo,manuais,pagina,limite,seed,niveis,any(c['id']==caso for c in ordens))
+            chaves=meta.pop('chaves')
+            linhas=R.referencias_relacoes(db,chaves,caso)
+            linhas=[a for a in GE.fundir_manuais(linhas,registros,caso) if GE.chave(a) in set(chaves)]
+        else:
+            manuais=GE.fundir_manuais([],registros,caso)
+            chaves,meta=_pagina_manuais(manuais,termo,pagina,limite,seed,niveis)
+            linhas=[a for a in manuais if GE.chave(a) in set(chaves)]
+        saida=_resposta_grafo(linhas,db,caso,niveis=meta.pop('niveis_nos',{}),manuais=manuais)
+        por_chave={GE.chave(a):a for a in saida['arestas']}
+        saida['arestas']=[por_chave[k] for k in chaves if k in por_chave]
+        if _estado_grafo()!=inicial:raise GrafoAlterado('O grafo mudou durante a leitura; recarregue a primeira página.')
+        saida.update(meta,indice_disponivel=disponivel,revisao=revisao)
+        if not disponivel:saida['aviso']='Índice indisponível. As anotações preservadas não representam toda a documentação.'
+        return saida
+    finally:
+        if db is not None:db.close()
+
+
+@bp_consulta.get('/api/grafo')
+@requer('pesquisa')
+def api_grafo():
+    try:
+        pagina,limite=_paginacao_grafo()
+    except ValueError as erro:return jsonify({'erro':str(erro)}),400
+    caso=request.args.get('caso') or '';termo=(request.args.get('q') or '').strip()
+    ordens=_ordens_servico_grafo()
+    try:
+        saida=_consultar_grafo_paginado(caso,termo,pagina,limite,ordens)
+    except GrafoAlterado as erro:return jsonify({'erro':str(erro),'recarregar':True}),409
+    except (OSError,sqlite3.Error,ValueError):return jsonify({'erro':'Não foi possível conferir o índice e as fontes. Os arquivos foram preservados.'}),503
+    saida.update(casos=[c['id'] for c in ordens],ordens_servico=ordens)
+    auditar('grafo_consultado',f'caso={caso}; q={termo}; pagina={pagina}')
+    return jsonify(saida)
+
+
+@bp_consulta.get('/api/vinculos')
+@requer('pesquisa')
+def api_vinculos():
+    try:pagina,limite=_paginacao_grafo()
+    except ValueError as erro:return jsonify({'erro':str(erro)}),400
+    tipo=request.args.get('tipo') or 'PESSOA';valor=request.args.get('valor') or ''
+    t=tipo.upper()
+    if t=='PESSOA' and not valor.startswith('P:'):t='NOME'
+    try:niveis=max(1,min(3,int(request.args.get('niveis') or 2)))
+    except ValueError:niveis=2
+    try:
+        saida=_consultar_grafo_paginado(request.args.get('caso') or '', '',pagina,limite,_ordens_servico_grafo(),(t,R.chave_no(t,valor)),niveis)
+    except GrafoAlterado as erro:return jsonify({'erro':str(erro),'recarregar':True}),409
+    except (OSError,sqlite3.Error,ValueError):return jsonify({'erro':'Não foi possível conferir o índice e as fontes. Os arquivos foram preservados.'}),503
+    saida['limites']['niveis']=niveis
+    auditar('pesquisa_vinculos',f'{tipo}: {valor[:80]}; pagina={pagina}')
     return jsonify(saida)
 
 

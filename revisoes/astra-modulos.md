@@ -19,7 +19,8 @@ Extração literal de `b97b445`, sem alterações funcionais, de nomes globais, 
 | 13 | llm.js | Provedores e catálogos; usa core e DOM. |
 | 14 | fluxograma.js | Fluxo financeiro/canvas; usa core e caso atual. |
 | 15 | vinculos.js | Modal de relações manuais e exclusão por ID/caso/revisão; usa grafo/core/caso. |
-| 16 | bootstrap.js | Única chamada inicial `iniciar();`, depois de todos os domínios. |
+| 16 | astra.js | Perguntas determinísticas, respostas/fontes e histórico em memória por sessão/O.S.; usa core/grafo e API local, inicializa após load. Acrescentado na AST10, depois da extração literal. |
+| 17 | bootstrap.js | Única chamada inicial `iniciar();`, depois de todos os domínios. |
 
 As funções continuam públicas no ambiente global clássico. Os `let`/`const` compartilham o mesmo ambiente léxico global; não convertê-los em propriedades `window`. As dependências cíclicas anteriores continuam explícitas: callbacks só executam após o bootstrap. O ciclo da física do grafo é distinto do polling HTTP.
 

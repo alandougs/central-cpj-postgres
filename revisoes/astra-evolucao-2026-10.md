@@ -151,3 +151,33 @@ Comparação coordenada:40 before+40 after expandidos, mesmos50/100/500/1000nós
 Regressões/limites: cenários pequenos têm pequenas pioras de montagem/física; todas40 after pararam no teto360ticks, sem comprovação de convergência. Animação mais longa e heap observado1000denso23,13→38,13MB; TaskDuration melhora no denso e piora no pequeno, sem percentual de CPU ou promessa de economia geral. Snapshot primário e correção agrupada posterior preservados separadamente; o ramo expandido medido não mudou. Homologação humana e validação17 seguem pendentes.
 
 Atualização AST10: repetição final **8/8 HTTP/Edge em15,636s**, incluindo recorte Pix entre O.S., invalidação de respostas antigas e histórico/reconexão; AST16 com novo módulo4/4 em5,315s. AST15 foi reservada após esses resultados e está em implementação; a fonte/commit10 aguarda integração do helper14. Não há confirmação de suíte final do projeto.
+
+## Revisão adicional de #10 e integração #14
+
+A auditoria independente posterior aos oito testes encontrou três lacunas em perguntas Pix: literal parcial podia selecionar outra chave no caso atual; cache manual antigo podia reapresentar hipótese excluída; ocorrência somente em extração candidata era omitida. Também foi identificado por leitura que uma seleção anterior prevalecia sobre literal explícito. Novos testes de regressão foram escritos antes da correção; sua execução aguarda a janela exclusiva de medição15. Os oito testes anteriores não constituem validação desses cenários.
+
+Backend14 passou15 testes repetidos pelo integrador em5,713s. Interface14 passou4 cenários Edge em16,755s: próxima página mantém câmera/seleção/fontes; revisão alterada409 preserva recorte; erro503 permite nova tentativa; resposta antiga não troca O.S. e recorte explícito de pergunta não herda erro de paginação. A quarta regressão foi reproduzida antes de associar o estado de paginação à geração da consulta.
+
+O integrador verificou cinco hashes de fonte, método original,120 amostras e24 aquecimentos SQL: HTTP200, totais iguais ao oráculo, uma conexão e nenhum cadastro JSON relido nas amostras aquecidas; seis bancos mantiveram hashes. Em1.000 O.S. densas, consulta por O.S. p50/p95128,73/150,67ms; busca global ampla13.312,49/13.432,95ms para contar490.000 relações e devolver400 com fontes. O baseline devolvia90 sem total e cortava30 sementes: não é comparação de trabalho idêntico nem ganho universal. Método,24 cenários e planos atuais em `revisoes/metricas-astra/sql/README.md`.
+
+Triagem de padrões do commit local13 encontrou19 correspondências de telefone: três constantes numéricas do hash do grafo e16 valores decimais de tempo no JSON de comparação. Contextos conferidos: falsos positivos, sem telefones ou conteúdo de autos. Os gzip contêm somente medições fictícias e foram conferidos por hash/roundtrip; a triagem não foi descrita como zero achados nem como execução do scanner YAML completo.
+
+## #15 — atualização adaptativa e medição
+
+Cinco módulos mantêm uma leitura de tarefas compartilhada por rodada; intervalo ativo1,6s e ocioso8s, erro com backoff até60s, timeout12s e pausa quando oculto. Mudança de sessão/caso e respostas antigas têm guardas. Painéis só reescrevem HTML diferente e mantêm details abertos; resultado de IA oferece atualização explícita da ficha. Cancelamento exige confirmação positiva do servidor; POST não é repetido pelo controlador.
+
+Integrador revisou o diff e repetiu7 testes de política em0,889s e5 HTTP/Edge em21,570s; agente63 regressões verdes. Trinta e seis amostras pareadas, janela exclusiva, seis cenários/três repetições antes/depois com mesmo instrumento e fontes congeladas. Integrador verificou cinco hashes de JS e gzip bruto,36 contagens de pedidos, métodosGET/respostas e18 amostras after sem mutações estáveis; não houve erro JS ou pedido externo no raw.
+
+Caso ocioso8→1GET, ativo8→4, outra aba com caso aberto8→1, erro4→2, oculto emulado8→0; início tarefas/fila4→1 cada. CDP TaskDuration não melhora universalmente, por exemplo erro p5063,1→79,5ms. Oculação foi emulada, DOM não mede repaint e heap não é RAM total; não se alegam CPU/FPS de sistema. Fontes, raw gzip, hashes, método e limites em `revisoes/metricas-astra/polling/README.md`. Sem aplicação operacional ou homologação humana automática.
+
+Marco13 publicado como `b0c489d`, árvore `1d5941229ef19c84313a39e4fc68cbbeb3675805` igual ao commit local anterior. A base `f56653c` continua ancestral; nenhuma integração em main. Preparação17 usa testes fictícios e execução de análise/redação simulada explicitamente separada da extração e HTTP/Edge reais. Auditoria17 identificou divergência de ID com ponto em conferências11, reservada em AST171 para TDD; não há afirmação de suíte global final.
+
+## #10 — auditoria e regressões finais
+
+Três novos testes falharam antes do patch (1,505s): Pix literal selecionava outra chave, candidato não aparecia e hipótese excluída reaparecia. Literal Pix usa igualdade canônica no universo das O.S.; fonte autoritativa é conciliada antes de agrupar e filtro exato é reaplicado aos manuais. Ocorrências candidatas/hipóteses mantêm tipo e aviso, sem afirmar transferência ou autoria. Revisão independente repetiu três cenários corrigidos e verificou SQLite intacto.
+
+Quarta regressão de seleção foi reproduzida antes do patch: conta antiga substituía pessoa entre aspas. Agora seleção só é aceita se estiver entre as opções compatíveis com o literal, preservando escolha explícita entre homônimos. Integrador repetiu **12/12 HTTP/Edge em26,778s**. AST16 isolada **4/4 em4,370s**; tentativa de combinar módulos no mesmo processo falhou no isolamento do harness e no PYTHONPATH de QuickJS, resolvida executando processos separados com dependência TEMP já disponível, sem mudança do produto para ocultar falhas.
+
+Quatro intenções e histórico permanecem locais, sem IA externa ou gravação de fatos/vínculos; cada relação exibida mantém todas as fontes. A integração10/14 é um marco conjunto porque10 usa o helper de rótulos em lote14 e o quarto teste UI14 verifica o recorte explícito10. Nenhum intermediário incompleto é publicado.
+
+Reteste independente também confirmou a quarta correção: seleção antigaCONTA100/200 devolve as duas opções da pessoa citada; seleção compatívelA mantém duas relações eB nenhuma. Triagem de padrões das linhas novas10/14/15 encontrou cinco ocorrências de e-mail, todas nos testes novos com domínio reservado `ficticio.invalid`, conferidas como dados sintéticos. Nenhuma correspondência de token, CPF/CNPJ ou telefone neste marco; não se trata da execução integral do scanner YAML.

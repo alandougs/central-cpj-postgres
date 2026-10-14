@@ -12,6 +12,7 @@ let grIsPanning=false, grStartPan={x:0,y:0}, grMouseDownPos={x:0,y:0};
 let grAnimId=null, grEnergy=1.0, grInitialized=false;
 let grCarga=0, grEstado="pronto", grErro="";
 let grAjustarAoEstabilizar=false;
+let grPaginaContexto=null,grMaisEmCurso=false,grPaginaErro="",grPaginaOperacao=0;
 
 
 
@@ -217,16 +218,54 @@ function grAtualizarEstado(visNodes, conexoes){
       "Ainda não há vínculos disponíveis no índice. Selecione uma O.S. ou consulte o cadastro na aba Casos.";
   }else if(!visNodes.length)texto="Todos os nós estão ocultos pelos filtros. Marque um dos tipos acima para exibir o grafo.";
   if(grEstado==="pronto"){
-    const avisos=[grDados.aviso,grDados.truncado===true?"Resultado parcial: há relações adicionais. Refine a busca ou a O.S.":grDados.completude==="nao_aferida"?"Completude não aferida: confira os limites e refine a busca antes de concluir.":""];
+    const avisos=[grDados.aviso,grDados.truncado===true?"Resultado parcial: há relações adicionais. Carregue as próximas relações ou refine a busca/O.S.":grDados.completude==="nao_aferida"?"Completude não aferida: confira os limites e refine a busca antes de concluir.":""];
     texto=[texto,...avisos.filter(Boolean)].filter(Boolean).join(" ");
   }
   if(msg){msg.textContent=texto;msg.hidden=!texto}
   if(status)status.textContent=grEstado==="carregando"?"Carregando…":grEstado==="erro"?"Falha no carregamento":`${visNodes.length} nós visíveis · ${conexoes} conexões`;
+  grAtualizarPaginacao();
+}
+
+function grAtualizarPaginacao(){
+  const box=$("#gr-paginacao"),texto=$("#gr-paginacao-texto"),b=$("#b-gr-mais");if(!box||!texto||!b)return;
+  const total=Number.isInteger(grDados.total)?grDados.total:null;
+  const msg=grEstado==="carregando"?"Carregando relações…":total!==null?`${grEdges.length} de ${total} relações carregadas neste recorte.`:
+    `${grEdges.length} relações carregadas; total documental não apurado.`;
+  const mesmaOperacao=grPaginaOperacao===grCarga;
+  const valor=[msg,mesmaOperacao&&grMaisEmCurso?"Carregando próximas relações…":"",mesmaOperacao?grPaginaErro:""].filter(Boolean).join(" ");
+  if(texto.textContent!==valor)texto.textContent=valor;
+  b.hidden=grEstado!=="pronto"||!Number.isInteger(grDados.proxima_pagina);b.disabled=mesmaOperacao&&grMaisEmCurso;
+}
+
+async function grCarregarMais(){
+  if((grMaisEmCurso&&grPaginaOperacao===grCarga)||grEstado!=="pronto"||!Number.isInteger(grDados.proxima_pagina)||!grPaginaContexto)return;
+  const {caso,q}=grPaginaContexto;
+  if($("#gr-caso").value!==caso||$("#gr-busca").value.trim()!==q){carregarGrafo();return}
+  const carga=grCarga,pagina=grDados.proxima_pagina,revisao=grDados.revisao;
+  grMaisEmCurso=true;grPaginaOperacao=carga;grPaginaErro="";grAtualizarPaginacao();
+  try{
+    const data=await api(`/api/grafo?caso=${enc(caso)}&q=${enc(q)}&pagina=${pagina}&limite=${grDados.limite||400}&revisao=${enc(revisao||"")}`);
+    if(carga!==grCarga||$("#gr-caso").value!==caso||$("#gr-busca").value.trim()!==q)return;
+    const existentes=new Set(grDados.arestas.map(a=>a.relacao_id));
+    if(data.pagina!==pagina||data.revisao!==revisao||data.arestas.some(a=>existentes.has(a.relacao_id)))throw new Error("Página incompatível; clique em Buscar para recarregar o recorte.");
+    const nos=new Map(grDados.nos.map(n=>[n.tipo+"|"+n.valor,n]));
+    for(const n of data.nos)if(!nos.has(n.tipo+"|"+n.valor))nos.set(n.tipo+"|"+n.valor,n);
+    const arestas=grDados.arestas.concat(data.arestas),total=Number.isInteger(data.total)?data.total:null;
+    const truncado=total!==null?arestas.length<total:data.truncado;
+    grGuardarVista();grDados={...grDados,...data,nos:[...nos.values()],arestas,truncado,
+      completude:data.indice_disponivel===false?data.completude:truncado?"parcial":"completa_no_escopo"};
+    grMontarGrafo();grAtualizarInspetor();grDesenhar();
+  }catch(x){
+    if(carga!==grCarga)return;
+    grPaginaErro=x.status===409?"As fontes mudaram durante a consulta. Clique em Buscar para recarregar sem misturar versões.":`Não foi possível carregar a próxima página: ${x.message}`;
+    if(x.status===409)grDados={...grDados,proxima_pagina:null,truncado:true,completude:"parcial"};
+  }finally{if(carga===grCarga){grMaisEmCurso=false;grAtualizarPaginacao()}}
 }
 
 async function carregarGrafo(){
   grInitEvents();grGuardarVista();
   const carga=++grCarga,caso=$("#gr-caso").value,q=$("#gr-busca").value.trim();
+  grPaginaContexto={caso,q};grMaisEmCurso=false;grPaginaErro="";
   grEstado="carregando";grErro="";grAtualizarEstado([],0);
   try{
     const data=await api(`/api/grafo?caso=${enc(caso)}&q=${enc(q)}`);
@@ -650,6 +689,11 @@ function grResetView(){
 
 function grInitEvents(){
   if(grInitialized)return;const cv=$("#cv-grafo");if(!cv)return;grInitialized=true;
+  if(!$("#gr-paginacao")&&typeof document!=="undefined"){
+    const p=document.createElement("div");p.id="gr-paginacao";p.className="acoes";p.setAttribute("role","status");
+    p.innerHTML='<span id="gr-paginacao-texto" class="muted"></span><button type="button" class="btn sm" id="b-gr-mais" hidden>Carregar próximas relações</button>';
+    $("#gr-mensagem").insertAdjacentElement("afterend",p);$("#b-gr-mais").onclick=grCarregarMais;
+  }
   if(!$("#b-gr-agrupar")&&typeof document!=="undefined"){
     const b=document.createElement("button");b.id="b-gr-agrupar";b.className="btn sm";b.textContent="Agrupar visualmente";b.setAttribute("aria-pressed","false");
     b.onclick=()=>grMostrarAgrupamento(!grAgrupar);$("#b-gr-reset")?.insertAdjacentElement?.("afterend",b);

@@ -612,6 +612,8 @@ for id_ in casos:
                 aresta("NOME", nm, t, k, "titular (nome — conferir)", "caso", id_, loc); rotulo("NOME", nm, r[f"{lado}_titular"])
 db.execute("CREATE INDEX IF NOT EXISTS ix_ar_a ON arestas(a_tipo, a_valor)")
 db.execute("CREATE INDEX IF NOT EXISTS ix_ar_b ON arestas(b_tipo, b_valor)")
+from rag import INDICES_GRAFO_SQL
+for instrucao in INDICES_GRAFO_SQL:db.execute(instrucao)
 
 VM.projetar(WS, db)
 db.commit()

@@ -95,7 +95,12 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#visualizador-r
 let pendenciasItens = [];
 async function carregarPendencias(){
   if(!pode("trabalho"))return;
-  const p = await api("/api/pendencias-ocr");
+  const geracao=polling.geracao;
+  const p = await lerAtualizacao("/api/pendencias-ocr");
+  if(geracao!==polling.geracao)return;
+  const assinatura=JSON.stringify(p.pendentes||[]);
+  if(carregarPendencias.assinatura===assinatura)return;
+  carregarPendencias.assinatura=assinatura;
   pendenciasItens = p.pendentes || [];
   renderPendencias();
 }
@@ -376,17 +381,21 @@ async function enviarPedidoIA(post,dados){
  else throw new Error(r.erro||"O pedido não foi enfileirado.");
  return r;
 }
-async function atualizarIA(){if(!casoAberto||!$("#ia-painel"))return;const ts=(await api("/api/tarefas")).filter(t=>t.tipo==="ia"&&t.caso===casoAberto).slice(0,3);
-
- $("#ia-painel").innerHTML=ts.map(t=>{const run=["executando","na_fila"].includes(t.status);return `<div class="job"><div class="l1"><span><b>${esc(t.titulo)}</b></span><span>${badge(t.status)} ${run?`<button class="btn sm dan" data-cancel="${t.id}">cancelar</button>`:""}</span></div>
-
-  ${run?barraHTML(t.progresso)+`<div class="muted">${t.progresso}% · ${esc(t.etapa)} · ${esc(t.detalhe||"")}</div>`:""}${t.erro?`<div class="muted" style="color:var(--crit)">${esc(t.erro)}</div>`:""}
-
-  ${t.resultado&&t.resultado.resumo?`<details><summary>Resumo do agente</summary><div class="res tx">${esc(t.resultado.resumo)}</div></details>`:""}</div>`}).join("");
-
- $$("#ia-painel [data-cancel]").forEach(b=>b.onclick=async()=>{if(confirm("Cancelar a tarefa de IA?")){await api(`/api/tarefas/${b.dataset.cancel}/cancelar`,{method:"POST"});atualizarIA()}});
-
- if(ts[0]&&ts[0].status==="concluida"&&!ts[0]._visto&&$("#detalhe").dataset.ult!==ts[0].id){$("#detalhe").dataset.ult=ts[0].id;abrirCaso(casoAberto)}}
-
-
-
+async function atualizarIA(dados){
+ const id=casoAberto,painel=$("#ia-painel"),geracao=polling.geracao,login=S.usuario?.login;
+ if(!id||!painel)return;
+ let todos;try{todos=dados||await consultarTarefas()}catch(e){if(id===casoAberto&&geracao===polling.geracao)pollingAviso(e);return null}
+ if(id!==casoAberto||painel!==$("#ia-painel")||geracao!==polling.geracao||login!==S.usuario?.login)return;
+ const ts=todos.filter(t=>t.tipo==="ia"&&t.caso===id).slice(0,3);
+ const html=ts.map(t=>{const run=["executando","na_fila"].includes(t.status);return `<div class="job" data-tarefa="${esc(t.id)}"><div class="l1"><span><b>${esc(t.titulo)}</b></span><span>${badge(t.status)} ${run?`<button class="btn sm dan" data-cancel="${esc(t.id)}">cancelar</button>`:""}</span></div>
+  ${run?barraHTML(t.progresso):""}<div class="muted">${run?`${t.progresso}% · `:""}${esc(etapaTarefa(t))}</div>${t.erro?`<div class="muted" style="color:var(--crit)">${esc(t.erro)}</div>`:""}
+  ${t.resultado&&t.resultado.resumo?`<details><summary>Resumo do agente</summary><div class="res tx">${esc(t.resultado.resumo)}</div></details>`:""}
+  ${t.status==="concluida"?`<button type="button" class="btn sm" data-ia-resultado>${t.resultado?"Resultado disponível":"Etapa concluída"} · Atualizar ficha</button>`:""}</div>`}).join("");
+ if(htmlAtualizado(painel,html)){
+  painel.querySelectorAll("[data-cancel]").forEach(b=>b.onclick=async()=>{if(confirm("Cancelar a tarefa de IA?")){
+   try{const r=await api(`/api/tarefas/${enc(b.dataset.cancel)}/cancelar`,{method:"POST"});if(!r.ok)throw new Error("Cancelamento não confirmado pelo servidor");await atualizarIA();acordarPolling()}catch(e){toast(e.message)}
+  }});
+  painel.querySelectorAll("[data-ia-resultado]").forEach(b=>b.onclick=()=>{if(id===casoAberto)abrirCaso(id,true)});
+ }
+ return todos;
+}
