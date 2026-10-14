@@ -11,14 +11,14 @@ Missão autorizada pelo operador em 14/10/2026. Fonte dos requisitos: épico #4,
 | #7 Exclusão seletiva | API por UUID manual/O.S./versão, tombstone e confirmação; cliques seguros por DOM | 13 API + 1 Edge; AST05 7/7, GF01 11/11, GF02 10/10; regressões de persistência/importação/tarefas aprovadas | Pendente |
 | #8 Evidências e confirmação | Relação com todas as referências, identidades por registro/linha e estados separados; URLs seguras | 19 API + 11 indexador + 1 Edge finais, regressões de contratos/persistência/exclusão/GF01/GF02 aprovadas | Pendente |
 | #9 Jornada guiada | Material/próximo passo contextual, explorar, fontes, dinheiro, hipótese e retorno com filtros | 6 Edge repetidos pelo integrador; 49 regressões adicionais do agente, sem POST implícito e com editor protegido | Pendente |
-| #10 Linguagem natural | Pendente | Pendente | Pendente |
-| #11 Inspetor | Nó/aresta e referência individual; conferência original/derivado, candidato e hipótese com histórico persistente | 14 API/persistência e 3 Edge finais, mais regressões P0 e backup real | Pendente |
+| #10 Linguagem natural | Quatro intenções locais, contexto, desambiguação, fontes e histórico da sessão; sem LLM ou escrita de fatos | 12 HTTP/Edge finais; quatro regressões de literais/Pix/seleção/tombstones corrigidas e repetidas independentemente | Pendente |
+| #11 Inspetor | Nó/aresta e referência individual; conferência original/derivado, candidato e hipótese com histórico persistente | 15 API/persistência após correção de ID com ponto e 3 Edge, mais regressões P0 e backup real | Pendente |
 | #12 Rascunhos | Implementado e incorporado de branch isolada; backend existente preservado | 5 cenários Edge/HTTP e 23 regressões focadas; suíte 77/79 com duas falhas preexistentes | Pendente |
 | #13 Layout | Sementes/ordem estáveis, câmera/posição/seleção por ID, proximidade, RAF/visibilidade e agrupamento expansível | 2 testes com18 verificações Node+3Edge; GF02 10/10;80 medições pareadas+80 ablações, ganhos/regressões explícitos | Pendente |
-| #14 Paginação | Baseline anterior às mudanças concluído; implementação pendente | 6 datasets, 120 GETs e 24 aquecimentos; SQL somente leitura e hashes preservados | Pendente |
-| #15 Atualização adaptativa | Pendente; consultas duplicadas e erros silenciosos identificados | Pendente | Pendente |
-| #16 Módulos | 16 scripts clássicos locais e CSS extraídos literalmente; leitores adaptados | AST16 4/4, Edge05/07/12/Explorer e leitores afetados aprovados; rodada ampla em snapshot identificada | Pendente |
-| #17 Homologação técnica | Pendente | Pendente | Pendente |
+| #14 Paginação | Total exato, ordem e revisão de páginas, todas as fontes, rótulos em lote e cache invalidável | 15 API e 4 Edge; 120 GET e 24 aquecimentos atuais, seis bancos intactos; busca global ampla de 13,3 s documentada | Pendente |
+| #15 Atualização adaptativa | Leitura compartilhada, intervalo por estado, pausa oculta, timeout/backoff e preservação de texto | 7 determinísticos e 5 Edge repetidos, 63 regressões do agente; 36 amostras pareadas/hashes auditados | Pendente |
+| #16 Módulos | 16 scripts clássicos e CSS extraídos literalmente; módulo de perguntas acrescentado como 17º, antes do bootstrap | AST16 4/4, Edge05/07/12/Explorer e leitores afetados aprovados; rodada ampla em snapshot identificada | Pendente |
+| #17 Homologação técnica | Matriz/roteiro e E2E integrado, auditoria e medição complementar de memória; código congelado | E2E real repetido; regressão rápida e suíte completa finais em andamento | Pendente |
 
 ## #5 — plano, execução e prova
 
@@ -191,3 +191,9 @@ Análise/CSV/redação foram simulados deterministicamente, não execução de I
 AST171: auditoria reproduziu HTTP400 para conferência de caso com ponto que já abria no grafo. Uma linha alinha ID canônico, rejeitando explicitamente `.`/`..`; novo RED antes do patch e integrador **15/15 API/persistência em8,881s**, mais33 regressões do agente. Revisão, overlay, histórico, CAS409 e recusas de traversal/separadores/percent-encoded sem escrita estão testados. Auditoria não encontrou novo bypass de autorização/CSRF/XSS, promoção de hipótese/candidato ou escrita de originais nos controles examinados; isso não é prova absoluta de ausência de falhas.
 
 Marco10/14/15 publicado como `23a16c7`, árvore `2350a492e9ee9902fc99bdcb148f721f7dd0f6c7` exatamente igual ao commit local `1cf3af6`; issues comentadas com evidências/limites e continuam abertas. Próximos passos desta issue: complemento de memória Windows com método/limites, snapshot congelado e runner rápido seguido da suíte completa. Nenhum resultado global final alegado até obter os retornos.
+
+### Memória Windows e início da rodada final
+
+AST172 mede WorkingSet64 dos PIDs retornados pelo CDP da instância Edge, com snapshots13 congelados e graphs fictícios totalmente expandidos.24 amostras completas mais3 inválidas preservadas na execução principal, por processo auxiliar encerrado; tentativas preliminares também preservadas. Integrador executou o verificador e conferiu8 hashes/bytes dos artefatos. p50 em MB decimais, antes→depois:50nós508,31→498,19;100nós527,45→510,07;500nós565,92→542,05;1000nós601,08→632,56. Não há melhoria geral de memória. Soma pode duplicar páginas compartilhadas; leitura pontual/não atômica, sem pico/GC, três repetições e retries com viés explícito. Heap é separado. Método, p95 e brutos em `revisoes/metricas-astra/memoria/README.md`; não é medida da versão final inteira ou da API/Python.
+
+Código congelado em TEMP `cpj-astra-final-x3dl_pa5/codigo`,214 arquivos do plugin com manifesto SHA-256; fonte após AST170/171, antes de novos ajustes apenas documentais. Runner rápido **3/4 suítes em24,40s**, retorno1: única falha conhecida OCR/escrivão fictício vazio, mesma reprodução anterior. Suíte completa iniciada depois, no mesmo snapshot, com QuickJS TEMP já disponível; ainda em coleta. Nenhum código do produto será alterado durante essa rodada.

@@ -51,6 +51,8 @@ As métricas rastreáveis estão em [SQL/API](metricas-astra/sql/README.md), [gr
 
 ## Roteiro humano — execução separada
 
+O integrador repetiu o E2E em22,582s, com três fases estritas e hashes de fontes/original intactos; evidências locais `cpj-astra-ast17-e2e-b12xdkj3` em TEMP. A auditoria também corrigiu a conferência de IDs de caso com ponto:15 testes API/persistência repetidos em8,881s, com traversal/separadores recusados e CAS preservado. A suíte geral congelada terá resultado registrado no checkpoint técnico; esses focais não a substituem.
+
 1. Em workspace de homologação, receber a O.S. fictícia e conferir a O.S. transcrita contra todas as páginas, especialmente o final e continuações. Conferir qual O.S. vigora pelo conteúdo/data, não pela posição.
 2. Abrir o caso no ASTRA; conferir contagens e avisos de materiais. Selecionar entidade identificada por documento/CPF/conta, sem unir homônimos pelo nome. Abrir cada fonte e comparar página/fls., trecho e recurso original ou derivado.
 3. Criar uma hipótese manual com evidência; conferir que continua hipótese. Reindexar e reiniciar; verificar que permanece. Remover apenas essa anotação e confirmar que a fonte documental continua disponível.
@@ -63,3 +65,13 @@ As métricas rastreáveis estão em [SQL/API](metricas-astra/sql/README.md), [gr
 ## Limites de aceitação
 
 O novo fluxo usa PDF nativo, sem executar OCR de página escaneada. F03 mantém o cenário OCR separado, sujeito às dependências declaradas. Não valida fidelidade de OCR difícil, resposta de provedor/modelo, inferência investigativa, assinatura manuscrita ou renderização final no Word. Os arquivos gerados são fictícios, e a aprovação do gate automatizado não substitui revisão e decisão do investigador. Roteiro humano ainda depende de execução e registro do operador; não está marcado como concluído por este documento.
+
+## Integração e uso pelo operador
+
+O [PR #19](https://github.com/alandougs/central-cpj-postgres/pull/19), branch `codex/astra-evolucao-20261014`, reúne a evolução ASTRA e as mudanças do [PR #18](https://github.com/alandougs/central-cpj-postgres/pull/18). A base é `main`, não a branch antiga `master`. A sincronização mantém o PR em rascunho; merge e implantação operacional dependem da autorização do responsável e não foram executados nesta missão.
+
+Para homologar, usar checkout separado e workspace fictício; executar o roteiro acima e registrar o aceite. Depois do aceite e da autorização de integração, preservar backup que inclua `consulta/_grafo-manual` e seus históricos, promover o commit aprovado para `main`, reiniciar a Central em período sem tarefas e conferir abertura, fontes, anotações, minuta e DOCX. Não reaplicar separadamente o PR18 sem revisar o conteúdo já incluído no PR19. Índice SQLite é derivado; a fonte manual append-only e suas conferências precisam continuar no backup.
+
+Fluxo cotidiano: **receber a O.S. → extrair → analisar e gerar a minuta → explorar ASTRA e conferir fontes → revisar/salvar → gerar DOCX → decidir FINAL**. As quatro perguntas locais apoiam a conferência do material indexado; a análise e a redação continuam usando a fila e o executor autorizado já existentes.
+
+As métricas de [memória Windows](metricas-astra/memoria/README.md) complementam grafo, SQL e polling: 24 amostras completas e três inválidas preservadas; soma de working sets p50 em 1.000 nós aumentou de601,08 para632,56MB. Pode duplicar páginas compartilhadas e não mede RAM privada/pico ou toda a aplicação. Não há afirmação de economia geral de memória.

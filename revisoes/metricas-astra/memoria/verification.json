@@ -1,0 +1,16 @@
+{
+  "completeSamples": 24,
+  "invalidAttempts": 3,
+  "missingTypes": [
+    "PooledProcess2",
+    "PooledProcess2",
+    "PooledProcess2"
+  ],
+  "errors": 0,
+  "externalRequests": 0,
+  "sourceSha256": {
+    "before": "5763aa11d30773986793694394bef1c66af7c895e2e9bf24e942e4131188933f",
+    "after": "7839418c48885281d5c18ac5f08d9efb1c1cfe5dacdb2e60ea0cbc9be9d629fd"
+  },
+  "allOracles": "passed"
+}
