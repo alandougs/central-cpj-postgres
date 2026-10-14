@@ -90,8 +90,13 @@ class AtualizacaoUI(AstraFixture,unittest.TestCase):
         self.browser(r'''
         await page.goto(url+'/#nova');await page.waitForSelector('#app:not([hidden])');
         for(const etapa of ['na_fila','processando','concluido']){
-          assert.equal((await context.request.post(url+'/__ast15',{headers:{'X-CPJ':'1'},data:{ocr:[{caso:'OS-901-2099',arquivo:'FICTICIO.pdf',status:etapa,etapa:'OCR '+etapa,progresso:etapa==='concluido'?100:35}]}})).status(),200);
-          await page.evaluate(()=>ciclo());assert.match(await page.locator('#fila').innerText(),new RegExp('OCR '+etapa));
+          const fase={na_fila:'na fila',processando:'extração/OCR',concluido:'concluído'}[etapa];
+          assert.equal((await context.request.post(url+'/__ast15',{headers:{'X-CPJ':'1'},data:{ocr:[{caso:'OS-901-2099',arquivo:'FICTICIO.pdf',status:etapa,etapa:fase,progresso:etapa==='concluido'?100:35,paginas:70,pagina_atual:40}]}})).status(),200);
+          await page.evaluate(()=>ciclo());
+          const texto=await page.locator('#fila').innerText();
+          assert.match(texto,{na_fila:/Aguardando sua vez/,processando:/Extraindo texto.*reconhecendo páginas/,concluido:/Processamento concluído/}[etapa]);
+          if(etapa==='processando')assert.match(texto,/Página 40 de 70/);
+          assert.equal(await page.locator('#fila .badge').first().innerText(),{na_fila:'na fila',processando:'processando',concluido:'concluído'}[etapa]);
         }
         await page.evaluate(()=>abrirAba('casos'));await page.evaluate(()=>abrirCaso('OS-901-2099'));
         const tid=await page.locator('#ia-painel [data-cancel]').getAttribute('data-cancel');

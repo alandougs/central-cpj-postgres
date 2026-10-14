@@ -66,16 +66,15 @@ $("#b-nova-os").onclick=()=>{++deteccaoOS;$("#f-os").reset();$("#f-os").elements
 
 async function atualizarFila(){
  const geracao=polling.geracao;let j;
- try{j=await lerAtualizacao("/api/fila")}catch(e){if(geracao===polling.geracao)pollingAviso(e);throw e}
+ let aviso=$("#fila-aviso");if(!aviso){aviso=document.createElement("div");aviso.id="fila-aviso";aviso.className="muted";aviso.setAttribute("role","status");$("#fila").before(aviso)}
+ try{j=await lerAtualizacao("/api/fila")}catch(e){if(geracao===polling.geracao){aviso.textContent=`Não foi possível atualizar a fila: ${e.message}. Os últimos dados continuam visíveis.`;pollingAviso(e)}throw e}
  if(geracao!==polling.geracao)return null;
  polling.ocrAtivo=j.trabalhos.some(t=>["processando","na_fila"].includes(t.status));
  if(!polling.emCurso)programarPolling(polling.ocrAtivo||polling.ativo?1600:8000);
  const idioma=j.idioma_ocr?`OCR: ${j.idioma_ocr==="por"?"português":j.idioma_ocr}`:"";
  if($("#ocr-lang").textContent!==idioma)$("#ocr-lang").textContent=idioma;
 
- htmlAtualizado($("#fila"),j.trabalhos.length?j.trabalhos.map(t=>{const run=t.status==="processando";return `<div class="job"><div class="l1"><div><b>${esc(t.caso)}</b> · ${esc(t.arquivo)}</div>${badge(t.status)}</div>
-
- <div class="muted">${esc(t.etapa||"")}${run&&t.paginas?` · página ${t.pagina_atual||0} de ${t.paginas}`:(t.paginas?` · ${t.paginas} págs.`:"")}${t.erro?` · <span style="color:var(--crit)">${esc(t.erro)}</span>`:""}</div>${run||t.status==="na_fila"?barraHTML(t.progresso):""}</div>`}).join(""):'<div class="vazio">Nada na fila</div>');return j}
+ htmlAtualizado($("#fila"),CPJFilaProgresso.html(CPJFilaProgresso.calcular(j.trabalhos),{esc,badge,barraHTML}));aviso.textContent="";return j}
 
 
 

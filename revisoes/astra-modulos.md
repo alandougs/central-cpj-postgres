@@ -4,6 +4,7 @@ Extração literal de `b97b445`, sem alterações funcionais, de nomes globais, 
 
 | Ordem | Arquivo em static/js | Responsabilidade e dependências |
 |---|---|---|
+| 0 | fila-progresso.js | Atividade, tempos e previsões da fila a partir dos dados já publicados; sem rede própria ou alteração do worker. FP01 acrescentado após a migração literal. |
 | 1 | core.js | API, estado/permissões, seletores, formatadores, upload e feedback. API referencia sessão somente quando chamada. |
 | 2 | sessao.js | Login, setup, conta inicial, montagem e navegação. Callbacks usam os domínios carregados depois. |
 | 3 | polling.js | `tc`, `nCiclo`, `ciclo`; consome tarefas/agentes, fila, pendências e IA do caso. |

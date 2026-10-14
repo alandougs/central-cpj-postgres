@@ -2,7 +2,7 @@
 
 > Documento de continuidade. Qualquer agente (Claude Code, Codex, Gemini, modelo local) deve ler **este arquivo + `AGENTS.md`** antes de alterar o sistema. Atualize a seção **9 (Estado atual)** e o **Registro de mudanças** a cada entrega.
 > Dono do produto: Alan Douglas Silva — Investigador de Polícia, Central de Polícia Judiciária (CPJ), Seccional de Presidente Prudente, DEINTER 8, PCSP.
-> Última atualização: 2026-10-14 (ASTRA, O.S./análise, Explorer e DOCX integrados para homologação).
+> Última atualização: 2026-10-14 (FP01 — atividade e previsão da fila; ASTRA, O.S./análise, Explorer e DOCX integrados para homologação).
 
 ---
 
@@ -128,6 +128,9 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 - Teste isolado: `python plugin\investigacao-cpj\app\servidor.py --workspace <pasta-teste> --porta 8766 --somente-local --sem-navegador` (use `CPJ_WORKSPACE` nos scripts). PDF fictício: `skills\pdf-autos-policiais\teste\gerar_pdf_ficticio.py`.
 
 ## 9. Estado atual e próximos passos (atualizar sempre)
+
+**FP01 —14/10/2026:** fila mostra atividade/etapa, tempo decorrido, estimativas por arquivo e acumuladas; dados de início/fim/progresso/histórico já disponíveis, sem reiniciar o worker. Página corrente apenas no OCR; dados insuficientes indicam cálculo, duração superada recalcula e falha preserva cartões. Interface aplicada à Central primária preservando RP01; portabilidade ASTRA e limites em `revisoes/fila-progresso-2026-10-14.md`.
+
 
 **AST08 / issue #8:** relação visual com todas as evidências, IDs/versões manuais individuais, origem/tipo e conferência humana separados. Indexador preserva documento/páginas/fls./trecho/linha e separa qualificações homônimas por registro, sem remapear manuais antigos. URLs ficam confinadas ao caso; fontes ausentes e divergentes permanecem. API 19/19, índice 11/11 e Edge 1/1 finais aprovados pelo integrador, mais regressões; limites de busca declarados, paginação #14 e histórico/conferência documental #11 pendentes. Rodadas amplas históricas com exceções identificadas no checkpoint; sem homologação automática.
 
@@ -267,6 +270,9 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
   - **Versionamento Git Local (GH01):** Repositório local inicializado na branch `consolidacao-2026-10-01` com `.gitignore` rigoroso contra vazamento de casos/dados e varredura de segurança aprovada com 0 bloqueios.
 
 ## Registro de mudanças
+
+- **14/10/2026 — FP01:** atividade/etapa e tempo decorrido, estimativa por arquivo, espera e previsão total na fila, com falta de base/atraso/erro explícitos. Interface aplicada sem reiniciar a Central e preservando RP01. Nove testes novos e regressões de interface/polling/fluxo aprovados; método e limites em revisoes/fila-progresso-2026-10-14.md.
+
 
 - **14/10/2026 — AST08:** todas as referências por relação, proveniência estruturada, identidades por registro/linha e fontes seguras; provas e limites no checkpoint.
 - **14/10/2026 — AST11:** conferência individual de fontes com responsável/data/histórico persistente e inspetor por aresta; API14 e Edge3 aprovados, originais preservados e classificação investigativa independente. Suíte geral P0 final 91/93 com duas exceções conhecidas.
