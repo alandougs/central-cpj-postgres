@@ -200,6 +200,16 @@ def api_grafo():
     vistos_arestas = set()
     vistos_nos = set()
     for a in arestas:
+        if a["origem"] == "manual":
+            a["caso"] = a["fonte"]
+            try:
+                meta = json.loads(a["localizador"])
+            except (TypeError, ValueError):
+                meta = {}
+            if isinstance(meta, dict) and meta.get("schema") == "astra-manual/1":
+                a["evidencia"] = meta["evidencia"]
+                e = a["evidencia"]
+                a["localizador"] = " · ".join(str(v) for v in (e.get("documento"), f"pág. {e['pagina']}" if e.get("pagina") else "", f"fls. {e['fls']}" if e.get("fls") else "", e.get("observacao")) if v)
         chave_a = (a["a_tipo"], a["a_valor"], a["b_tipo"], a["b_valor"], a["relacao"])
         if chave_a not in vistos_arestas:
             vistos_arestas.add(chave_a)
@@ -227,26 +237,55 @@ def api_grafo():
 
 
 @bp_consulta.post("/api/grafo/vinculo")
-@requer("pesquisa")
+@requer("trabalho")
 def api_grafo_adicionar_vinculo():
     dados = request.get_json(force=True) or {}
-    a_tipo = (dados.get("a_tipo") or "").strip().upper()
-    a_valor = (dados.get("a_valor") or "").strip()
-    b_tipo = (dados.get("b_tipo") or "").strip().upper()
-    b_valor = (dados.get("b_valor") or "").strip()
-    relacao = (dados.get("relacao") or "vinculado a").strip()
-    obs = (dados.get("obs") or "").strip()
-    caso = (dados.get("caso") or "").strip()
+    if not isinstance(dados, dict):
+        return jsonify({"erro": "Informe os campos do vínculo."}), 400
+    def texto(chave, alias=None):
+        valor = dados.get(chave, dados.get(alias, "") if alias else "")
+        if not isinstance(valor, str) or len(valor) > 4000:
+            raise ValueError("Campo textual inválido ou muito longo.")
+        if alias and chave in dados and alias in dados and dados[chave] != dados[alias]:
+            raise ValueError("Campos atual e legado divergem; confira os dados.")
+        return valor.strip()
+    try:
+        a_tipo, b_tipo = texto("a_tipo").upper(), texto("b_tipo").upper()
+        a_valor, b_valor = texto("a_valor"), texto("b_valor")
+        relacao, caso = texto("relacao"), texto("caso", "caso_id")
+        evidencia = {"documento": texto("documento", "fonte"), "pagina": dados.get("pagina"),
+                     "fls": texto("fls"), "observacao": texto("observacao", "obs")}
+        pagina = evidencia["pagina"]
+        if pagina is not None and (type(pagina) is not int or pagina < 1):
+            raise ValueError("Página deve ser um número inteiro positivo.")
+        for tipo, valor in ((a_tipo,a_valor),(b_tipo,b_valor)):
+            if tipo not in R.TIPOS_NO or (tipo == "PESSOA" and not valor.startswith("P:")):
+                raise ValueError("Use um identificador de registro para Pessoa; para nome sem identidade confirmada, selecione Nome candidato.")
+        a_valor, b_valor = R.chave_no(a_tipo,a_valor), R.chave_no(b_tipo,b_valor)
+    except ValueError as e:
+        return jsonify({"erro": str(e)}), 400
 
-    if not (a_tipo and a_valor and b_tipo and b_valor and relacao):
-        return jsonify({"erro": "Informe tipo e valor de origem e destino, além da relação."}), 400
+    if not (a_valor and b_valor and relacao and caso):
+        return jsonify({"erro": "Informe origem, destino, relação e O.S. associada."}), 400
+    try:
+        existente = os.path.isfile(os.path.join(C.caminho(caso), "caso.json"))
+    except ValueError:
+        existente = False
+    if not existente:
+        return jsonify({"erro": "O.S. não localizada no cadastro."}), 404
+    localizador = json.dumps({"schema":"astra-manual/1","evidencia":evidencia},ensure_ascii=False,sort_keys=True)
 
     try:
         db = R.conectar()
+        db.execute("BEGIN IMMEDIATE")
+        if db.execute("SELECT 1 FROM arestas WHERE a_tipo=? AND a_valor=? AND b_tipo=? AND b_valor=? AND relacao=? AND origem='manual' AND fonte=? AND localizador=?",
+                      (a_tipo,a_valor,b_tipo,b_valor,relacao,caso,localizador)).fetchone():
+            db.close()
+            return jsonify({"erro":"Este vínculo com esta fonte já foi registrado."}),409
         db.execute("""
             INSERT INTO arestas (a_tipo, a_valor, b_tipo, b_valor, relacao, origem, fonte, localizador)
             VALUES (?, ?, ?, ?, ?, 'manual', ?, ?)
-        """, (a_tipo, a_valor, b_tipo, b_valor, relacao, caso or "investigador", obs or "Vínculo manual cadastrado pelo investigador"))
+        """, (a_tipo, a_valor, b_tipo, b_valor, relacao, caso, localizador))
 
         if dados.get("a_rotulo"):
             db.execute("INSERT OR REPLACE INTO rotulos (tipo, valor, rotulo) VALUES (?, ?, ?)", (a_tipo, a_valor, dados["a_rotulo"]))
@@ -255,10 +294,10 @@ def api_grafo_adicionar_vinculo():
 
         db.commit()
         db.close()
-        auditar("grafo_vinculo_criado", f"{a_tipo}:{a_valor} -> {relacao} -> {b_tipo}:{b_valor}")
+        auditar("grafo_vinculo_criado", f"caso={caso}; tipos={a_tipo},{b_tipo}")
         return jsonify({"ok": True})
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 500
+    except (OSError, sqlite3.Error):
+        return jsonify({"erro": "Índice indisponível. Reindexe os materiais e tente novamente."}), 503
 
 
 @bp_consulta.post("/api/grafo/vinculo/remover")

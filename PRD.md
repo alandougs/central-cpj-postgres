@@ -2,7 +2,7 @@
 
 > Documento de continuidade. Qualquer agente (Claude Code, Codex, Gemini, modelo local) deve ler **este arquivo + `AGENTS.md`** antes de alterar o sistema. Atualize a seção **9 (Estado atual)** e o **Registro de mudanças** a cada entrega.
 > Dono do produto: Alan Douglas Silva — Investigador de Polícia, Central de Polícia Judiciária (CPJ), Seccional de Presidente Prudente, DEINTER 8, PCSP.
-> Última atualização: 2026-10-10 (SY02 — integração com GitHub e inicialização automática).
+> Última atualização: 2026-10-14 (ASTRA — execução do épico #4 em worktree isolado).
 
 ---
 
@@ -129,6 +129,8 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 
 ## 9. Estado atual e próximos passos (atualizar sempre)
 
+**14/10/2026 — ASTRA, missão #4:** execução incremental das issues #5–#17 autorizada pelo operador, a partir de `origin/main`; publicação de branch/PR autorizada, sem merge nem alteração dos bancos operacionais. Checkpoint e evidências por issue: `revisoes/astra-evolucao-2026-10.md`. #5 alinha API/formulário e preserva O.S., documento, página/fls. e observação; 7 testes HTTP/Edge novos e 11 testes GF01 aprovados, regressão de consultas aprovada. Implementação não equivale à homologação do operador; demais etapas registradas no checkpoint.
+
 ### Estado consolidado em 10/10/2026
 
 **Arquitetura escolhida pelo operador:** SQLite para a operação solo. `caso.json` permanece fonte do caso, `rag/cpj.sqlite` é índice regenerável e o plantão mantém sua fila SQLite. PostgreSQL/Docker continuam fora do caminho de execução; não foi comprovada sincronização de um PostgreSQL externo. Esta revisão usa código e fixtures fictícias, sem certificar dados reais da produção.
@@ -227,6 +229,8 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
   - **Versionamento Git Local (GH01):** Repositório local inicializado na branch `consolidacao-2026-10-01` com `.gitignore` rigoroso contra vazamento de casos/dados e varredura de segurança aprovada com 0 bloqueios.
 
 ## Registro de mudanças
+
+- **14/10/2026 — AST05 / issue #5:** contrato explícito do vínculo manual, compatibilidade legada sem divergências silenciosas, validação de O.S./tipo/localizador, duplicatas recusadas e escrita limitada a perfil de trabalho. Formulário usa o caso selecionado; campos preservados no GET/inspetor. Sete testes novos e regressões do grafo/consultas aprovados em dados fictícios. Persistência independente do índice será tratada na issue #6.
 
 - **10/10/2026 — ENV01/TS06/CL07:** OAuth especificamente autorizado e login confirmado. Primeira tentativa real P01 bloqueada por saída financeira reutilizada, preservada como falha. TS06 explicita contrato sem relaxar gate e preserva log de sessão reprovada; três testes focados, squad 12/12, rápida 5/5 e plantão aprovados. Plugin 0.3.2 instalado/habilitado, hashes fonte/staging/cache conferidos. Segunda tentativa usa novo workspace e limite operacional 1800 s; conclusão não presumida.
 

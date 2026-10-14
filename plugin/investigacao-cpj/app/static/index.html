@@ -761,17 +761,19 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 <div class="modal" id="modal-vinculo" hidden><div class="card" style="max-width:550px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><h3 style="margin:0">Adicionar Vínculo Relacional</h3><button type="button" class="btn sm" id="b-fecha-mv">Fechar</button></div>
 
-<form id="f-vinculo"><div class="campos" style="grid-template-columns:1fr 2fr"><div><label>Tipo Origem</label><select name="a_tipo"><option value="PESSOA">Pessoa / Nome</option><option value="CONTA">Conta Bancária</option><option value="CHAVE_PIX">Chave Pix</option><option value="CPF">CPF</option><option value="CNPJ">CNPJ</option><option value="TELEFONE">Telefone</option><option value="CASO">Caso (O.S.)</option></select></div>
+<form id="f-vinculo"><div class="campos" style="grid-template-columns:1fr 2fr"><div><label>Tipo Origem</label><select name="a_tipo"><option value="NOME">Nome candidato</option><option value="PESSOA">Pessoa (ID do registro)</option><option value="CONTA">Conta Bancária</option><option value="CHAVE_PIX">Chave Pix</option><option value="CPF">CPF</option><option value="CNPJ">CNPJ</option><option value="TELEFONE">Telefone</option><option value="CASO">Caso (O.S.)</option></select></div>
 
 <div><label>Valor / Identificador Origem *</label><input name="a_valor" required placeholder="Ex.: Clovis Magalhães ou 123.456.789-00"></div></div>
 
 <div><label>Relação / Vínculo *</label><input name="relacao" required placeholder="Ex.: transferiu R$ 2.820,00 para · titular da conta · laranja de"></div>
 
-<div class="campos" style="grid-template-columns:1fr 2fr;margin-top:8px"><div><label>Tipo Destino</label><select name="b_tipo"><option value="CONTA">Conta Bancária</option><option value="PESSOA">Pessoa / Nome</option><option value="CHAVE_PIX">Chave Pix</option><option value="CPF">CPF</option><option value="CNPJ">CNPJ</option><option value="TELEFONE">Telefone</option><option value="CASO">Caso (O.S.)</option></select></div>
+<div class="campos" style="grid-template-columns:1fr 2fr;margin-top:8px"><div><label>Tipo Destino</label><select name="b_tipo"><option value="CONTA">Conta Bancária</option><option value="NOME">Nome candidato</option><option value="PESSOA">Pessoa (ID do registro)</option><option value="CHAVE_PIX">Chave Pix</option><option value="CPF">CPF</option><option value="CNPJ">CNPJ</option><option value="TELEFONE">Telefone</option><option value="CASO">Caso (O.S.)</option></select></div>
 
 <div><label>Valor / Identificador Destino *</label><input name="b_valor" required placeholder="Ex.: Nubank ag 0001 cc 12345-6 ou Claudia da Silva"></div></div>
 
-<div class="campos" style="margin-top:8px"><div><label>Fonte / Fls. nos autos</label><input name="fonte" placeholder="Ex.: fls. 45-48"></div><div><label>Caso (O.S.) associado</label><input name="caso_id" placeholder="Ex.: OS-2586-2026 (opcional)"></div></div>
+<div class="campos" style="margin-top:8px"><div><label>Documento / fonte</label><input name="documento" placeholder="Nome do documento nos autos"></div><div><label>Caso (O.S.) associado *</label><input name="caso_id" required placeholder="OS-901-2099"></div></div>
+<div class="campos"><div><label>Página do PDF</label><input name="pagina" type="number" min="1" step="1"></div><div><label>Folhas dos autos</label><input name="fls" placeholder="Ex.: 45-48"></div></div>
+<div><label>Observação / hipótese do operador</label><textarea name="observacao" rows="2" placeholder="Anotação a conferir; não confirma identidade ou autoria"></textarea></div>
 
 <div class="acoes" style="margin-top:12px"><button type="submit" class="btn pri">Criar Vínculo</button><button type="button" class="btn" id="b-canc-mv">Cancelar</button><span class="muted" id="msg-vinc-novo"></span></div></form></div></div>
 
@@ -2624,7 +2626,7 @@ function grAbrirModalVinculo(origTipo,origVal){
 
   if(origVal) f.a_valor.value=origVal;
 
-  if(casoAberto && !f.caso_id.value) f.caso_id.value=casoAberto;
+  f.caso_id.value=$("#gr-caso")?.value||casoAberto||"";
 
   m.hidden=false;
 
@@ -2656,7 +2658,8 @@ if($("#f-vinculo")) $("#f-vinculo").onsubmit=async e=>{
 
       b_tipo:f.b_tipo.value, b_valor:f.b_valor.value.trim(),
 
-      fonte:f.fonte.value.trim(), caso_id:f.caso_id.value.trim()
+      documento:f.documento.value.trim(), caso:f.caso_id.value.trim(),
+      pagina:f.pagina.value?Number(f.pagina.value):null,fls:f.fls.value.trim(),observacao:f.observacao.value.trim()
 
     }});
 
