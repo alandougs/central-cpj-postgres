@@ -798,8 +798,9 @@ def pos_processar(ws, id_, acao, anteriores=None):
             if os.path.isdir(d) else []
         if mins:
             m = mins[-1]; v = re.findall(r"\d+", m)[0]; docx = os.path.join(d, f"RELATORIO-{id_}-v{v}.docx")
-            if not os.path.exists(docx) or os.path.getmtime(docx) < os.path.getmtime(os.path.join(d, m)):
-                gerar_docx(ws, id_, m)
+            # A entrega final usa o modelo oficial, inclusive sua assinatura;
+            # um DOCX recente criado pelo agente pode não seguir esse modelo.
+            gerar_docx(ws, id_, m)
             extra = {"minuta": m, "docx": os.path.basename(docx)}
         else:
             raise RuntimeError("Relatório não entregue: nenhuma minuta encontrada em 03-relatorios.")
