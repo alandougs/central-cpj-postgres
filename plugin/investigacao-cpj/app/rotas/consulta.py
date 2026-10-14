@@ -8,6 +8,7 @@ import threading
 import time
 from flask import Blueprint, abort, jsonify, request
 import grafo_evidencias as GE
+import conferencias_grafo as CG
 from rotas.comum import (
     C,
     Q,
@@ -35,7 +36,8 @@ def _grafo_sem_indice(vazio, manuais, termo=''):
         chaves={GE.chave(a) for a in manuais if busca in R._n(' '.join(str(a.get(k,'')) for k in
                 ('a_valor','b_valor','a_rotulo','b_rotulo','relacao')))}
         manuais=[a for a in manuais if GE.chave(a) in chaves]
-    grupos = GE.agrupar(manuais, WS)
+    try:grupos = GE.agrupar(manuais, WS)
+    except (ValueError,OSError):return jsonify({'erro':'Não foi possível conferir o histórico de revisões. As fontes foram preservadas.'}),503
     corte = len(grupos) > 400
     grupos = grupos[:400]
     nos = {}
@@ -128,7 +130,7 @@ def api_vinculos():
             linhas=R.referencias_relacoes(db,chaves,caso)
             linhas=[a for a in GE.fundir_manuais(linhas,todos,caso) if GE.chave(a) in set(chaves)]
         saida=_resposta_grafo(linhas,db,caso,niveis_nos)
-    except (OSError,sqlite3.Error):
+    except (OSError,sqlite3.Error,ValueError):
         return jsonify({"erro":"Consulta incompleta por falha no índice; tente novamente."}),503
     finally:
         if db is not None:db.close()
@@ -245,7 +247,7 @@ def api_grafo():
         conjunto=set(selecionadas)
         arestas=[a for a in GE.fundir_manuais(arestas,todos,caso) if GE.chave(a) in conjunto]
         saida=_resposta_grafo(arestas,db,caso)
-    except (OSError,sqlite3.Error):
+    except (OSError,sqlite3.Error,ValueError):
         return jsonify({'erro':'Consulta incompleta por falha no índice; tente novamente.'}),503
     finally:db.close()
     saida.update(casos=vazio['casos'],ordens_servico=ordens,indice_disponivel=True,
@@ -253,6 +255,83 @@ def api_grafo():
                  completude='parcial' if corte else 'nao_aferida' if termo else 'completa_no_escopo')
     auditar('grafo_consultado',f'caso={caso}; q={termo}')
     return jsonify(saida)
+
+
+def _alvo_revisao(dados):
+    alvo=CG.alvo(dados)
+    if not os.path.isfile(os.path.join(C.caminho(alvo['caso']),'caso.json')):raise KeyError('Caso ausente.')
+    return alvo
+
+
+def _referencia_revisao(alvo,pasta=None):
+    """Resolve a tupla exata sem os cortes da visualização; nunca migra ou reindexa."""
+    import vinculos_manuais as VM
+    registros=([e['registro'] for e in VM._estados(VM._ler(pasta)).values()] if pasta is not None
+               else VM.listar(WS,incluir_excluidos=True))
+    k=tuple(alvo[c] for c in GE.CAMPOS[:5]);linhas=[]
+    try:db=R.conectar()
+    except FileNotFoundError:db=None
+    if db is not None:
+        try:linhas=R.referencias_relacoes(db,[k],alvo['caso'])
+        except sqlite3.OperationalError:
+            if db.execute("SELECT 1 FROM sqlite_master WHERE name='arestas'").fetchone():raise
+        finally:db.close()
+    linhas=[a for a in GE.fundir_manuais(linhas,registros,alvo['caso']) if GE.chave(a)==k]
+    grupos=GE.agrupar(linhas,WS,alvo['caso'],conferencias={})
+    for g in grupos:
+        for e in g['evidencias']:
+            if e['id']==alvo['evidencia_id']:return e
+    if alvo['evidencia_id'].startswith('manual:'):
+        id_=alvo['evidencia_id'].split(':')[1]
+        if any(r['id']==id_ and r['caso']==alvo['caso'] for r in registros):
+            raise CG.Conflito('Anotação manual alterada ou excluída; reabra a evidência.')
+    raise KeyError('Referência não localizada neste caso e relação.')
+
+
+@bp_consulta.post('/api/grafo/evidencia/revisar')
+@requer('trabalho')
+def api_grafo_revisar_evidencia():
+    dados=request.get_json(silent=True)
+    if not isinstance(dados,dict):return jsonify({'erro':'Informe a identificação e ação de revisão.'}),400
+    acao=dados.get('acao')
+    campos=set(CG.CAMPOS)|{'acao','versao'}
+    if acao=='conferir_fonte':campos.add('fonte')
+    if acao=='registrar_observacao':campos.add('observacao')
+    if set(dados)!=campos or acao not in CG.ACOES or type(dados.get('versao')) is not int or dados['versao']<0:
+        return jsonify({'erro':'Campos ou versão de revisão inválidos.'}),400
+    try:
+        alvo=_alvo_revisao({k:dados[k] for k in CG.CAMPOS})
+        revisao=CG.revisar(WS,alvo,lambda pasta:_referencia_revisao(alvo,pasta),acao,
+                          request.usuario['login'],dados['versao'],dados.get('observacao',''),dados.get('fonte'))
+    except KeyError:return jsonify({'erro':'Referência não localizada neste caso e relação.'}),404
+    except CG.Integridade:return jsonify({'erro':'Histórico de revisões inválido. Preserve os arquivos para recuperação.'}),503
+    except CG.Conflito as erro:return jsonify({'erro':str(erro)}),409
+    except ValueError as erro:return jsonify({'erro':str(erro)}),400
+    except (OSError,sqlite3.Error):return jsonify({'erro':'Falha ao preservar a revisão. Tente novamente.'}),503
+    auditar('grafo_evidencia_revisada',f"id={revisao['id']}; caso={alvo['caso']}; acao={acao}")
+    return jsonify({'ok':True,'evidencia_id':alvo['evidencia_id'],'revisao':revisao})
+
+
+@bp_consulta.get('/api/grafo/evidencia/historico')
+@requer('pesquisa')
+def api_grafo_historico_evidencia():
+    if set(request.args)!=set(CG.CAMPOS) or any(len(request.args.getlist(k))!=1 for k in request.args):
+        return jsonify({'erro':'Identificação de evidência inválida.'}),400
+    try:
+        alvo=_alvo_revisao(dict(request.args))
+        historico=CG.historico(WS,alvo)
+        atual=True
+        try:_referencia_revisao(alvo)
+        except (KeyError,CG.Conflito):
+            if not historico:raise
+            atual=False
+        revisao=historico[-1]['revisao'] if historico else CG.padrao(alvo)
+        return jsonify({'historico':historico,'revisao':revisao,'referencia_atual':atual})
+    except KeyError:return jsonify({'erro':'Referência não localizada neste caso e relação.'}),404
+    except CG.Integridade:return jsonify({'erro':'Histórico de revisões inválido. Preserve os arquivos para recuperação.'}),503
+    except CG.Conflito as erro:return jsonify({'erro':str(erro)}),409
+    except ValueError as erro:return jsonify({'erro':str(erro)}),400
+    except (OSError,sqlite3.Error):return jsonify({'erro':'Não foi possível ler o histórico de revisões.'}),503
 
 
 @bp_consulta.post("/api/grafo/vinculo")

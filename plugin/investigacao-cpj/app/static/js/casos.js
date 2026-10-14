@@ -18,6 +18,63 @@ async function carregarCasos(){const cs=await api(`/api/casos?q=${enc($("#q-caso
  $$("#t-casos tr").forEach(tr=>tr.onclick=()=>abrirCaso(tr.dataset.id,true))}
 
 let casoAberto=null;
+let casoCarga=0,astraContextoCaso=null;
+
+function explorarCasoNoAstra(id,rotulo,busca){
+ if(!pode("pesquisa")||!confirmarSaidaEditor())return;
+ const sel=$("#gr-caso");
+ if(!Array.from(sel.options).some(o=>o.value===id))sel.add(new Option(rotulo||id,id));
+ sel.value=id;if(busca!==undefined)$("#gr-busca").value=busca;
+ let barra=$("#astra-contexto-caso");
+ if(!barra){barra=document.createElement("div");barra.id="astra-contexto-caso";barra.className="acoes";$("#grafo").prepend(barra)}
+ barra.replaceChildren();const voltar=document.createElement("button");voltar.type="button";voltar.className="btn";voltar.id="b-astra-voltar-caso";
+ voltar.textContent=`Voltar à O.S. ${rotulo||id}`;voltar.onclick=async()=>{if(!confirmarSaidaEditor())return;await abrirCaso(id,true);if(casoAberto===id)abrirAba("casos")};barra.append(voltar);
+ abrirAba("grafo");astraContextoCaso={id,q:$("#gr-busca").value.trim(),carga:grCarga};
+}
+
+function resumoGrafoDoCaso(id){
+ const ctx=astraContextoCaso;
+ if(!ctx||ctx.id!==id||ctx.carga!==grCarga||$("#gr-caso").value!==id||$("#gr-busca").value.trim()!==ctx.q)return "Contagens de contas e conexões ainda não consultadas neste recorte do ASTRA.";
+ if(grEstado==="carregando")return "Consulta de vínculos em andamento; aguarde ou acompanhe no ASTRA.";
+ if(grEstado==="erro")return `Consulta de vínculos indisponível: ${grErro}. Use Explorar no ASTRA para tentar novamente.`;
+ if(grEstado!=="pronto")return "Contagens de vínculos não disponíveis para este recorte.";
+ if(grDados.indice_disponivel===false)return "O índice de vínculos não está disponível; as contagens não foram apuradas.";
+ const contas=(grDados.nos||[]).filter(n=>n.tipo==="CONTA").length,conexoes=(grDados.arestas||[]).length;
+ const limite=grDados.truncado===true?" Resultado parcial; refine a busca.":grDados.completude==="nao_aferida"?" Completude não aferida; confira os limites.":"";
+ return `${contas} contas e ${conexoes} conexões retornadas no recorte consultado.${limite}${grDados.aviso?" "+grDados.aviso:""}`;
+}
+
+function painelInvestigativo(id,j){
+ const c=j.caso,T=j.trabalho,arqs=Array.isArray(j.arquivos)?j.arquivos:[],r=j.resumo||{},jobs=j.processamento?.trabalhos||[];
+ const originais=arqs.filter(a=>a.caminho.startsWith("00-originais/"));
+ const docs=Number.isInteger(r.documentos)?`${r.documentos} documento(s) cadastrado(s)/extraído(s)`:"Documentos extraídos não informados";
+ const paginas=Number.isFinite(r.paginas)?`${r.paginas} páginas registradas`:"Páginas não informadas";
+ const ativo=jobs.some(t=>["na_fila","processando"].includes(t.status)),erros=jobs.filter(t=>t.status==="erro"||t.erro);
+ const iaAtiva=(j.ia||[]).some(t=>["na_fila","executando"].includes(t.status));
+ const transcricao=arqs.some(a=>/^01-extracao\/.+\/transcricao(?:-normalizada)?\.md$/.test(a.caminho));
+ const pendentes=c.preenchimento_os?.pendentes;
+ const link=a=>`/arquivo/${enc(id)}/${a.caminho.split("/").map(enc).join("/")}`;
+ const fonte=a=>`<li><a href="${link(a)}" target="_blank" rel="noopener">${esc(a.caminho)}</a>${a.tamanho===0?" — arquivo vazio; conferir":""}</li>`;
+ const fontes=arqs.filter(a=>a.caminho.startsWith("00-originais/")||/^01-extracao\/.+\/(?:transcricao(?:-normalizada)?\.md|ordens-de-servico\/.+\.md)$/.test(a.caminho)||/^02-analise\/(?:solicitacoes-os|dados-faltantes)\.md$/.test(a.caminho));
+ const lacuna=arqs.find(a=>a.caminho==="02-analise/dados-faltantes.md");
+ const disponibilidade=[["Transcrição",transcricao],["Identificadores extraídos",arqs.some(a=>/^01-extracao\/.+\/entidades\.csv$/.test(a.caminho))],["Análise de pessoas",arqs.some(a=>a.caminho==="02-analise/pessoas.csv")],["Fluxo financeiro",arqs.some(a=>a.caminho==="02-analise/fluxo-financeiro.csv")]].map(([nome,tem])=>`${nome}: ${tem?"arquivo disponível para conferir":"não disponível"}`).join(" · ");
+ let passo={texto:"Consultar material",acao:"fontes"};
+ if(ativo)passo={texto:"Acompanhar extração",acao:"processamento"};
+ else if(iaAtiva)passo={texto:"Acompanhar análise",acao:"ia"};
+ else if(erros.length)passo={texto:"Conferir extração",acao:"processamento"};
+ else if(c.status==="recebido")passo={texto:"Conferir material recebido",acao:"fontes"};
+ else if(["extraido","em_analise"].includes(c.status))passo=transcricao&&pode("pesquisa")?{texto:"Explorar vínculos",acao:"explorar"}:{texto:"Conferir extração",acao:"fontes"};
+ else if(c.status==="analisado"&&T&&pode("ia"))passo={texto:"Preparar relatório",acao:"relatorio"};
+ else if(c.status==="minuta"&&T)passo={texto:"Revisar minuta",acao:"minuta"};
+ else if(c.status==="entregue"&&(j.relatorios||[]).some(f=>f.tipo==="final"))passo={texto:"Ver relatório FINAL",acao:"final"};
+ else if(c.status==="devolvido")passo={texto:"Conferir pendências",acao:"fontes"};
+ return `<section id="astra-proximo-passo" style="margin-top:14px"><h4>Próximo passo da O.S.</h4><p class="muted">Ações para conferir o material, explorar vínculos e preparar a minuta. A conferência das fontes permanece sob responsabilidade do operador.</p>
+ <div class="acoes"><button type="button" class="btn pri" id="b-caso-proximo" data-passo="${passo.acao}">${passo.texto}</button>${pode("pesquisa")?`<button type="button" class="btn" id="b-explorar-astra" data-caso="${esc(id)}">Explorar no ASTRA</button>`:""}<button type="button" class="btn" id="b-caso-conferir-fontes">Conferir fontes e pendências</button>${T&&pode("pesquisa")?'<button type="button" class="btn" id="b-caso-hipotese">Registrar hipótese de vínculo</button>':""}</div>
+ ${pode("pesquisa")?'<div class="acoes"><label for="astra-identificador">Pessoa ou conta</label><input id="astra-identificador" placeholder="Digite o nome ou identificador para explorar" style="max-width:360px"><button type="button" class="btn sm" id="b-caso-explorar-identificador">Explorar identificador</button></div>':""}
+ <div id="astra-material-resumo" role="status"><p>${originais.length} arquivos originais · ${docs} · ${paginas}.</p><p>${esc(disponibilidade)}.</p><p>${esc(resumoGrafoDoCaso(id))}</p><p>${Array.isArray(pendentes)?pendentes.length+" campo(s) de cadastro pendente(s)" :"Pendências de cadastro não informadas"}. ${lacuna?`<a href="${link(lacuna)}" target="_blank" rel="noopener">Registro de lacunas disponível</a>${lacuna.tamanho===0?" — arquivo vazio; conferir":""}`:"Registro de lacunas não disponível"}.</p>${ativo?'<p>Extração em andamento; acompanhe o progresso em Processamento.</p>':""}${erros.map(t=>`<p class="aviso alerta">${esc(t.arquivo||"Documento")}: ${esc(t.erro||"Processamento com erro; confira o documento e tente reprocessar.")}</p>`).join("")}</div>
+ <div id="astra-fontes" hidden><h5>Material disponível para conferência</h5>${fontes.length?`<ul>${fontes.map(fonte).join("")}</ul>`:'<p>Nenhum documento ou registro de fontes disponível. Confira o recebimento e o processamento da O.S.</p>'}</div></section>`;
+}
+
 let origemVisualizador=null;
 function fecharVisualizadorRelatorio(){
  $("#visualizador-relatorio").hidden=true;$("#vis-frame").removeAttribute("src");$("#vis-frame").removeAttribute("sandbox");
@@ -110,7 +167,10 @@ const NOMES_OS={ordem_servico:"O.S.",bo:"BO",inquerito:"IP",processo:"Processo",
 
 const ESTADO_IA_OS={modelo_local_nao_instalado:"modelo local não instalado; complete manualmente",modelo_remoto_bloqueado:"modelo remoto bloqueado; selecione um modelo local",aguardando_ocr:"aguardando extração/OCR",dispensada:"campos detectados por script",concluida:"IA local consultada",ia_local_nao_configurada:"modelo local ainda não configurado",ia_local_indisponivel:"IA local indisponível; complete os campos pendentes",sem_evidencia:"dados não localizados; complete manualmente",resposta_invalida:"IA sem resposta válida; complete manualmente"};
 
-async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;if(edCaso&&edCaso!==id&&!confirmarSaidaEditor())return;casoAberto=id;const j=await api("/api/casos/"+enc(id)),c=j.caso,r=j.resumo,T=j.trabalho;
+async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;if(edCaso&&edCaso!==id&&!confirmarSaidaEditor())return;const carga=++casoCarga;casoAberto=id;
+ if(novoCaso)$("#detalhe").innerHTML='<div class="card" role="status">Carregando a O.S.…</div>';
+ let j;try{j=await api("/api/casos/"+enc(id))}catch(x){if(carga===casoCarga){$("#detalhe").innerHTML=`<div class="card"><p class="aviso alerta">Não foi possível abrir a O.S.: ${esc(x.message)}</p><button type="button" class="btn" id="b-caso-retentar">Tentar novamente</button></div>`;$("#b-caso-retentar").onclick=()=>abrirCaso(id,true)}return}
+ if(carga!==casoCarga||casoAberto!==id)return;const c=j.caso,r=j.resumo,T=j.trabalho;
 
  const campo=(k,l,v,t="text")=>`<div><label>${l}</label><input data-k="${k}" type="${t}" value="${esc(v??"")}"></div>`;
 
@@ -122,7 +182,7 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;if(edCaso&&edC
 
   ${campo("requisitante","Requisitante",c.requisitante)}${campo("escrivao","Escrivão do feito",c.escrivao)}${campo("prazo","Prazo",c.prazo,"date")}${sel("prioridade","Prioridade",["normal","urgente","reu-preso"],c.prioridade)}`;
 
- if(T){const rs=await api("/api/responsaveis");dados+=`<div><label>Responsável</label><select data-k="responsavel"><option value="">— não atribuído —</option>${rs.map(u=>`<option value="${esc(u.login)}" ${u.login===c.responsavel?"selected":""}>${esc(u.nome)}</option>`).join("")}</select></div>`}
+ if(T){const rs=await api("/api/responsaveis");if(carga!==casoCarga||casoAberto!==id)return;dados+=`<div><label>Responsável</label><select data-k="responsavel"><option value="">— não atribuído —</option>${rs.map(u=>`<option value="${esc(u.login)}" ${u.login===c.responsavel?"selected":""}>${esc(u.nome)}</option>`).join("")}</select></div>`}
 
  if(T)dados+=`${campo("natureza","Natureza",c.natureza)}${sel("modalidade","Modalidade",MOD,c.modalidade)}${sel("status","Status",ST,c.status)}${sel("resultado.autoria","Autoria",["","identificada","indicios","nao_identificada"],(c.resultado||{}).autoria)}
 
@@ -150,6 +210,7 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;if(edCaso&&edC
  <div class="acoes" style="margin:0">${T?'<button class="btn sm" id="b-pasta">Abrir pasta</button><button class="btn sm" id="b-caso-ver-fluxo">Ver Fluxograma</button><a class="btn sm" id="b-caso-fluxo-csv" href="/api/casos/'+enc(id)+'/fluxo-csv" target="_blank">Planilha (CSV)</a><button class="btn sm" id="b-cruzar">Cruzar com outros casos</button>':""}${podeGestao?'<button class="btn sm pri" id="b-salvar">Salvar</button>':""}</div></div>
 
  <div class="acoes" style="margin:10px 0 0"><button class="btn sm" data-ir="nv-ficha">Ficha</button><button class="btn sm" data-ir="nv-relatorios">Relatórios</button>${T&&j.local!==false?'<button class="btn sm" id="b-pasta-relatorios" title="Abrir pasta dos relatórios de investigação">📁 Relatórios</button>':""}${T?'<button class="btn sm" data-ir="nv-ia">IA</button><button class="btn sm" data-ir="nv-cal">Calibração</button>':""}</div>
+ ${painelInvestigativo(id,j)}
  <div class="campos" id="nv-ficha" style="margin-top:12px">${dados}</div>${c.preenchimento_os?`<div class="muted">Preenchimento automático: ${esc(ESTADO_IA_OS[c.preenchimento_os.ia]||"aguardando processamento")}. Pendentes: ${esc((c.preenchimento_os.pendentes||[]).map(k=>NOMES_OS[k]||k).join(", ")||"nenhum")}. ${Object.keys(c.preenchimento_os.conflitos||{}).length?"Dados divergentes: "+esc(Object.keys(c.preenchimento_os.conflitos).map(k=>NOMES_OS[k]||k).join(", "))+". Confira no IP antes de preencher.":""}<details><summary>Fontes dos dados preenchidos</summary>${Object.entries(c.preenchimento_os.fontes||{}).map(([k,d])=>`<p>${esc(NOMES_OS[k]||k)}: ${esc(d.documento)}, pág. ${d.pagina} — ${esc(d.trecho)} (${esc(d.metodo)})</p>`).join("")}</details></div>`:""}<label>Determinação da autoridade</label><textarea data-k="determinacao" rows="2" ${podeGestao?"":"disabled"}>${esc(c.determinacao||"")}</textarea>
 
  ${T?`<div class="card" id="nv-ia" style="margin-top:14px;background:var(--page)"><h4>Inteligência artificial</h4><div class="acoes" style="margin:0 0 8px">
@@ -173,15 +234,28 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;if(edCaso&&edC
 
   <h4 style="margin-top:14px">Produção</h4>${baixa}
 
-  <h4 style="margin-top:14px">Documentos</h4>${docs?`<table><thead><tr><th>Arquivo</th><th class="n">Págs.</th><th>Métodos</th></tr></thead><tbody>${docs}</tbody></table>`:'<div class="muted">—</div>'}
+  <h4 id="nv-documentos" style="margin-top:14px">Documentos</h4>${docs?`<table><thead><tr><th>Arquivo</th><th class="n">Págs.</th><th>Métodos</th></tr></thead><tbody>${docs}</tbody></table>`:'<div class="muted">—</div>'}
 
-  <h4 style="margin-top:14px">Processamento</h4>${T?'<label for="modo-reprocessar">Modo ao reprocessar</label><select id="modo-reprocessar"><option value="rapido">Rápido — somente local</option><option value="inteligente" selected>Inteligente — páginas a conferir</option><option value="ia_completa">IA Completa — todas as páginas</option></select>':""}${proc||'<div class="muted">—</div>'}<div id="cruz"></div></div>
+  <h4 id="nv-processamento" style="margin-top:14px">Processamento</h4>${T?'<label for="modo-reprocessar">Modo ao reprocessar</label><select id="modo-reprocessar"><option value="rapido">Rápido — somente local</option><option value="inteligente" selected>Inteligente — páginas a conferir</option><option value="ia_completa">IA Completa — todas as páginas</option></select>':""}${proc||'<div class="muted">—</div>'}<div id="cruz"></div></div>
 
  <div><h4>Arquivos</h4><div class="arqs">${arqs||'<span class="muted">—</span>'}</div></div></div></div>`;
 
  if(rolar||novoCaso)requestAnimationFrame(()=>$("#detalhe").scrollIntoView({behavior:"smooth",block:"start"}));
  const irPara=k=>{const e=$("#"+k);if(e)e.scrollIntoView({behavior:"smooth",block:"start"})};
  $$("#detalhe [data-ir]").forEach(b=>b.onclick=()=>irPara(b.dataset.ir));$$("#detalhe [data-calibrar]").forEach(b=>b.onclick=()=>irPara("nv-cal"));
+ const explorar=busca=>explorarCasoNoAstra(id,c.ordem_servico||id,busca);
+ if($("#b-explorar-astra"))$("#b-explorar-astra").onclick=()=>explorar();
+ if($("#b-caso-explorar-identificador"))$("#b-caso-explorar-identificador").onclick=()=>{const busca=$("#astra-identificador").value.trim();if(busca)explorar(busca);else $("#astra-identificador").focus()};
+ const conferirFontes=()=>{$("#astra-fontes").hidden=false;irPara("astra-fontes")};
+ $("#b-caso-conferir-fontes").onclick=conferirFontes;
+ if($("#b-caso-ver-fluxo"))$("#b-caso-ver-fluxo").onclick=()=>{if(!confirmarSaidaEditor())return;const sel=$("#fx-caso-sel");sel.value=Array.from(sel.options).some(o=>o.value===id)?id:"";abrirAba("fluxograma")};
+ if($("#b-caso-hipotese"))$("#b-caso-hipotese").onclick=()=>{if(!$("#modal-vinculo").hidden)return;explorar();if($("#grafo").classList.contains("on")){$("#f-vinculo").reset();grAbrirModalVinculo()}};
+ $("#b-caso-proximo").onclick=()=>{switch($("#b-caso-proximo").dataset.passo){
+  case "explorar":explorar();break;case "processamento":irPara("nv-processamento");break;case "ia":irPara("nv-ia");break;
+  case "relatorio":$("#detalhe [data-ia='relatorio']")?.click();break;case "minuta":$("#b-nova-minuta")?.click();break;
+  case "final":{const f=j.relatorios.find(f=>f.tipo==="final"&&/\.(docx|pdf)$/i.test(f.arquivo))||j.relatorios.find(f=>f.tipo==="final");const link=Array.from($$("#detalhe a")).find(a=>a.getAttribute("href")===`/arquivo/${enc(id)}/03-relatorios/${enc(f.arquivo)}`);link?.click();break}
+  default:conferirFontes();
+ }};
 
  const post=(u,b)=>api(`/api/casos/${enc(id)}${u}`,{json:b||{}});
  if($("#b-cal-comparar")){

@@ -165,7 +165,9 @@ def referencia(a,ws,ordinal=0):
     return e
 
 
-def agrupar(arestas,ws,caso=None):
+def agrupar(arestas,ws,caso=None,conferencias=None):
+    import conferencias_grafo as CG
+    if conferencias is None:conferencias=CG.listar(ws)
     grupos={};ordinais=Counter()
     for a in arestas:
         assinatura=_serial(tuple(a.get(k) for k in CAMPOS))
@@ -173,6 +175,12 @@ def agrupar(arestas,ws,caso=None):
         e=referencia(a,ws,ordinal)
         if caso and e['caso']!=caso:continue
         k=chave(a)
+        alvo={'caso':e['caso'],**dict(zip(CAMPOS[:5],k)),'evidencia_id':e['id']}
+        revisao=CG.padrao(alvo)
+        e['revisao']=conferencias.get(revisao['id'],revisao)
+        if e['revisao']['versao'] and e['revisao']['fonte_conferida']:
+            e['conferencia']={'estado':'conferida_pelo_operador','usuario':e['revisao']['fonte_usuario'],
+                              'data':e['revisao']['fonte_data'],'recurso':e['revisao']['recurso_conferido']}
         if k not in grupos:
             grupos[k]={**dict(zip(CAMPOS[:5],k)),'relacao_id':'rel-'+_hash(k),'evidencias':[],
                        'naturezas':[],'evidencias_truncadas':False}

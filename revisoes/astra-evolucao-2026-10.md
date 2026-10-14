@@ -10,9 +10,9 @@ Missão autorizada pelo operador em 14/10/2026. Fonte dos requisitos: épico #4,
 | #6 Persistência | Fonte append-only com IDs/CAS/histórico, migração e snapshots; cache regenerável; backup/export/import | Store 27/27, API 5/5, AST05 7/7; falha parcial de migração reproduzida e corrigida antes de projetar; revisão independente | Pendente |
 | #7 Exclusão seletiva | API por UUID manual/O.S./versão, tombstone e confirmação; cliques seguros por DOM | 13 API + 1 Edge; AST05 7/7, GF01 11/11, GF02 10/10; regressões de persistência/importação/tarefas aprovadas | Pendente |
 | #8 Evidências e confirmação | Relação com todas as referências, identidades por registro/linha e estados separados; URLs seguras | 19 API + 11 indexador + 1 Edge finais, regressões de contratos/persistência/exclusão/GF01/GF02 aprovadas | Pendente |
-| #9 Jornada guiada | Pendente | Pendente | Pendente |
+| #9 Jornada guiada | Material/próximo passo contextual, explorar, fontes, dinheiro, hipótese e retorno com filtros | 6 Edge repetidos pelo integrador; 49 regressões adicionais do agente, sem POST implícito e com editor protegido | Pendente |
 | #10 Linguagem natural | Pendente | Pendente | Pendente |
-| #11 Inspetor | Pendente | Pendente | Pendente |
+| #11 Inspetor | Nó/aresta e referência individual; conferência original/derivado, candidato e hipótese com histórico persistente | 14 API/persistência e 3 Edge finais, mais regressões P0 e backup real | Pendente |
 | #12 Rascunhos | Implementado e incorporado de branch isolada; backend existente preservado | 5 cenários Edge/HTTP e 23 regressões focadas; suíte 77/79 com duas falhas preexistentes | Pendente |
 | #13 Layout | Baseline anterior às mudanças concluído; otimização pendente | 40 execuções (8 cenários × 5), métricas brutas em TEMP | Pendente |
 | #14 Paginação | Baseline anterior às mudanças concluído; implementação pendente | 6 datasets, 120 GETs e 24 aquecimentos; SQL somente leitura e hashes preservados | Pendente |
@@ -107,3 +107,25 @@ AST07: rodada composta 86/89, não execução única: 41 aprovações do runner 
 AST16: 88/91 em 393,03 s no snapshot global TEMP cpj-ast16-global-6md0psp_. Falhas: teste08index em RED capturado durante cópia, OCR/escrivão e mtimes operacionais. Leitores adaptados e todos os Edge executados passaram; F04 já ajustado passou. Essa rodada não certifica a versão final de #8. Nova rodada partirá de snapshot congelado após integração completa; #17 repetirá a suíte final aplicável.
 
 Extração literal AST16 conservou linhas de espaços em casos.js e linhas vazias finais dos blocos. `git diff --check` padrão apontou essas ocorrências herdadas; não foi alegado como limpo. Comparação independente LF/CRLF provou conteúdo igual, e checagem transitória com core.whitespace=-blank-at-eof,-blank-at-eol passou sem outros problemas. A mudança atual AST08 passou no diff-check padrão; nenhuma reformatação adicional foi feita.
+
+## Marco publicado e suíte P0 final
+
+#8 e #16 publicadas no PR #19, commit remoto `5db7542`, árvore `42baa433a53c9f3d4ffaf723967aaa40bea9ebd4` idêntica ao marco local `aa0d7be`. Ref atualizada com lease, sem merge remoto. Issues #8 e #16 receberam evidências. A triagem de padrões identificou um e-mail de fixture; revisão confirmou nome fictício e domínio reservado, sem conteúdo de caso ou segredo.
+
+Runner oficial integral executado de um snapshot global congelado antes das novas edições: TEMP `cpj-astra-p0-final-gv3i_4fi/codigo`, log `cpj-astra-p0-final-suite.log`. Resultado **91/93 suítes em 475,68 s**. As duas falhas são `teste_dados_os_codex.py` (escrivão não recuperado no OCR sintético) e `teste_workspace_v01.py` (observação do workspace primário em atividade); ambas reproduzidas antes da evolução. Central HTTP aprovada. Não houve teste08 intermediário neste snapshot. Skips declarados pelo runner: OCR sem idioma local na sandbox, quatro symlinks sem permissão e E2E Python sem Playwright; os testes Node/Edge foram executados. Isso valida o marco P0/#12/#16 com essas exceções, não a homologação final das etapas posteriores.
+
+## #11 — inspetor e conferência humana individual
+
+Clique no nó ou na aresta abre todas as referências da relação, com trecho, origem, documento, página/fls. e acesso seguro aos recursos disponíveis. Metadados internos JSON permanecem na referência, sem ocupar o lugar do localizador legível na interface. Conferir original e conferir extração/registro são ações distintas; candidato e observação são registros humanos independentes e não alteram tipo, origem, identidade nem autoria.
+
+Eventos append-only em `consulta/_grafo-manual/conferencias` guardam referência, versão esperada, usuário/data do servidor e histórico. A conferência mantém seu próprio autor/data mesmo depois de outra pessoa anotar. Resolver consulta a tupla direcionada e a evidência no caso, sem depender do corte visual. Fonte alterada ou manual excluída exige nova referência; histórico antigo permanece acessível. Fonte ausente aceita observação/candidato e não aceita conferência de recurso indisponível. Cadeia corrompida devolve 503, sem aparentar ausência de conferência.
+
+Provas independentes do integrador: **14/14 API/persistência em 13,242 s** e **3/3 Edge em 24,235 s**; GF02 10/10 e fontes08 Edge 1/1 aprovados. TDD reproduziu ausência do clique na aresta, descarte de texto não salvo ao registrar outra fonte e mensagem contraditória de conferência logo após salvar, todos corrigidos. Edge cobre três referências, PDF ausente, divergência/OCR, observação editada com histórico, reabertura, filtros, conflito409 com texto preservado e leitor sem escrita. Originais sintéticos permanecem com hashes iguais.
+
+Backend também testou CAS entre processos, reinício, backup/restauração PowerShell real, pacotes dados/completo, reimportação idempotente e rejeição de pacote conflitante antes de publicar caso. Regressões Store27, API08 19, API07 13 e AST06 5 aprovadas pelo agente. Referência de base de consulta sem caso ou URL segura continua com aviso: não há abertura inventada nem escolha aproximada de PDF. Homologação humana e suíte final #17 continuam pendentes.
+
+## #9 — jornada pelo caso
+
+A ficha mostra arquivos originais, documentos/páginas registrados, disponibilidade de extração/análise e lacunas documentadas, com próximo passo conforme status e processamento real. Explorar envia a O.S. antes de abrir o grafo e faz uma consulta; retorno mantém filtros e distingue contagens do recorte de dados ainda não consultados. Índice indisponível não aparece como zero vínculos. Fontes, fluxo financeiro e hipótese usam as ações existentes; navegar não inicia IA nem grava vínculos. Editor com texto não salvo bloqueia saída e mudança de seleção.
+
+Respostas antigas da ficha/grafo não substituem a O.S. atual; erro da ficha tem tentativa explícita. Controles de FINAL e geração permanecem explícitos. TDD reproduziu ausência da jornada; seis cenários Edge finais repetidos pelo integrador em 70,594 s. Agente aprovou mais 37 testes GF02/UX01/navegação/F01 e 12 testes Edge/HTTP de editor, Explorer, AR01 e módulos. Sem dados reais, alterações operacionais ou homologação automática. Próxima #10: quatro intenções locais, consultas parametrizadas, desambiguação e referências, sem LLM remoto.

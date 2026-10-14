@@ -5,6 +5,7 @@ let grDados={nos:[],arestas:[],casos:[]}, grNodes=[], grEdges=[], grNodeMap=new 
 let grZoom=1.0, grPanX=0, grPanY=0;
 
 let grDraggingNode=null, grHoveredNode=null, grSelectedNode=null;
+let grSelectedEdge=null;
 
 let grIsPanning=false, grStartPan={x:0,y:0}, grMouseDownPos={x:0,y:0};
 
@@ -269,7 +270,7 @@ function grDesenhar(){
 
     if(!visSet.has(e.source)||!visSet.has(e.target))continue;
 
-    const isHigh=(grSelectedNode&&(e.source===grSelectedNode||e.target===grSelectedNode))||
+    const isHigh=e===grSelectedEdge||(grSelectedNode&&(e.source===grSelectedNode||e.target===grSelectedNode))||
 
                  (grHoveredNode&&(e.source===grHoveredNode||e.target===grHoveredNode));
 
@@ -393,6 +394,85 @@ function grFontes(aresta){
     manual_id:aresta.id,manual_versao:aresta.versao}];
 }
 
+function grFindEdgeAt(wx,wy){
+  let escolhido=null,menor=(6/grZoom)**2;
+  for(const e of grEdges){
+    if(!grCatAtiva(e.source.cat)||!grCatAtiva(e.target.cat))continue;
+    const a=e.source,b=e.target,dx=b.x-a.x,dy=b.y-a.y,d2=dx*dx+dy*dy;
+    const t=d2?Math.max(0,Math.min(1,((wx-a.x)*dx+(wy-a.y)*dy)/d2)):0;
+    const d=(wx-a.x-t*dx)**2+(wy-a.y-t*dy)**2;
+    if(d<=menor){menor=d;escolhido=e}
+  }
+  return escolhido;
+}
+
+function grRevisaoHTML(e,chave){
+  const r=e.revisao||{},escrita=pode("trabalho")&&e.caso&&e.id;
+  const registro=r.versao?`<div>${r.fonte_conferida?`Registro de conferência ${r.recurso_conferido==="original"?"do original":"da extração/registro"} por ${esc(r.fonte_usuario||r.usuario||"responsável não informado")} em ${esc(r.fonte_data||r.data||"data não informada")}. `:""}${r.candidato?"Candidato marcado pelo operador. ":""}Último registro: ${esc(r.usuario||"Responsável não informado")} · ${esc(r.data||"Data não informada")}</div>`:"";
+  return `${registro}${escrita?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+    ${e.url_original?`<button class="btn sm" data-gr-revisar="${chave}" data-acao="conferir_fonte" data-fonte="original">Conferi o original</button>`:""}
+    ${e.url_derivado?`<button class="btn sm" data-gr-revisar="${chave}" data-acao="conferir_fonte" data-fonte="derivado">Conferi a extração/registro</button>`:""}
+    <button class="btn sm" data-gr-revisar="${chave}" data-acao="marcar_candidato">Marcar como candidato</button>
+    </div><label style="display:block;margin-top:6px">Observação/hipótese do operador
+    <textarea data-gr-observacao="${chave}" rows="2" maxlength="4000" style="width:100%">${esc(r.observacao||"")}</textarea></label>
+    <button class="btn sm" data-gr-revisar="${chave}" data-acao="registrar_observacao">Registrar observação/hipótese</button>`:""}
+    ${e.caso&&e.id?`<button class="btn sm" data-gr-historico="${chave}">Ver histórico</button>`:""}
+    <div class="muted" role="status" data-gr-revisao-aviso></div><div data-gr-historico-conteudo></div>`;
+}
+
+function grIdentificarFonte(aresta,e){
+  return {caso:e.caso,a_tipo:aresta.a_tipo,a_valor:aresta.a_valor,b_tipo:aresta.b_tipo,
+    b_valor:aresta.b_valor,relacao:aresta.relacao,evidencia_id:e.id};
+}
+
+function grAtualizarInspetor(){
+  if(grSelectedEdge)grInspecionarAresta(grSelectedEdge);
+  else if(grSelectedNode)grInspecionarNo(grSelectedNode);
+}
+
+function grVincularFontes(p,arestas){
+  const fonte=b=>{const [i,j]=(b.dataset.grRevisar||b.dataset.grHistorico||b.dataset.grManual).split(":").map(Number);
+    return {aresta:arestas[i],e:grFontes(arestas[i])[j],card:b.closest(".gr-evidencia")}};
+  p.querySelectorAll("[data-gr-manual]").forEach(b=>b.onclick=()=>{
+    const {aresta,e}=fonte(b);
+    grRemoverVinculo({origem:"manual",id:e.manual_id,versao:e.manual_versao,caso:e.caso,relacao:aresta.relacao},b);
+  });
+  p.querySelectorAll("[data-gr-revisar]").forEach(b=>b.onclick=async()=>{
+    const {aresta,e,card}=fonte(b),aviso=card.querySelector("[data-gr-revisao-aviso]"),acao=b.dataset.acao;
+    const dados={...grIdentificarFonte(aresta,e),versao:e.revisao?.versao||0,acao};
+    if(acao==="registrar_observacao"){
+      dados.observacao=card.querySelector("textarea").value;
+      if(!dados.observacao.trim()){aviso.textContent="Escreva a observação antes de registrar.";return}
+    }
+    if(acao==="conferir_fonte")dados.fonte=b.dataset.fonte;
+    const carga=grCarga,controles=card.querySelectorAll("[data-gr-revisar]");
+    controles.forEach(el=>el.disabled=true);aviso.textContent="Registrando conferência…";
+    try{
+      const r=await api("/api/grafo/evidencia/revisar",{json:dados});
+      e.revisao=r.revisao;
+      if(carga===grCarga&&card.isConnected){
+        const rascunhos=new Map([...p.querySelectorAll("[data-gr-observacao]")].map(el=>[el.dataset.grObservacao,el.value]));
+        grAtualizarInspetor();
+        p.querySelectorAll("[data-gr-observacao]").forEach(el=>{if(rascunhos.has(el.dataset.grObservacao))el.value=rascunhos.get(el.dataset.grObservacao)});
+        toast("Registro humano salvo; a natureza da evidência foi preservada.");
+      }
+    }catch(x){if(card.isConnected)aviso.textContent=x.message}
+    finally{controles.forEach(el=>el.disabled=false)}
+  });
+  p.querySelectorAll("[data-gr-historico]").forEach(b=>b.onclick=async()=>{
+    const {aresta,e,card}=fonte(b),alvo=card.querySelector("[data-gr-historico-conteudo]");
+    b.disabled=true;alvo.textContent="Carregando histórico…";
+    try{
+      const q=new URLSearchParams(grIdentificarFonte(aresta,e));
+      const r=await api("/api/grafo/evidencia/historico?"+q);
+      if(!card.isConnected)return;
+      const acoes={conferir_fonte:"Conferência de fonte",marcar_candidato:"Candidato marcado",registrar_observacao:"Observação/hipótese"};
+      alvo.innerHTML=r.historico.length?r.historico.map(h=>`<div style="border-top:1px solid var(--line);padding:6px 0;white-space:pre-wrap">${esc(acoes[h.acao]||h.acao)}${h.recurso_conferido?" · "+esc(h.recurso_conferido):""}<br>${esc(h.usuario)} · ${esc(h.data)}${h.observacao?"<br>"+esc(h.observacao):""}</div>`).join(""):"Nenhuma conferência humana registrada.";
+    }catch(x){if(card.isConnected)alvo.textContent=x.message}
+    finally{b.disabled=false}
+  });
+}
+
 function grEvidenciasHTML(aresta,acoes=false,conexao=0){
   const nomes={documental:"Referência documental — conferir original",cadastro:"Cadastro do caso — conferir fonte",
     consulta:"Base de consulta — não substitui os autos",extracao_candidata:"Extração candidata — conferir texto e original",
@@ -401,21 +481,25 @@ function grEvidenciasHTML(aresta,acoes=false,conexao=0){
   const fontes=grFontes(aresta);
   const link=(url,texto)=>typeof url==="string"&&/^\/arquivo\/[^?#]+(?:#page=\d+)?$/.test(url)?`<a class="lk" href="${esc(url)}" target="_blank" rel="noopener">${esc(texto)}</a>`:"";
   return `<details open style="margin-top:8px"><summary>Fontes (${fontes.length})</summary>${fontes.map((e,i)=>{
-    const conferida=e.conferencia?.estado==="conferida_pelo_operador"&&e.conferencia.usuario&&e.conferencia.data;
+    const conferencia=e.revisao?.fonte_conferida?{estado:"conferida_pelo_operador",usuario:e.revisao.fonte_usuario,data:e.revisao.fonte_data}:e.conferencia;
+    const conferida=conferencia?.estado==="conferida_pelo_operador"&&conferencia.usuario&&conferencia.data;
+    let localizador=e.localizador_original;
+    try{const meta=JSON.parse(localizador);if(["astra-evidencia/1","astra-manual/1"].includes(meta?.schema))localizador=typeof meta.localizador_original==="string"?meta.localizador_original:""}catch{}
     const original=link(e.url_original,e.pagina?`Abrir original · pág. ${e.pagina}`:"Abrir original");
     const derivado=link(e.url_derivado,"Ver extração ou registro");
     return `<div class="gr-evidencia" style="border-top:1px solid var(--line);padding:8px 0;overflow-wrap:anywhere">
       <b>${esc(nomes[e.tipo]||"Referência a conferir")}</b>
       <div>${esc(e.caso||e.origem||"Origem não informada")} · ${esc(e.documento||e.arquivo_derivado||"Documento não identificado")}</div>
       <div class="muted">${e.pagina?`pág. ${esc(e.pagina)} · `:""}${e.fls?`fls. ${esc(e.fls)}`:"Fls. não informadas"}</div>
-      ${e.localizador_original?`<div class="muted">${esc(e.localizador_original)}</div>`:""}
+      ${localizador?`<div class="muted">${esc(localizador)}</div>`:""}
       ${e.trecho?`<blockquote style="margin:6px 0;white-space:pre-wrap">${esc(e.trecho)}</blockquote>`:""}
       ${e.status_fonte?`<div>Status declarado na fonte: ${esc(e.status_fonte)}</div>`:""}
       ${e.posicao==="contradiz"?'<div>Referência registrada como contraditória.</div>':""}
       ${e.observacao?`<div style="white-space:pre-wrap">Observação do operador: ${esc(e.observacao)}</div>`:""}
-      <div class="muted">${conferida?`Conferência humana registrada por ${esc(e.conferencia.usuario)} em ${esc(e.conferencia.data)}`:"Conferência humana não registrada"}</div>
+      <div class="muted">${conferida?`Conferência humana registrada por ${esc(conferencia.usuario)} em ${esc(conferencia.data)}`:"Conferência humana não registrada"}</div>
       ${original||derivado?`<div style="display:flex;gap:12px;flex-wrap:wrap">${original}${derivado}</div>`:'<div class="muted">Fonte indisponível para abertura; referência preservada.</div>'}
       ${e.avisos?.length?`<div class="muted">${esc(e.avisos.join(" · "))}</div>`:""}
+      ${acoes?grRevisaoHTML(e,`${conexao}:${i}`):""}
       ${acoes&&e.manual_id&&pode("trabalho")?`<button class="btn sm dan" data-gr-manual="${conexao}:${i}">remover</button>`:""}
     </div>`;
   }).join("")}${aresta.evidencias_truncadas?'<div class="aviso">Há referências adicionais não carregadas.</div>':""}</details>`;
@@ -423,7 +507,7 @@ function grEvidenciasHTML(aresta,acoes=false,conexao=0){
 
 function grInspecionarNo(n){
 
-  grSelectedNode=n;const p=$("#gr-detalhes-conteudo");
+  grSelectedNode=n;grSelectedEdge=null;const p=$("#gr-detalhes-conteudo");
 
   if(!n){p.innerHTML="";$("#gr-d-dica").hidden=false;return}
 
@@ -483,10 +567,7 @@ function grInspecionarNo(n){
   }
 
   p.innerHTML=h;
-  p.querySelectorAll("[data-gr-manual]").forEach(b=>b.onclick=()=>{
-    const [i,j]=b.dataset.grManual.split(":").map(Number),edge=conex[i].edge,e=grFontes(edge)[j];
-    grRemoverVinculo({origem:"manual",id:e.manual_id,versao:e.manual_versao,caso:e.caso,relacao:edge.relacao},b);
-  });
+  grVincularFontes(p,conex.map(c=>c.edge));
   p.querySelectorAll("[data-gr-focar]").forEach(b=>b.onclick=()=>grFocarNo(conex[Number(b.dataset.grFocar)].outro.id));
   p.querySelectorAll("[data-gr-acao]").forEach(b=>b.onclick=()=>{
     if(b.dataset.grAcao==="caso"){abrirAba("casos");abrirCaso(n.valor)}
@@ -495,6 +576,16 @@ function grInspecionarNo(n){
   });
   grDesenhar();
 
+}
+
+function grInspecionarAresta(e){
+  if(!e){grInspecionarNo(null);return}
+  grSelectedNode=null;grSelectedEdge=e;
+  const p=$("#gr-detalhes-conteudo");$("#gr-d-dica").hidden=true;
+  p.innerHTML=`<div style="overflow-wrap:anywhere"><b>${esc(e.source.rotulo)}</b> → <b>${esc(e.target.rotulo)}</b>
+    <div>${esc(e.relacao)}</div>${e.naturezas?.includes("correspondencia_candidata")?'<div>Correspondência candidata; identidade não confirmada.</div>':""}
+    ${grEvidenciasHTML(e,true,0)}</div>`;
+  grVincularFontes(p,[e]);grDesenhar();
 }
 
 function grFocarNo(id){
@@ -627,7 +718,7 @@ function grInitEvents(){
 
       const pt=grScreenToWorld(e.clientX,e.clientY),n=grFindNodeAt(pt.x,pt.y);
 
-      if(!n)grInspecionarNo(null);
+      if(!n)grInspecionarAresta(grFindEdgeAt(pt.x,pt.y));
 
     }
 

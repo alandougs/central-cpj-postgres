@@ -131,6 +131,10 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 
 **AST08 / issue #8:** relação visual com todas as evidências, IDs/versões manuais individuais, origem/tipo e conferência humana separados. Indexador preserva documento/páginas/fls./trecho/linha e separa qualificações homônimas por registro, sem remapear manuais antigos. URLs ficam confinadas ao caso; fontes ausentes e divergentes permanecem. API 19/19, índice 11/11 e Edge 1/1 finais aprovados pelo integrador, mais regressões; limites de busca declarados, paginação #14 e histórico/conferência documental #11 pendentes. Rodadas amplas históricas com exceções identificadas no checkpoint; sem homologação automática.
 
+**AST11 / issue #11:** inspetor de nó/aresta com todas as referências e conferência explícita de original ou extração. Candidato e hipótese mantêm natureza separada; usuário/data/histórico append-only sobrevivem a reinício, reindexação e backup/importação. CAS protege edição concorrente; fonte ausente/alterada e cadeia inválida têm respostas explícitas. Integrador aprovou 14 API/persistência e 3 Edge; observações ainda não salvas e conflitos preservam texto. Marco P0/#12/#16 anterior: runner oficial de cópia congelada, 91/93 suítes em 475,68 s, exceções OCR/escrivão e monitor de workspace já conhecidas. Limites e evidências no checkpoint; homologação final pendente.
+
+**AST09 / issue #9:** ficha contextual com material, lacunas e próximo passo conforme estágio, exploração da O.S. no ASTRA e retorno com filtros preservados. Uma consulta ao abrir, sem contagens inventadas/POST de navegação; fontes, dinheiro e hipótese usam ações existentes. Guarda do editor e respostas atrasadas preservam o caso atual. Integrador repetiu 6 Edge e agente aprovou 49 regressões adicionais. Homologação humana pendente.
+
 **AST16 / issue #16:** frontend separado literalmente em 16 scripts clássicos locais + CSS, com bootstrap único, globais/IDs/rotas preservados e testes leitores adaptados sem reduzir cobertura. Comparação independente normalizada LF/CRLF e testes reais HTTP/Edge aprovados; mapa em revisoes/astra-modulos.md. Rodada ampla de snapshot e limites descritos no checkpoint, sem alegar homologação. SIG02 ajustou somente o teste F04 ao contrato solicitado de folhas/assinatura, mantendo preservação do modelo: 5/5 F04 e 12/12 SIG01 aprovados.
 
 **AST07 / issue #7:** exclusão somente por UUID manual, O.S. e versão, com autorização de trabalho, histórico preservado e cache recuperável. Relações documentais não são removidas; cliques do inspetor usam handlers DOM e confirmação, inclusive com apóstrofos. 13 testes API + 1 Edge e regressões AST05/GF01/GF02 aprovados; rodada ampla e adaptação do contrato DOCX antigo F04 registradas no checkpoint, sem alegar suíte geral verde.
@@ -253,6 +257,8 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
 ## Registro de mudanças
 
 - **14/10/2026 — AST08:** todas as referências por relação, proveniência estruturada, identidades por registro/linha e fontes seguras; provas e limites no checkpoint.
+- **14/10/2026 — AST11:** conferência individual de fontes com responsável/data/histórico persistente e inspetor por aresta; API14 e Edge3 aprovados, originais preservados e classificação investigativa independente. Suíte geral P0 final 91/93 com duas exceções conhecidas.
+- **14/10/2026 — AST09:** jornada contextual pela O.S., exploração/retorno e próximo passo com fontes e controles preservados; 6 Edge e 49 regressões adicionais aprovados.
 
 - **14/10/2026 — AST16 / SIG02:** extração conservadora JS/CSS com testes locais/HTTP em ordem; F04 alinhado ao pedido de folhas e assinatura. Detalhes e provas no checkpoint.
 

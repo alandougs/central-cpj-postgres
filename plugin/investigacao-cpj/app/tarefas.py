@@ -49,7 +49,7 @@ def _caminho_importavel(caminho):
     if len(partes) >= 2 and raiz == 'consulta' and partes[1].rstrip(' .').casefold() == '_grafo-manual':
         if len(partes) != 4 or partes[1] != '_grafo-manual': return False
         if partes[2] == 'legados': return bool(re.fullmatch(r'[0-9a-f]{64}\.json',partes[3]))
-        return partes[2] == 'eventos' and bool(re.fullmatch(
+        return partes[2] in ('eventos','conferencias') and bool(re.fullmatch(
             r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.json', partes[3]))
     if raiz == "casos": return len(partes) >= 3 and partes[1] != "_MODELO-CASO"
     if raiz in ("calibracao", "consulta", "referencias"): return len(partes) >= 2
@@ -61,6 +61,7 @@ sys.path.insert(0, AQUI)
 import plantao as PL  # noqa: E402  (fila de pedidos de IA e agentes de plantão)
 sys.path.insert(0, S_BASE)
 import vinculos_manuais as VM  # noqa: E402
+import conferencias_grafo as CG  # noqa: E402
 
 
 def plantao_config(ws):
@@ -194,6 +195,7 @@ class Tarefas:
         prefixo = 'consulta/_grafo-manual/eventos/'
         eventos = {prefixo+n: b for n,b in VM.exportar_eventos(self.ws).items()}
         eventos.update({'consulta/_grafo-manual/legados/'+n:b for n,b in VM.exportar_legados(self.ws).items()})
+        eventos.update({'consulta/_grafo-manual/conferencias/'+n:b for n,b in CG.exportar(self.ws).items()})
         itens = [(p,r) for p,r in self._lista_export(modo, incluir_modelo)
                  if not r.casefold().startswith('consulta/_grafo-manual/')]
         itens.extend((None,r) for r in eventos)
@@ -268,7 +270,9 @@ class Tarefas:
                            if a['caminho'].startswith('consulta/_grafo-manual/eventos/')}
                 legados = {a['caminho'].split('/')[-1]: z.read('dados/'+a['caminho']) for a in arqs
                            if a['caminho'].startswith('consulta/_grafo-manual/legados/')}
-                VM.validar_importacao(W, eventos, legados)
+                conferencias = {a['caminho'].split('/')[-1]: z.read('dados/'+a['caminho']) for a in arqs
+                                if a['caminho'].startswith('consulta/_grafo-manual/conferencias/')}
+                VM.validar_importacao(W, eventos, legados, conferencias)
                 # 2) preparar fora das pastas operacionais. Cada caso só aparece ao final, por os.replace().
                 shutil.rmtree(temporaria, ignore_errors=True); os.makedirs(temporaria)
                 existentes = set(os.listdir(os.path.join(W, "casos"))) if os.path.isdir(os.path.join(W, "casos")) else set()
@@ -291,7 +295,7 @@ class Tarefas:
             # 3) confirmar. A partir daqui a operação é curta e não cancelável: cada caso
             # entra inteiro por renomeação atômica, nunca como uma pasta parcialmente copiada.
             cancelar(); self.at(tid, etapa="confirmando importação")
-            VM.importar_eventos(W, eventos, legados)
+            VM.importar_eventos(W, eventos, legados, conferencias)
             for caso in sorted(novos):
                 origem, destino = os.path.join(temporaria, "casos", caso), os.path.join(W, "casos", caso)
                 if os.path.isdir(origem) and not os.path.exists(destino):

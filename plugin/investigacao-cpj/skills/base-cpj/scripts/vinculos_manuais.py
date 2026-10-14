@@ -271,29 +271,36 @@ def _validar_legados(pasta, arquivos):
             raise Conflito('Snapshot legado com mesmo ID e conteúdo divergente.')
 
 
-def validar_importacao(ws, arquivos, legados=None):
+def validar_importacao(ws, arquivos, legados=None, conferencias=None):
     """Valida a união antes de confirmar qualquer arquivo operacional do pacote."""
-    if not arquivos and not legados:
+    if not arquivos and not legados and not conferencias:
         return
     with trava(ws) as pasta:
         _importados(pasta, arquivos)
         _validar_legados(pasta, legados or {})
+        import conferencias_grafo as CG
+        CG._importados(pasta,conferencias or {})
 
 
-def importar_eventos(ws, arquivos, legados=None):
+def importar_eventos(ws, arquivos, legados=None, conferencias=None):
     """Acrescenta eventos completos; retomada/reimportação não sobrescreve IDs."""
-    if not arquivos and not legados:
+    if not arquivos and not legados and not conferencias:
         return 0
     with trava(ws) as pasta:
         novos = _importados(pasta, arquivos)
         _validar_legados(pasta, legados or {})
+        import conferencias_grafo as CG
+        novas_conferencias=CG._importados(pasta,conferencias or {})
         if legados:
             destino = _pasta_legados(pasta); destino.mkdir(exist_ok=True)
             for nome, conteudo in legados.items():
                 _publicar(destino/nome,conteudo)
         for _, nome, conteudo in novos:
             _publicar(pasta / nome, conteudo)
-        return len(novos)
+        if novas_conferencias:
+            destino=CG._pasta(pasta);destino.mkdir(exist_ok=True)
+            for _,nome,conteudo in novas_conferencias:_publicar(destino/nome,conteudo)
+        return len(novos)+len(novas_conferencias)
 
 
 def exportar_eventos(ws):
