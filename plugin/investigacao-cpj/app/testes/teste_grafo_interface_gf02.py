@@ -19,10 +19,11 @@ class GrafoInterface(unittest.TestCase):
             const pincel=new Proxy({}, {get(o,k){return o[k]||((...args)=>desenhos.push([k,...args]))}});
             function $(id){return elementos[id]||(elementos[id]={value:'',checked:true,hidden:true,
                 style:{},innerHTML:'',textContent:'',width:800,height:560,
-                addEventListener(){},getBoundingClientRect(){return {width:800,height:560,left:0,top:0}},
+                addEventListener(){},querySelectorAll(){return []},getBoundingClientRect(){return {width:800,height:560,left:0,top:0}},
                 getContext(){return pincel}})}
             const enc=encodeURIComponent,esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
             const window={devicePixelRatio:1,addEventListener(){}};
+            const pode=()=>false;
             const requestAnimationFrame=()=>1,cancelAnimationFrame=()=>{};
             let resposta={nos:[],arestas:[],casos:[]},falha='',urls=[];
             async function api(url){urls.push(url);if(falha)throw new Error(falha);return resposta}

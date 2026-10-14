@@ -129,6 +129,8 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 
 ## 9. Estado atual e próximos passos (atualizar sempre)
 
+**AST07 / issue #7:** exclusão somente por UUID manual, O.S. e versão, com autorização de trabalho, histórico preservado e cache recuperável. Relações documentais não são removidas; cliques do inspetor usam handlers DOM e confirmação, inclusive com apóstrofos. 13 testes API + 1 Edge e regressões AST05/GF01/GF02 aprovados; rodada ampla e adaptação do contrato DOCX antigo F04 registradas no checkpoint, sem alegar suíte geral verde.
+
 **14/10/2026 — ASTRA, missão #4:** execução incremental das issues #5–#17 autorizada pelo operador, a partir de `origin/main`; publicação de branch/PR autorizada, sem merge nem alteração dos bancos operacionais. Checkpoint e evidências por issue: `revisoes/astra-evolucao-2026-10.md`. #5 alinha API/formulário e preserva O.S., documento, página/fls. e observação; 7 testes HTTP/Edge novos e 11 testes GF01 aprovados, regressão de consultas aprovada. Implementação não equivale à homologação do operador; demais etapas registradas no checkpoint.
 
 **AST06 / issue #6:** fonte autoritativa dos vínculos em `consulta/_grafo-manual/eventos/`, independente de `rag/cpj.sqlite`; eventos imutáveis com ID, autoria, versões, histórico e tombstones. Migração preserva legados e rótulos órfãos em snapshots com proveniência desconhecida, sem criar fatos. Reindexação recompõe somente o cache, sob transação; backup/export/import incluem a fonte e rejeitam histórico divergente. API distingue indisponibilidade do índice de falha ao capturar legados, interrompendo antes de apagar projeção incompleta. Testes finais: 27 de armazenamento, 5 HTTP/recuperação e 7 de contrato/Edge aprovados. Rodada geral intermediária 79/81, falhas preexistentes OCR/escrivão e mtimes do checkout operacional; versão final teve regressões focadas repetidas. Não recupera informação já apagada antes da atualização sem backup.
@@ -245,6 +247,8 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
   - **Versionamento Git Local (GH01):** Repositório local inicializado na branch `consolidacao-2026-10-01` com `.gitignore` rigoroso contra vazamento de casos/dados e varredura de segurança aprovada com 0 bloqueios.
 
 ## Registro de mudanças
+
+- **14/10/2026 — AST07:** exclusão seletiva manual com ID/CAS, tombstone e confirmação; fontes documentais preservadas. Provas e limitações na seção 9/checkpoint.
 
 - **14/10/2026 — AST06 / AST12 / SIG01:** persistência independente do índice e migração conservadora dos manuais (#6); rascunhos protegidos e DOCX separado (#12); citação somente por fls. quando disponível e assinatura do modelo na entrega. Evidências e limitações no checkpoint ASTRA e seção 9; sem homologação automática.
 

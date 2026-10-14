@@ -369,30 +369,46 @@ def _projetar_manuais():
 
 
 @bp_consulta.post("/api/grafo/vinculo/remover")
-@requer("pesquisa")
+@requer("trabalho")
 def api_grafo_remover_vinculo():
-    dados = request.get_json(force=True) or {}
-    a_tipo = dados.get("a_tipo")
-    a_valor = dados.get("a_valor")
-    b_tipo = dados.get("b_tipo")
-    b_valor = dados.get("b_valor")
-    relacao = dados.get("relacao")
-
-    if not (a_tipo and a_valor and b_tipo and b_valor and relacao):
-        return jsonify({"erro": "Parâmetros insuficientes para remover vínculo."}), 400
-
+    dados = request.get_json(force=True, silent=True)
+    if not isinstance(dados, dict) or set(dados) != {"id", "caso", "versao"}:
+        return jsonify({"erro": "Informe somente ID, O.S. e versão do vínculo manual."}), 400
+    id_, caso, versao = dados["id"], dados["caso"], dados["versao"]
+    if (not isinstance(id_, str) or not re.fullmatch(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", id_)
+            or not isinstance(caso, str) or not caso or len(caso) > 4000
+            or type(versao) is not int or versao < 1):
+        return jsonify({"erro": "ID, O.S. ou versão inválidos."}), 400
     try:
-        db = R.conectar()
-        db.execute("""
-            DELETE FROM arestas
-            WHERE a_tipo=? AND a_valor=? AND b_tipo=? AND b_valor=? AND relacao=?
-        """, (a_tipo, a_valor, b_tipo, b_valor, relacao))
-        db.commit()
-        db.close()
-        auditar("grafo_vinculo_removido", f"{a_tipo}:{a_valor} -> {relacao} -> {b_tipo}:{b_valor}")
-        return jsonify({"ok": True})
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 500
+        caminho = C.caminho(caso)
+    except ValueError:
+        return jsonify({"erro": "ID da O.S. inválido."}), 400
+    if not os.path.isfile(os.path.join(caminho, "caso.json")):
+        return jsonify({"erro": "Vínculo manual não localizado nesta O.S."}), 404
+    import vinculos_manuais as VM
+    try:
+        registro = next((r for r in VM.listar(WS, incluir_excluidos=True)
+                         if r["id"] == id_ and r["caso"] == caso), None)
+    except (OSError, ValueError):
+        return jsonify({"erro": "Não foi possível conferir a fonte dos vínculos. Nenhum vínculo foi excluído."}), 503
+    if registro is None:
+        return jsonify({"erro": "Vínculo manual não localizado nesta O.S."}), 404
+    if registro["excluido"] or registro["versao"] != versao:
+        return jsonify({"erro": "Vínculo já excluído ou alterado. Atualize o grafo antes de tentar novamente."}), 409
+    try:
+        excluido = VM.excluir(WS, id_, request.usuario["login"], versao=versao)
+    except VM.Conflito:
+        return jsonify({"erro": "Vínculo já excluído ou alterado. Atualize o grafo antes de tentar novamente."}), 409
+    except KeyError:
+        return jsonify({"erro": "Vínculo manual não localizado nesta O.S."}), 404
+    except (OSError, ValueError):
+        return jsonify({"erro": "Falha ao preservar a exclusão. Tente novamente; os dados anteriores foram mantidos."}), 503
+    pendente = _projetar_manuais()
+    auditar("grafo_vinculo_removido", f"id={id_}; caso={caso}")
+    return jsonify({"ok": True, "id": id_, "versao": excluido["versao"],
+                    "indexacao_pendente": pendente,
+                    "aviso": "Vínculo excluído. Índice pendente de atualização." if pendente else ""})
 
 
 

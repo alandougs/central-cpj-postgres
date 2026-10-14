@@ -1678,7 +1678,7 @@ function grMontarGrafo(){
 
     if(s&&t){
 
-      grEdges.push({source:s,target:t,relacao:a.relacao||"vinculado a",origem:a.origem||"",fonte:a.fonte||"",localizador:a.localizador||""});
+      grEdges.push({source:s,target:t,id:a.id,versao:a.versao,caso:a.caso||a.fonte,relacao:a.relacao||"vinculado a",origem:a.origem||"",fonte:a.fonte||"",localizador:a.localizador||""});
 
     }
 
@@ -1909,9 +1909,9 @@ function grInspecionarNo(n){
 
   for(const e of grEdges){
 
-    if(e.source===n)conex.push({outro:e.target,rel:e.relacao,dir:"saida",origem:e.origem,fonte:e.fonte,loc:e.localizador});
+    if(e.source===n)conex.push({outro:e.target,rel:e.relacao,dir:"saida",origem:e.origem,fonte:e.fonte,loc:e.localizador,edge:e});
 
-    else if(e.target===n)conex.push({outro:e.source,rel:e.relacao,dir:"entrada",origem:e.origem,fonte:e.fonte,loc:e.localizador});
+    else if(e.target===n)conex.push({outro:e.source,rel:e.relacao,dir:"entrada",origem:e.origem,fonte:e.fonte,loc:e.localizador,edge:e});
 
   }
 
@@ -1927,9 +1927,9 @@ function grInspecionarNo(n){
 
     <div class="muted" style="word-break:break-all">${esc(n.valor)}</div>
 
-    ${n.tipo==="CASO"?`<div style="margin-top:8px"><button class="btn sm pri" onclick="abrirAba('casos');abrirCaso('${esc(n.valor)}')">Abrir este Caso (O.S.)</button></div>`:""}
-
-    ${n.tipo==="PESSOA"||n.tipo==="CPF"||n.tipo==="CONTA"||n.tipo==="CHAVE_PIX"?`<div style="margin-top:8px"><button class="btn sm" onclick="verVinculos('${esc(n.tipo)}','${esc(n.valor)}','${esc(n.rotulo)}')">Explorar na Pesquisa</button></div>`:""}<div style="margin-top:6px"><button class="btn sm pri" onclick="grAbrirModalVinculo('${esc(n.tipo)}','${esc(n.valor)}')">+ Criar Vínculo deste Nó</button></div>
+    ${n.tipo==="CASO"?'<div style="margin-top:8px"><button class="btn sm pri" data-gr-acao="caso">Abrir este Caso (O.S.)</button></div>':""}
+    ${["PESSOA","CPF","CONTA","CHAVE_PIX"].includes(n.tipo)?'<div style="margin-top:8px"><button class="btn sm" data-gr-acao="pesquisa">Explorar na Pesquisa</button></div>':""}
+    ${pode("trabalho")?'<div style="margin-top:6px"><button class="btn sm pri" data-gr-acao="novo">+ Criar Vínculo deste Nó</button></div>':""}
 
   </div>
 
@@ -1939,7 +1939,7 @@ function grInspecionarNo(n){
 
   else{
 
-    h+=`<div style="display:flex;flex-direction:column;gap:8px">`+conex.map(c=>`
+    h+=`<div style="display:flex;flex-direction:column;gap:8px">`+conex.map((c,i)=>`
 
       <div style="background:var(--page);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-size:12px">
 
@@ -1947,11 +1947,11 @@ function grInspecionarNo(n){
 
           <span class="muted">${c.dir==="saida"?"➔ ":"➔ "}${esc(c.rel)}</span>
 
-          <span class="badge" style="font-size:10px">${esc(c.outro.tipo)}</span>${c.origem==="manual"?` <button class="btn sm dan" style="padding:1px 6px;font-size:10px" onclick="grRemoverVinculo('${esc(n.tipo)}','${esc(n.valor)}','${esc(c.outro.tipo)}','${esc(c.outro.valor)}','${esc(c.rel)}')">remover</button>`:""}
+          <span class="badge" style="font-size:10px">${esc(c.outro.tipo)}</span>${c.origem==="manual"&&c.edge.id&&pode("trabalho")?` <button class="btn sm dan" style="padding:1px 6px;font-size:10px" data-gr-remover="${i}">remover</button>`:""}
 
         </div>
 
-        <div style="margin-top:3px"><a class="lk" onclick="grFocarNo('${esc(c.outro.id)}')"><b>${esc(c.outro.rotulo)}</b></a></div>
+        <div style="margin-top:3px"><a class="lk" data-gr-focar="${i}"><b>${esc(c.outro.rotulo)}</b></a></div>
 
         ${c.fonte?`<div class="muted" style="font-size:11px;margin-top:2px">${esc(c.origem?c.origem+": ":"")}${esc(c.fonte)} ${esc(c.loc||"")}</div>`:""}
 
@@ -1959,7 +1959,15 @@ function grInspecionarNo(n){
 
   }
 
-  p.innerHTML=h;grDesenhar();
+  p.innerHTML=h;
+  p.querySelectorAll("[data-gr-remover]").forEach(b=>b.onclick=()=>grRemoverVinculo(conex[Number(b.dataset.grRemover)].edge,b));
+  p.querySelectorAll("[data-gr-focar]").forEach(b=>b.onclick=()=>grFocarNo(conex[Number(b.dataset.grFocar)].outro.id));
+  p.querySelectorAll("[data-gr-acao]").forEach(b=>b.onclick=()=>{
+    if(b.dataset.grAcao==="caso"){abrirAba("casos");abrirCaso(n.valor)}
+    else if(b.dataset.grAcao==="pesquisa")verVinculos(n.tipo,n.valor,n.rotulo);
+    else grAbrirModalVinculo(n.tipo,n.valor);
+  });
+  grDesenhar();
 
 }
 
@@ -2706,20 +2714,16 @@ if($("#f-vinculo")) $("#f-vinculo").onsubmit=async e=>{
 
 };
 
-async function grRemoverVinculo(aTipo,aVal,bTipo,bVal,rel){
-
-  if(!confirm(`Remover vínculo "${rel}"?`))return;
-
+async function grRemoverVinculo(vinculo,botao){
+  if(!vinculo||vinculo.origem!=="manual"||!vinculo.id||!pode("trabalho"))return;
+  if(!confirm(`Remover a anotação manual "${vinculo.relacao}"? As relações documentais e o histórico serão preservados.`))return;
+  if(botao)botao.disabled=true;
   try{
-
-    await api("/api/grafo/vinculo/remover",{json:{a_tipo:aTipo,a_valor:aVal,b_tipo:bTipo,b_valor:bVal,relacao:rel}});
-
-    toast("Vínculo removido");
-
-    carregarGrafo();
-
-  }catch(x){toast("Erro: "+x.message)}
-
+    const r=await api("/api/grafo/vinculo/remover",{json:{id:vinculo.id,caso:vinculo.caso,versao:vinculo.versao}});
+    toast(r.aviso||"Anotação manual removida; histórico preservado.");
+    await carregarGrafo();
+  }catch(x){toast("Não foi possível remover: "+x.message)}
+  finally{if(botao&&botao.isConnected)botao.disabled=false}
 }
 
 
