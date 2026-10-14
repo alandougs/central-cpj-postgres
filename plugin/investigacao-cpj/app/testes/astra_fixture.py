@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+from contextlib import closing
 from werkzeug.serving import make_server
 
 
@@ -32,7 +33,7 @@ class AstraFixture:
         servidor.auth.salvar_usuario('leitor_ficticio','Leitor fictício','delegado','Ficticia123')
         (cls.ws/'rag').mkdir(exist_ok=True)
         cls.db_path=cls.ws/'rag/cpj.sqlite'
-        with sqlite3.connect(cls.db_path) as db:
+        with closing(sqlite3.connect(cls.db_path)) as db:
             db.executescript('CREATE TABLE arestas(a_tipo TEXT,a_valor TEXT,b_tipo TEXT,b_valor TEXT,relacao TEXT,origem TEXT,fonte TEXT,localizador TEXT); CREATE TABLE rotulos(tipo TEXT,valor TEXT,rotulo TEXT,PRIMARY KEY(tipo,valor));')
 
     @classmethod

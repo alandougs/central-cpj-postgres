@@ -1,4 +1,5 @@
 """SE01: fluxo do modal executado em QuickJS, sem navegador ou rede."""
+from fonte_interface import ler_interface
 import json
 from pathlib import Path
 import re
@@ -10,7 +11,7 @@ HTML = Path(__file__).resolve().parents[1] / "static" / "index.html"
 
 class Interface(unittest.TestCase):
     def setUp(self):
-        texto = HTML.read_text(encoding="utf-8")
+        texto = ler_interface(HTML)
         blocos = []
         for assinatura in ("function pedirConsentimentoExterno(destinos)", "async function enviarPedidoIA(post,dados)"):
             m = re.search(re.escape(assinatura) + r"\{[\s\S]*?\n\}", texto)

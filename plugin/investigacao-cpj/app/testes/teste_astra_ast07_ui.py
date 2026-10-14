@@ -33,11 +33,12 @@ class ExclusaoUI(AstraFixture, unittest.TestCase):
         const data=request.postDataJSON();assert.ok([manualId,otherId].includes(data.id));
         assert.equal(data.caso,'OS-901-2099');assert.equal(data.versao,1);
         assert.equal(data.a_valor,undefined);assert.equal(data.b_valor,undefined);
-        await page.waitForFunction(()=>grEdges.filter(e=>e.origem==='manual').length===1);
+        await page.waitForFunction(()=>grEstado==='pronto'&&grEdges.flatMap(e=>e.evidencias||[]).filter(e=>e.manual_id).length===1);
         const graph=await (await context.request.get(url+'/api/grafo?caso=OS-901-2099')).json();
-        assert.equal(graph.arestas.filter(e=>e.origem==='autos').length,1);
-        assert.equal(graph.arestas.filter(e=>e.origem==='manual').length,1);
-        assert.notEqual(graph.arestas.find(e=>e.origem==='manual').id,data.id);
+        const sources=graph.arestas.flatMap(e=>e.evidencias);
+        assert.equal(sources.filter(e=>e.origem==='autos').length,1);
+        assert.equal(sources.filter(e=>e.manual_id).length,1);
+        assert.notEqual(sources.find(e=>e.manual_id).manual_id,data.id);
         assert.deepEqual(errors,[]);
         ''')
 

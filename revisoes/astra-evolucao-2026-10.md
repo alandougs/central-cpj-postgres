@@ -9,7 +9,7 @@ Missão autorizada pelo operador em 14/10/2026. Fonte dos requisitos: épico #4,
 | #5 Contrato manual | API e formulário alinhados; aliases explícitos; O.S., documento, página, fls. e observação; tipos e duplicatas validados | 7 testes AST05, incluindo Edge real, aprovados; GF01 11/11 e consultas existentes aprovados; regressão rápida 4/5 suítes: falha preexistente em OCR/escrivão fictício | Pendente |
 | #6 Persistência | Fonte append-only com IDs/CAS/histórico, migração e snapshots; cache regenerável; backup/export/import | Store 27/27, API 5/5, AST05 7/7; falha parcial de migração reproduzida e corrigida antes de projetar; revisão independente | Pendente |
 | #7 Exclusão seletiva | API por UUID manual/O.S./versão, tombstone e confirmação; cliques seguros por DOM | 13 API + 1 Edge; AST05 7/7, GF01 11/11, GF02 10/10; regressões de persistência/importação/tarefas aprovadas | Pendente |
-| #8 Evidências e confirmação | Pendente | Pendente | Pendente |
+| #8 Evidências e confirmação | Relação com todas as referências, identidades por registro/linha e estados separados; URLs seguras | 19 API + 11 indexador + 1 Edge finais, regressões de contratos/persistência/exclusão/GF01/GF02 aprovadas | Pendente |
 | #9 Jornada guiada | Pendente | Pendente | Pendente |
 | #10 Linguagem natural | Pendente | Pendente | Pendente |
 | #11 Inspetor | Pendente | Pendente | Pendente |
@@ -17,7 +17,7 @@ Missão autorizada pelo operador em 14/10/2026. Fonte dos requisitos: épico #4,
 | #13 Layout | Baseline anterior às mudanças concluído; otimização pendente | 40 execuções (8 cenários × 5), métricas brutas em TEMP | Pendente |
 | #14 Paginação | Baseline anterior às mudanças concluído; implementação pendente | 6 datasets, 120 GETs e 24 aquecimentos; SQL somente leitura e hashes preservados | Pendente |
 | #15 Atualização adaptativa | Pendente; consultas duplicadas e erros silenciosos identificados | Pendente | Pendente |
-| #16 Módulos | Pendente; fronteiras e testes dependentes do HTML inventariados | Pendente | Pendente |
+| #16 Módulos | 16 scripts clássicos locais e CSS extraídos literalmente; leitores adaptados | AST16 4/4, Edge05/07/12/Explorer e leitores afetados aprovados; rodada ampla em snapshot identificada | Pendente |
 | #17 Homologação técnica | Pendente | Pendente | Pendente |
 
 ## #5 — plano, execução e prova
@@ -71,3 +71,39 @@ Rodada ampla iniciou no runner oficial e continuou em snapshot global congelado 
 ## Preparação de #8 e #16
 
 Reprodução independente #8: duas referências documentais viram uma no geral, caso e busca; localizador de pessoas perde documento e duas qualificações em documentos distintos, mesmo nome e página, colidem no mesmo P:. Plano e provas fictícias em TEMP cpj-astra-ast08-plan-148a20be13. Nenhum remapeamento de manuais por nome será feito. #16 será antecipada por coordenação explicitamente permitida na issue, para separar arquivos de frontend antes das demais mudanças; extração literal, sem mudança funcional no mesmo commit. Plano TEMP cpj-astra16-plan-20261014.
+
+## #16 — extração incremental coordenada
+
+A antecipação prevista na issue separou o frontend antes das mudanças de UX, sem misturar refatoração funcional. São 16 scripts clássicos na ordem original, CSS local e bootstrap único; funções e variáveis globais continuam no mesmo ambiente. O DOM fora dos blocos extraídos é igual ao anterior. Comparação independente do integrador confirmou JavaScript concatenado e CSS iguais ao commit 212a184 após normalizar LF/CRLF. Mapa de responsabilidades e hashes do snapshot Windows em `revisoes/astra-modulos.md`.
+
+Doze leitores locais e dois HTTP usam helper que carrega recursos reais na ordem da página, sem aceitar recurso ausente/externo ou assíncrono. HTTP mantém cookies, exige 200/MIME; sintaxe compila todo o JS combinado e mantém a verificação de duplicação lexical. O teto de tamanho cobre a interface agregada. Root aprovou AST16 4/4, Edge07 1/1, GF02 10/10 e UX01 6/6. Agente aprovou Edge05 7/7, Edge12 5/5, Explorer 1/1 e leitores afetados; fixture nova fecha responses e passou HTTP 1/1 com ResourceWarning como erro.
+
+Suíte ampla em snapshot global TEMP `cpj-ast16-global-6md0psp_/codigo`, log `cpj-ast16-global-suite.log`, ainda em coleta. A cópia capturou `teste_astra_ast08_index.py` em RED de preparação; sua falha não pertence à extração de módulos nem comprova validação de #8. A rodada final #17 será congelada sem edições concorrentes. Arquivos liberados para as próximas issues; homologação humana pendente.
+
+## SIG02 — regressão do contrato DOCX
+
+O teste F04 antigo reproduziu duas falhas em cinco: exigia citação PDF+fls. e quebra forçada antes da assinatura. Somente essas expectativas foram ajustadas ao pedido do operador, acrescentando verificação de manter assinatura/nome juntos. Margens, timbre, rodapé/paginação, imagem, estilos, tabela e valores continuam verificados. F04 final 5/5 com modelo sintético em TEMP; SIG01/opções 12/12 aprovados. Não houve nova alteração do produto, do modelo real ou de casos.
+
+## Sincronização posterior
+
+PR #19 atualizado até exclusão seletiva e SIG02, commit remoto `2bed432`, árvore idêntica ao marco local `212a184`. Publicação por API com lease e conferência de árvore, sem merge em main. Issues #5, #6, #7 e #12 receberam provas e permanecem abertas para homologação. #8 e #16 posteriores continuam em desenvolvimento/validação isolados até o próximo marco publicado.
+
+## #8 — relação, referências e níveis distintos
+
+Uma relação visual usa extremos direcionais e relação literal; cada referência tem ID próprio, origem/tipo, caso, documento/página(s)/fls., trecho, localizador integral, linha/seq e hashes/datas quando conhecidos. `evidencias[]` mantém todas as fontes, sem eleger uma anotação entre várias. UUID/versão manual ficam separados do ID agregado. A busca não descarta referências antes de agrupar; 405 fontes de uma mesma relação foram preservadas no geral, por caso e q. Consulta relacional respeita fonte autoritativa/tombstones mesmo com cache atrasado. Migração parcial elimina só sobreposição cache/evento correspondente, preservando duplicatas legadas reais.
+
+Indexador mantém oito colunas e inclui JSON `astra-evidencia/1`. Qualificações de documentos ou linhas distintos não fundem registros PESSOA por nome/localizador; manuais antigos permanecem byte a byte, sem remapear pelo nome. Valores desconhecidos ficam null. Origem de consulta/cadastro/extração candidata não vira confirmação humana. CSV financeiro sem documento não escolhe um PDF. Contenção dupla caso+workspace bloqueia referência original que uma junction externa publicava; cálculo de hash externo não foi reproduzido e não é alegado.
+
+A UI apresenta todas as referências, trechos e status declarados, inclusive divergências/ausências, e abre PDFs separados por URLs geradas no servidor. A hipótese manual continua identificada após conferência humana, com responsável/data. Remover atua na anotação específica dentro do grupo. Documentos ausentes não apagam a referência; fls. não informadas não são preenchidas. Origem legada desconhecida com caso literal cadastrado continua no caso, com ressalva de proveniência. Índice ausente mantém rótulos manuais, filtro de busca e aviso, sem escrita por GET.
+
+TDD reproduziu perda de segunda fonte, colisões de registros, caminhos/legados, tombstone atravessado em busca e regressões de fallback. Provas finais do integrador: API 19/19 (21,804 s), indexador 11/11, Edge de quatro fontes/uma relação 1/1 e Edge de exclusão 1/1. GF01 11/11, GF02 10/10, AST05 7/7 e AST06 5/5 aprovados; agente repetiu Store 27/27, exclusão API 13/13 e consultas completas. Uma falha WinError32 na limpeza da fixture AST05 revelou conexões SQLite de teste sem close: corrigidas as conexões da fixture/contagem, mantendo todos os asserts; repetição 7/7 sem erro. Nenhum banco operacional envolvido.
+
+Limite atual: cada relação selecionada tem referências completas, mas busca/expansão sem comprovação global retorna truncado null e completude não aferida; corte confirmado é explícito. Paginação/total/SQL pertencem à #14. Abertura de base de consulta e conferência/histórico de referência documental pertencem à #11.
+
+## Rodadas amplas históricas e whitespace
+
+AST07: rodada composta 86/89, não execução única: 41 aprovações do runner oficial interrompido + 45/48 na continuação do snapshot global TEMP cpj-astra-ast70-global-oyj25hib. Falhas: OCR/escrivão, mtimes operacionais e F04 antigo, posteriormente corrigido pela SIG02. Central HTTP aprovada em 16,03 s. Método/logs preservados no snapshot.
+
+AST16: 88/91 em 393,03 s no snapshot global TEMP cpj-ast16-global-6md0psp_. Falhas: teste08index em RED capturado durante cópia, OCR/escrivão e mtimes operacionais. Leitores adaptados e todos os Edge executados passaram; F04 já ajustado passou. Essa rodada não certifica a versão final de #8. Nova rodada partirá de snapshot congelado após integração completa; #17 repetirá a suíte final aplicável.
+
+Extração literal AST16 conservou linhas de espaços em casos.js e linhas vazias finais dos blocos. `git diff --check` padrão apontou essas ocorrências herdadas; não foi alegado como limpo. Comparação independente LF/CRLF provou conteúdo igual, e checagem transitória com core.whitespace=-blank-at-eof,-blank-at-eol passou sem outros problemas. A mudança atual AST08 passou no diff-check padrão; nenhuma reformatação adicional foi feita.

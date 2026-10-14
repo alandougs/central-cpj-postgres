@@ -202,45 +202,84 @@ def chave_no(tipo, v):
     return _n(v)
 
 
-def vinculos(tipo, valor, niveis=2, limite=400):
+COLUNAS_GRAFO = ('a_tipo','a_valor','b_tipo','b_valor','relacao','origem','fonte','localizador')
+
+
+def escopo_grafo(caso=None, alias=''):
+    p=alias+'.' if alias else ''
+    return ((f"({p}fonte=? OR ({p}a_tipo='CASO' AND {p}a_valor=?) OR ({p}b_tipo='CASO' AND {p}b_valor=?))", [caso]*3)
+            if caso else ('1',[]))
+
+
+def referencias_relacoes(db, chaves, caso=None, interno=True):
+    """Todas as referências das relações selecionadas; corte ocorre antes delas."""
+    chaves=list(dict.fromkeys(tuple(k) for k in chaves)); saida=[]
+    for inicio in range(0,len(chaves),150):
+        lote=chaves[inicio:inicio+150]
+        valores=','.join('(?,?,?,?,?)' for _ in lote)
+        campos=','.join(COLUNAS_GRAFO[:5])
+        join=' AND '.join(f'a.{k} IS s.{k}' for k in COLUNAS_GRAFO[:5])
+        escopo,params=escopo_grafo(caso,'a')
+        rows=db.execute(f'WITH selecionadas({campos}) AS (VALUES {valores}) '
+                        f"SELECT a.rowid,{','.join('a.'+k for k in COLUNAS_GRAFO)} FROM arestas a "
+                        f'JOIN selecionadas s ON {join} WHERE {escopo} ORDER BY a.rowid',
+                        [v for k in lote for v in k]+params).fetchall()
+        for row in rows:
+            a=dict(zip(COLUNAS_GRAFO,row[1:]))
+            if interno:a['_rowid']=row[0]
+            saida.append(a)
+    return saida
+
+
+def vinculos(tipo, valor, niveis=2, limite=400, caso=None, interno=False):
     """Grafo de vínculos (registros de pessoa, nomes, telefones, veículos, endereços, empresas, processos, contas,
     chaves Pix, casos) a partir do nó informado, até `niveis` saltos. Retorna {nos, arestas} com rótulos.
     Identidade: PESSOA é o registro de origem (id 'P:...'); o nome é apenas um nó NOME (candidato a conferir) e
     não é atravessado — homônimos aparecem como candidatos, sem trazer os vínculos uns dos outros."""
-    db = conectar()
-    try: db.execute("SELECT 1 FROM arestas LIMIT 1")
-    except sqlite3.OperationalError: db.close(); return {"nos": [], "arestas": []}
-    t0 = (tipo or "").upper()
-    if t0 == "PESSOA" and not str(valor or "").startswith("P:"): t0 = "NOME"   # compatibilidade: busca por nome
-    k0 = chave_no(t0, valor)
-    if not k0: db.close(); return {"nos": [], "arestas": []}
-    inicios = [(t0, k0)]
-    if t0 == "CONTA" and "|" not in k0:   # conta sem banco: todos os bancos com esses dígitos
-        inicios = [("CONTA", r[0]) for r in db.execute(
-            "SELECT DISTINCT a_valor FROM arestas WHERE a_tipo='CONTA' AND a_valor LIKE ? UNION "
-            "SELECT DISTINCT b_valor FROM arestas WHERE b_tipo='CONTA' AND b_valor LIKE ?", (f"%|{k0}", f"%|{k0}"))] or inicios
-    vistos, fronteira, arestas = {i: 0 for i in inicios}, list(inicios), []
-    for nivel in range(1, niveis + 1):
-        prox = []
-        for t, v in fronteira:
-            if t in NAO_EXPANDIR and vistos.get((t, v)) != 0: continue   # nome só expande quando é o ponto de partida
-            for r in db.execute("SELECT a_tipo,a_valor,b_tipo,b_valor,relacao,origem,fonte,localizador FROM arestas "
-                                "WHERE (a_tipo=? AND a_valor=?) OR (b_tipo=? AND b_valor=?) LIMIT ?", (t, v, t, v, limite)):
-                arestas.append(dict(zip(("a_tipo", "a_valor", "b_tipo", "b_valor", "relacao", "origem", "fonte", "localizador"), r)))
-                for no in ((r[0], r[1]), (r[2], r[3])):
-                    if no not in vistos and len(vistos) < limite: vistos[no] = nivel; prox.append(no)
-        fronteira = prox
-    rot = {}
+    db=conectar()
     try:
-        for t, v in vistos:
-            x = db.execute("SELECT rotulo FROM rotulos WHERE tipo=? AND valor=?", (t, v)).fetchone()
-            if x: rot[(t, v)] = x[0]
-    except sqlite3.OperationalError:
-        pass
-    db.close()
-    unicas = {tuple(a.values()): a for a in arestas}
-    return {"nos": [{"tipo": t, "valor": v, "nivel": n, "rotulo": rot.get((t, v), v)} for (t, v), n in vistos.items()],
-            "arestas": list(unicas.values())}
+        try:db.execute('SELECT 1 FROM arestas LIMIT 1')
+        except sqlite3.OperationalError:return {'nos':[],'arestas':[],'truncado':None,'completude':'indice_indisponivel'}
+        t0=(tipo or '').upper()
+        if t0=='PESSOA' and not str(valor or '').startswith('P:'):t0='NOME'
+        k0=chave_no(t0,valor)
+        if not k0:return {'nos':[],'arestas':[],'truncado':False,'completude':'completa_no_escopo'}
+        inicios=[(t0,k0)];truncado=False
+        if t0=='CONTA' and '|' not in k0:
+            escopo,params=escopo_grafo(caso)
+            rows=db.execute("SELECT a_valor FROM arestas WHERE a_tipo='CONTA' AND a_valor LIKE ? AND "+escopo+
+                            " UNION SELECT b_valor FROM arestas WHERE b_tipo='CONTA' AND b_valor LIKE ? AND "+escopo+
+                            ' ORDER BY 1 LIMIT ?', [f'%|{k0}']+params+[f'%|{k0}']+params+[limite+1]).fetchall()
+            truncado=len(rows)>limite
+            inicios=[('CONTA',r[0]) for r in rows[:limite]] or inicios
+        vistos={i:0 for i in inicios};fronteira=list(inicios);chaves={}
+        escopo,params=escopo_grafo(caso)
+        campos=','.join(COLUNAS_GRAFO[:5])
+        for nivel in range(1,niveis+1):
+            prox=[]
+            for t,v in fronteira:
+                if t in NAO_EXPANDIR and vistos[t,v]!=0:continue
+                rows=db.execute(f'SELECT {campos} FROM arestas WHERE ((a_tipo=? AND a_valor=?) OR '
+                                f'(b_tipo=? AND b_valor=?)) AND {escopo} GROUP BY {campos} ORDER BY {campos} LIMIT ?',
+                                [t,v,t,v]+params+[limite+1]).fetchall()
+                if len(rows)>limite:truncado=True
+                for r in rows[:limite]:
+                    novos={no for no in ((r[0],r[1]),(r[2],r[3])) if no not in vistos}
+                    if len(vistos)+len(novos)>limite:truncado=True;continue
+                    chaves[tuple(r)]=None
+                    for no in novos:vistos[no]=nivel;prox.append(no)
+            fronteira=prox
+        arestas=referencias_relacoes(db,chaves,caso,interno=interno)
+        rot={}
+        try:
+            for t,v in vistos:
+                r=db.execute('SELECT rotulo FROM rotulos WHERE tipo=? AND valor=?',(t,v)).fetchone()
+                if r:rot[t,v]=r[0]
+        except sqlite3.OperationalError:pass
+        return {'nos':[{'tipo':t,'valor':v,'nivel':n,'rotulo':rot.get((t,v),v)} for (t,v),n in vistos.items()],
+                'arestas':arestas,'truncado':truncado,'completude':'parcial' if truncado else 'completa_no_escopo',
+                'limites':{'nos':limite,'relacoes_por_no':limite,'niveis':niveis}}
+    finally:db.close()
 
 
 def stats():

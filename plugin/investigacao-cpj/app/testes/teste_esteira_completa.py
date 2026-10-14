@@ -8,6 +8,7 @@ Valida:
 4. Pós-processamento com garantia de DOCX e reindexação RAG.
 5. Presença do botão visual da Esteira Completa 1-Clique na interface index.html.
 """
+from fonte_interface import ler_interface
 import json
 import os
 import shutil
@@ -179,8 +180,7 @@ class TesteEsteiraCompleta(unittest.TestCase):
         """index.html deve conter o botão visual da Esteira Completa 1-Clique."""
         index_path = os.path.join(APP_DIR, "static", "index.html")
         self.assertTrue(os.path.exists(index_path))
-        with open(index_path, "r", encoding="utf-8") as f:
-            conteudo = f.read()
+        conteudo = ler_interface(index_path)
 
         self.assertIn('data-ia="esteira"', conteudo)
         self.assertIn("Esteira Completa 1-Clique", conteudo)

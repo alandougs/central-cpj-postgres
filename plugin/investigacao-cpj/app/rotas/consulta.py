@@ -7,6 +7,7 @@ import sqlite3
 import threading
 import time
 from flask import Blueprint, abort, jsonify, request
+import grafo_evidencias as GE
 from rotas.comum import (
     C,
     Q,
@@ -22,30 +23,31 @@ from rotas.comum import (
 bp_consulta = Blueprint("consulta", __name__)
 
 
-def _fonte_manual(registro):
-    evidencia = registro.get("evidencia") or {}
-    localizador = " · ".join(str(v) for v in (evidencia.get("documento"), f"pág. {evidencia['pagina']}" if evidencia.get("pagina") else "", f"fls. {evidencia['fls']}" if evidencia.get("fls") else "", evidencia.get("observacao")) if v)
-    return {**registro, "origem":"manual", "fonte":registro.get("caso", ""), "localizador":localizador}
-
-
-def _manuais_grafo(caso, termo):
+def _manuais_grafo(caso=None):
     import vinculos_manuais as VM
     todos = VM.listar(WS, incluir_excluidos=True)
-    ativos = [r for r in todos if not r.get("excluido") and (not caso or r.get("caso") == caso)]
+    return GE.fundir_manuais([], todos, caso), todos
+
+
+def _grafo_sem_indice(vazio, manuais, termo=''):
     if termo:
-        busca = R._n(termo)
-        ativos = [r for r in ativos if busca in R._n(" ".join(str(r.get(c, "")) for c in ("a_valor","b_valor","a_rotulo","b_rotulo","relacao")))]
-    return [_fonte_manual(r) for r in ativos], {r["id"] for r in todos}
-
-
-def _grafo_sem_indice(vazio, manuais):
+        busca=R._n(termo)
+        chaves={GE.chave(a) for a in manuais if busca in R._n(' '.join(str(a.get(k,'')) for k in
+                ('a_valor','b_valor','a_rotulo','b_rotulo','relacao')))}
+        manuais=[a for a in manuais if GE.chave(a) in chaves]
+    grupos = GE.agrupar(manuais, WS)
+    corte = len(grupos) > 400
+    grupos = grupos[:400]
     nos = {}
-    for a in manuais:
+    rotulos={(a[lado+'_tipo'],a[lado+'_valor']):a[lado+'_rotulo'] for a in manuais for lado in ('a','b') if a.get(lado+'_rotulo')}
+    for a in grupos:
         for lado in ("a", "b"):
-            tipo, valor = a[f"{lado}_tipo"], a[f"{lado}_valor"]
-            nos[tipo,valor] = {"tipo":tipo,"valor":valor,"nivel":0,"rotulo":a.get(f"{lado}_rotulo") or valor}
-    return jsonify({**vazio,"nos":list(nos.values()),"arestas":manuais,
-                    "aviso":"Vínculos manuais preservados; reindexe para recuperar as relações documentais." if manuais else ""})
+            t,v = a[f"{lado}_tipo"],a[f"{lado}_valor"]
+            nos[t,v] = {"tipo":t,"valor":v,"nivel":0,"rotulo":rotulos.get((t,v),v)}
+    return jsonify({**vazio,"nos":list(nos.values()),"arestas":grupos,
+                    "truncado":True if corte else None,"completude":"indice_indisponivel",
+                    "limites":{"relacoes":400},
+                    "aviso":"Índice indisponível. As anotações preservadas não representam toda a documentação."})
 
 
 @bp_consulta.get("/api/consulta/bases")
@@ -94,16 +96,48 @@ def api_bases_colar():
 def api_vinculos():
     tipo = request.args.get("tipo") or "PESSOA"
     valor = request.args.get("valor") or ""
+    caso = request.args.get("caso") or None
     try:
         niveis = max(1, min(3, int(request.args.get("niveis") or 2)))
     except ValueError:
         niveis = 2
     try:
-        g = R.vinculos(tipo, valor, niveis)
+        manuais,todos = _manuais_grafo(caso)
+    except (OSError,ValueError):
+        return jsonify({"erro":"Não foi possível conferir a fonte dos vínculos manuais."}),503
+    try:
+        g = R.vinculos(tipo,valor,niveis,caso=caso,interno=True)
+        db = None if g.get('completude')=='indice_indisponivel' else R.conectar()
     except FileNotFoundError:
-        g = {"nos": [], "arestas": []}
+        g={"nos":[],"arestas":[],"truncado":None,"completude":"indice_indisponivel"}
+        db=None
+    except (OSError,sqlite3.Error):
+        return jsonify({"erro":"Não foi possível consultar o índice. As fontes foram preservadas."}),503
+    t=(tipo or '').upper()
+    if t=='PESSOA' and not valor.startswith('P:'):t='NOME'
+    k=R.chave_no(t,valor)
+    seeds=[(t,k)] if k else []
+    if t=='CONTA' and '|' not in k:
+        seeds=[(t,a[side+'_valor']) for a in g['arestas']+manuais for side in ('a','b')
+               if a[side+'_tipo']=='CONTA' and a[side+'_valor'].endswith('|'+k)] or seeds
+    linhas=GE.fundir_manuais(g['arestas'],todos,caso)
+    linhas,niveis_nos,corte=GE.subgrafo(linhas,seeds,niveis,400)
+    chaves=list(dict.fromkeys(GE.chave(a) for a in linhas))
+    try:
+        if db is not None:
+            linhas=R.referencias_relacoes(db,chaves,caso)
+            linhas=[a for a in GE.fundir_manuais(linhas,todos,caso) if GE.chave(a) in set(chaves)]
+        saida=_resposta_grafo(linhas,db,caso,niveis_nos)
+    except (OSError,sqlite3.Error):
+        return jsonify({"erro":"Consulta incompleta por falha no índice; tente novamente."}),503
+    finally:
+        if db is not None:db.close()
+    truncado=True if corte or g.get('truncado') else None if g.get('truncado') is None or manuais else False
+    saida.update(indice_disponivel=db is not None,truncado=truncado,
+                 completude='parcial' if truncado else 'nao_aferida' if truncado is None else 'completa_no_escopo',
+                 limites={**g.get('limites',{}),'nos':400,'niveis':niveis})
     auditar("pesquisa_vinculos", f"{tipo}: {valor[:80]}")
-    return jsonify(g)
+    return jsonify(saida)
 
 
 def _ordens_servico_grafo():
@@ -117,169 +151,108 @@ def _ordens_servico_grafo():
     return sorted(ordens, key=ordem)
 
 
-def _arestas_busca_grafo(db, termo, caso):
-    # Resolva apenas nós existentes; nomes continuam candidatos, com registros PESSOA separados.
-    tipos = [t for t in R.TIPOS_NO if t != "CASO" and (t != "PESSOA" or termo.startswith("P:"))]
-    numerico = bool(re.fullmatch(r"[\d.\-/() +]+", termo))
-    tipos = [t for t in tipos if t not in ("CPF", "CNPJ", "TELEFONE", "RG", "PROCESSO", "BO", "CONTA")
-             or numerico or (t == "CONTA" and "|" in termo)]
-    chaves = [(t, R.chave_no(t, termo)) for t in tipos]
-    chaves = [(t, v.lower()) for t, v in chaves if v]
-    filtros = " OR ".join("(n.tipo=? AND instr(lower(n.valor),?)>0)" for _ in chaves)
-    parametros = [v for par in chaves for v in par]
-    escopo = "WHERE fonte=? OR (a_tipo='CASO' AND a_valor=?) OR (b_tipo='CASO' AND b_valor=?)" if caso else ""
-    escopo_par = [caso] * 6 if caso else []
-    seeds = db.execute(f"""
-        WITH nos AS (
-            SELECT a_tipo AS tipo,a_valor AS valor FROM arestas {escopo}
-            UNION SELECT b_tipo,b_valor FROM arestas {escopo}
-        )
+def _arestas_busca_grafo(db, termo, caso, registros):
+    tipos=[t for t in R.TIPOS_NO if t!='CASO' and (t!='PESSOA' or termo.startswith('P:'))]
+    numerico=bool(re.fullmatch(r"[\d.\-/() +]+",termo))
+    tipos=[t for t in tipos if t not in ('CPF','CNPJ','TELEFONE','RG','PROCESSO','BO','CONTA')
+           or numerico or (t=='CONTA' and '|' in termo)]
+    chaves=[(t,R.chave_no(t,termo).lower()) for t in tipos if R.chave_no(t,termo)]
+    filtros=' OR '.join('(n.tipo=? AND instr(lower(n.valor),?)>0)' for _ in chaves)
+    escopo,params=R.escopo_grafo(caso)
+    seeds=db.execute(f"""WITH nos AS (
+        SELECT a_tipo tipo,a_valor valor FROM arestas WHERE {escopo}
+        UNION SELECT b_tipo,b_valor FROM arestas WHERE {escopo})
         SELECT n.tipo,n.valor FROM nos n LEFT JOIN rotulos r ON r.tipo=n.tipo AND r.valor=n.valor
         WHERE ({filtros or '0'}) OR (n.tipo!='CASO' AND instr(lower(coalesce(r.rotulo,'')),?)>0)
-        ORDER BY n.tipo,n.valor LIMIT 30
-    """, escopo_par + parametros + [termo.lower()]).fetchall()
-    arestas = []
-    vistas = set()
-    for tipo, valor in seeds:
-        for a in R.vinculos(tipo, valor, niveis=2, limite=300).get("arestas", []):
-            if caso and not (a["fonte"] == caso or (a["a_tipo"] == "CASO" and a["a_valor"] == caso)
-                             or (a["b_tipo"] == "CASO" and a["b_valor"] == caso)):
-                continue
-            chave = (a["a_tipo"], a["a_valor"], a["b_tipo"], a["b_valor"], a["relacao"])
-            if chave not in vistas:
-                vistas.add(chave)
-                arestas.append(a)
-                if len(arestas) >= 400:
-                    return arestas
-    return arestas
+        ORDER BY n.tipo,n.valor LIMIT 31""",params+params+[v for par in chaves for v in par]+[termo.lower()]).fetchall()
+    manuais=GE.fundir_manuais([],registros,caso)
+    busca=R._n(termo)
+    manuais_seeds=[]
+    for a in manuais:
+        if busca in R._n(' '.join(str(a.get(k,'')) for k in ('a_valor','b_valor','a_rotulo','b_rotulo','relacao'))):
+            manuais_seeds.extend((a[lado+'_tipo'],a[lado+'_valor']) for lado in ('a','b'))
+    seeds=list(dict.fromkeys(manuais_seeds+[tuple(s) for s in seeds]))
+    linhas={};corte=len(seeds)>30
+    for tipo,valor in seeds[:30]:
+        g=R.vinculos(tipo,valor,niveis=2,limite=300,caso=caso,interno=True)
+        corte=corte or bool(g.get('truncado'))
+        for a in g['arestas']:linhas[a['_rowid']]=a
+    combinadas=GE.fundir_manuais(list(linhas.values()),registros,caso)
+    combinadas,_,corte_fonte=GE.subgrafo(combinadas,seeds[:30],2,400)
+    return list(dict.fromkeys(GE.chave(a) for a in combinadas)),corte or corte_fonte
+
+
+def _resposta_grafo(arestas,db,caso=None,niveis=None):
+    grupos=GE.agrupar(arestas,WS,caso)
+    nos={}
+    for a in grupos:
+        for lado in ('a','b'):
+            t,v=a[lado+'_tipo'],a[lado+'_valor']
+            if (t,v) in nos:continue
+            rotulo=v
+            if db is not None:
+                r=db.execute('SELECT rotulo FROM rotulos WHERE tipo=? AND valor=?',(t,v)).fetchone()
+                if r and r[0]:rotulo=r[0]
+                elif t=='PESSOA':
+                    r=db.execute("SELECT b_valor FROM arestas WHERE a_tipo='PESSOA' AND a_valor=? AND b_tipo='NOME' LIMIT 1",(v,)).fetchone()
+                    if r and r[0]:rotulo=r[0].title()
+            for origem in arestas:
+                for side in ('a','b'):
+                    if (origem[side+'_tipo'],origem[side+'_valor'])==(t,v) and origem.get(side+'_rotulo'):
+                        rotulo=origem[side+'_rotulo']
+            nos[t,v]={'tipo':t,'valor':v,'nivel':(niveis or {}).get((t,v),0),'rotulo':rotulo}
+    return {'nos':list(nos.values()),'arestas':grupos}
 
 
 @bp_consulta.get("/api/grafo")
 @requer("pesquisa")
 def api_grafo():
-    caso = request.args.get("caso") or ""
-    termo = (request.args.get("q") or "").strip()
-    ordens = _ordens_servico_grafo()
-    casos_disp = [c["id"] for c in ordens]
-    vazio = {"nos": [], "arestas": [], "casos": casos_disp, "ordens_servico": ordens,
-             "indice_disponivel": False}
+    caso=request.args.get('caso') or ''
+    termo=(request.args.get('q') or '').strip()
+    ordens=_ordens_servico_grafo()
+    vazio={'nos':[],'arestas':[],'casos':[c['id'] for c in ordens],
+           'ordens_servico':ordens,'indice_disponivel':False}
+    try:manuais,todos=_manuais_grafo(caso)
+    except (OSError,ValueError):
+        return jsonify({'erro':'Não foi possível ler a fonte de vínculos manuais. Preserve os arquivos e confira a integridade.'}),503
+    db=None
     try:
-        manuais, ids_manuais = _manuais_grafo(caso, termo)
-    except (OSError, ValueError):
-        return jsonify({"erro":"Não foi possível ler a fonte de vínculos manuais. Preserve os arquivos e confira a integridade."}),503
+        db=R.conectar()
+        db.execute('SELECT 1 FROM arestas LIMIT 1');db.execute('SELECT 1 FROM rotulos LIMIT 1')
+    except (FileNotFoundError,sqlite3.OperationalError):
+        if db is not None:db.close()
+        return _grafo_sem_indice(vazio,manuais,termo)
+    except (OSError,sqlite3.Error):
+        if db is not None:db.close()
+        return jsonify({'erro':'Índice indisponível por falha de leitura; as fontes foram preservadas.'}),503
     try:
-        db = R.conectar()
-    except (OSError, sqlite3.Error):
-        return _grafo_sem_indice(vazio, manuais)
-    try:
-        db.execute("SELECT 1 FROM arestas LIMIT 1")
-        db.execute("SELECT 1 FROM rotulos LIMIT 1")
-    except sqlite3.OperationalError:
-        db.close()
-        return _grafo_sem_indice(vazio, manuais)
-
-    arestas = []
-    if termo:
-        arestas = _arestas_busca_grafo(db, termo, caso)
-    elif caso:
-        p_rows = db.execute("""
-            SELECT DISTINCT a_tipo, a_valor, b_tipo, b_valor, relacao, origem, fonte, localizador
-            FROM arestas
-            WHERE (b_tipo='CASO' AND b_valor=?) OR (a_tipo='CASO' AND a_valor=?)
-            ORDER BY (CASE WHEN relacao != 'consta nos autos' THEN 0 ELSE 1 END)
-            LIMIT 60
-        """, (caso, caso)).fetchall()
-        arestas.extend([dict(zip(("a_tipo", "a_valor", "b_tipo", "b_valor", "relacao", "origem", "fonte", "localizador"), r)) for r in p_rows])
-
-        p_ids = [r["a_valor"] if r["a_tipo"] == "PESSOA" else r["b_valor"] for r in arestas if r["a_tipo"] == "PESSOA" or r["b_tipo"] == "PESSOA"]
-        if p_ids:
-            ph = ",".join(["?"] * len(p_ids))
-            v_rows = db.execute(f"""
-                SELECT DISTINCT a_tipo, a_valor, b_tipo, b_valor, relacao, origem, fonte, localizador
-                FROM arestas
-                WHERE (a_tipo='PESSOA' AND a_valor IN ({ph}))
-                   OR (b_tipo='PESSOA' AND b_valor IN ({ph}))
-            """, p_ids + p_ids).fetchall()
-            arestas.extend([dict(zip(("a_tipo", "a_valor", "b_tipo", "b_valor", "relacao", "origem", "fonte", "localizador"), r)) for r in v_rows])
-
-        tr_rows = db.execute("""
-            SELECT DISTINCT a_tipo, a_valor, b_tipo, b_valor, relacao, origem, fonte, localizador
-            FROM arestas
-            WHERE fonte=? AND (relacao LIKE '%transferiu%' OR relacao LIKE '%Pix%' OR relacao LIKE '%TED%' OR relacao LIKE '%titular%')
-        """, (caso,)).fetchall()
-        arestas.extend([dict(zip(("a_tipo", "a_valor", "b_tipo", "b_valor", "relacao", "origem", "fonte", "localizador"), r)) for r in tr_rows])
-
-        man_rows = db.execute("""
-            SELECT DISTINCT a_tipo, a_valor, b_tipo, b_valor, relacao, origem, fonte, localizador
-            FROM arestas
-            WHERE origem='manual' AND (fonte=? OR a_valor=? OR b_valor=?)
-        """, (caso, caso, caso)).fetchall()
-        arestas.extend([dict(zip(("a_tipo", "a_valor", "b_tipo", "b_valor", "relacao", "origem", "fonte", "localizador"), r)) for r in man_rows])
-
-    else:
-        rows = db.execute("""
-            SELECT DISTINCT a_tipo, a_valor, b_tipo, b_valor, relacao, origem, fonte, localizador
-            FROM arestas
-            WHERE relacao != 'consta nos autos'
-            ORDER BY (CASE WHEN origem='manual' THEN 0 WHEN relacao LIKE '%transferiu%' THEN 1 WHEN a_tipo='PESSOA' OR b_tipo='PESSOA' THEN 2 ELSE 3 END)
-            LIMIT 400
-        """).fetchall()
-        arestas = [dict(zip(("a_tipo", "a_valor", "b_tipo", "b_valor", "relacao", "origem", "fonte", "localizador"), r)) for r in rows]
-
-    # O índice é cache: a fonte autoritativa prevalece, inclusive após exclusões.
-    filtradas = []
-    for a in arestas:
-        if a["origem"] == "manual":
-            try:
-                meta = json.loads(a["localizador"])
-            except (TypeError, ValueError):
-                meta = {}
-            if isinstance(meta,dict) and meta.get("id") in ids_manuais:
-                continue
-        filtradas.append(a)
-    arestas = filtradas + manuais
-    unicas = []
-    vistos_arestas = set()
-    vistos_nos = set()
-    for a in arestas:
-        if a["origem"] == "manual" and "evidencia" not in a:
-            a["caso"] = a["fonte"]
-            try:
-                meta = json.loads(a["localizador"])
-            except (TypeError, ValueError):
-                meta = {}
-            if isinstance(meta, dict) and meta.get("schema") == "astra-manual/1":
-                a["evidencia"] = meta.get("evidencia") or {}
-                e = a["evidencia"]
-                a["localizador"] = " · ".join(str(v) for v in (e.get("documento"), f"pág. {e['pagina']}" if e.get("pagina") else "", f"fls. {e['fls']}" if e.get("fls") else "", e.get("observacao")) if v)
-        chave_a = (a["a_tipo"], a["a_valor"], a["b_tipo"], a["b_valor"], a["relacao"], a.get("id"))
-        if chave_a not in vistos_arestas:
-            vistos_arestas.add(chave_a)
-            unicas.append(a)
-            vistos_nos.add((a["a_tipo"], a["a_valor"]))
-            vistos_nos.add((a["b_tipo"], a["b_valor"]))
-
-    rot = {}
-    for t, v in vistos_nos:
-        x = db.execute("SELECT rotulo FROM rotulos WHERE tipo=? AND valor=?", (t, v)).fetchone()
-        if x and x[0]:
-            rot[(t, v)] = x[0]
-        elif t == "PESSOA":
-            n_row = db.execute("SELECT b_valor FROM arestas WHERE a_tipo='PESSOA' AND a_valor=? AND b_tipo='NOME' LIMIT 1", (v,)).fetchone()
-            rot[(t, v)] = n_row[0].title() if n_row and n_row[0] else v
+        if termo:
+            chaves,corte=_arestas_busca_grafo(db,termo,caso,todos)
+            lim={'relacoes':400,'seeds':30,'nos':400,'nos_por_expansao':300,'niveis':2}
         else:
-            rot[(t, v)] = v
-    for a in manuais:
-        for lado in ("a", "b"):
-            if a.get(f"{lado}_rotulo"):
-                rot[a[f"{lado}_tipo"],a[f"{lado}_valor"]] = a[f"{lado}_rotulo"]
-
-    db.close()
-    nos_saida = [{"tipo": t, "valor": v, "nivel": 0, "rotulo": rot.get((t, v), v)} for t, v in vistos_nos]
-    g = {"nos": nos_saida, "arestas": unicas, "casos": casos_disp, "ordens_servico": ordens,
-         "indice_disponivel": True}
-    auditar("grafo_consultado", f"caso={caso}; q={termo}")
-    return jsonify(g)
+            escopo,params=R.escopo_grafo(caso)
+            campos=','.join(R.COLUNAS_GRAFO[:5])
+            filtro='' if caso else " AND relacao!='consta nos autos'"
+            rows=db.execute(f'SELECT {campos} FROM arestas WHERE {escopo}{filtro} GROUP BY {campos} '
+                            f"ORDER BY min(CASE WHEN origem='manual' THEN 0 ELSE 1 END),{campos} LIMIT 401",params).fetchall()
+            chaves=[tuple(r) for r in rows[:400]];corte=len(rows)>400;lim={'relacoes':400}
+        busca=R._n(termo)
+        manuais_chaves=[GE.chave(a) for a in manuais if not termo or busca in R._n(' '.join(str(a.get(k,'')) for k in
+                        ('a_valor','b_valor','a_rotulo','b_rotulo','relacao')))]
+        selecionadas=list(dict.fromkeys(manuais_chaves+chaves))
+        corte=corte or len(selecionadas)>400;selecionadas=selecionadas[:400]
+        arestas=R.referencias_relacoes(db,selecionadas,caso)
+        conjunto=set(selecionadas)
+        arestas=[a for a in GE.fundir_manuais(arestas,todos,caso) if GE.chave(a) in conjunto]
+        saida=_resposta_grafo(arestas,db,caso)
+    except (OSError,sqlite3.Error):
+        return jsonify({'erro':'Consulta incompleta por falha no índice; tente novamente.'}),503
+    finally:db.close()
+    saida.update(casos=vazio['casos'],ordens_servico=ordens,indice_disponivel=True,
+                 limites=lim,truncado=True if corte else None if termo else False,
+                 completude='parcial' if corte else 'nao_aferida' if termo else 'completa_no_escopo')
+    auditar('grafo_consultado',f'caso={caso}; q={termo}')
+    return jsonify(saida)
 
 
 @bp_consulta.post("/api/grafo/vinculo")

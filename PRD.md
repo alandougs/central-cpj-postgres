@@ -129,6 +129,10 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 
 ## 9. Estado atual e próximos passos (atualizar sempre)
 
+**AST08 / issue #8:** relação visual com todas as evidências, IDs/versões manuais individuais, origem/tipo e conferência humana separados. Indexador preserva documento/páginas/fls./trecho/linha e separa qualificações homônimas por registro, sem remapear manuais antigos. URLs ficam confinadas ao caso; fontes ausentes e divergentes permanecem. API 19/19, índice 11/11 e Edge 1/1 finais aprovados pelo integrador, mais regressões; limites de busca declarados, paginação #14 e histórico/conferência documental #11 pendentes. Rodadas amplas históricas com exceções identificadas no checkpoint; sem homologação automática.
+
+**AST16 / issue #16:** frontend separado literalmente em 16 scripts clássicos locais + CSS, com bootstrap único, globais/IDs/rotas preservados e testes leitores adaptados sem reduzir cobertura. Comparação independente normalizada LF/CRLF e testes reais HTTP/Edge aprovados; mapa em revisoes/astra-modulos.md. Rodada ampla de snapshot e limites descritos no checkpoint, sem alegar homologação. SIG02 ajustou somente o teste F04 ao contrato solicitado de folhas/assinatura, mantendo preservação do modelo: 5/5 F04 e 12/12 SIG01 aprovados.
+
 **AST07 / issue #7:** exclusão somente por UUID manual, O.S. e versão, com autorização de trabalho, histórico preservado e cache recuperável. Relações documentais não são removidas; cliques do inspetor usam handlers DOM e confirmação, inclusive com apóstrofos. 13 testes API + 1 Edge e regressões AST05/GF01/GF02 aprovados; rodada ampla e adaptação do contrato DOCX antigo F04 registradas no checkpoint, sem alegar suíte geral verde.
 
 **14/10/2026 — ASTRA, missão #4:** execução incremental das issues #5–#17 autorizada pelo operador, a partir de `origin/main`; publicação de branch/PR autorizada, sem merge nem alteração dos bancos operacionais. Checkpoint e evidências por issue: `revisoes/astra-evolucao-2026-10.md`. #5 alinha API/formulário e preserva O.S., documento, página/fls. e observação; 7 testes HTTP/Edge novos e 11 testes GF01 aprovados, regressão de consultas aprovada. Implementação não equivale à homologação do operador; demais etapas registradas no checkpoint.
@@ -247,6 +251,10 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
   - **Versionamento Git Local (GH01):** Repositório local inicializado na branch `consolidacao-2026-10-01` com `.gitignore` rigoroso contra vazamento de casos/dados e varredura de segurança aprovada com 0 bloqueios.
 
 ## Registro de mudanças
+
+- **14/10/2026 — AST08:** todas as referências por relação, proveniência estruturada, identidades por registro/linha e fontes seguras; provas e limites no checkpoint.
+
+- **14/10/2026 — AST16 / SIG02:** extração conservadora JS/CSS com testes locais/HTTP em ordem; F04 alinhado ao pedido de folhas e assinatura. Detalhes e provas no checkpoint.
 
 - **14/10/2026 — AST07:** exclusão seletiva manual com ID/CAS, tombstone e confirmação; fontes documentais preservadas. Provas e limitações na seção 9/checkpoint.
 

@@ -1,4 +1,5 @@
 """PX06: modos, aviso antes de enfileirar e seleção servidor; somente fixtures."""
+from fonte_interface import ler_interface
 import io
 import json
 import re
@@ -129,7 +130,7 @@ class Modos(unittest.TestCase):
 
     def test_interface_processar_com_aceite_recusa_contagem(self):
         from teste_consentimento_interface_se01 import Interface
-        html = (Path(__file__).resolve().parents[1] / "static/index.html").read_text(encoding="utf-8")
+        html = ler_interface(Path(__file__).resolve().parents[1] / "static/index.html")
         m = re.search(r"async function processarPDFComAviso\(enviarPedido\)\{[\s\S]*?\n\}", html)
         self.assertIsNotNone(m)
         for aceitar in (True, False):
@@ -145,7 +146,7 @@ class Modos(unittest.TestCase):
             else: self.assertTrue(i.valor("resultado.recusado"))
 
     def test_aviso_contraste_texto_temas_escuro_e_claro(self):
-        html = (Path(__file__).resolve().parents[1] / "static/index.html").read_text(encoding="utf-8")
+        html = ler_interface(Path(__file__).resolve().parents[1] / "static/index.html")
         estilo = re.search(r'<div style="([^"]+)">Aviso legal:', html)[1]
         def luminancia(cor):
             rgb = [int(cor[i:i+2], 16) / 255 for i in (1, 3, 5)]

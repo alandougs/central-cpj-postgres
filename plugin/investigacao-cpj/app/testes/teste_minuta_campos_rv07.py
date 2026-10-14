@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """RV07 (regras 10 e 13): o editor da minuta preserva delegado_genero e escrivao, e a minuta nova monta a referência
 somente com IPe e Processo (nunca BO nem IP local), deixando [PENDENTE] no campo ausente. Dados fictícios."""
+from fonte_interface import ler_interface
 import json
 import os
 import sys
@@ -106,7 +107,7 @@ class MinutaCamposRV07(unittest.TestCase):
         self.assertIn("delegado_genero: F", arq.read_text(encoding="utf-8"))
 
     def test_07_interface_expoe_os_campos(self):
-        html = (AQUI.parent / "static" / "index.html").read_text(encoding="utf-8")
+        html = ler_interface(AQUI.parent / "static" / "index.html")
         self.assertIn('["delegado_genero","Gênero Delegado(a) (M/F)"]', html)
         self.assertIn('["escrivao","Escrivão(ã) do feito"]', html)
 

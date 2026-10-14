@@ -1,4 +1,5 @@
 """AST05: contrato HTTP de vínculos e origem documental, com dados fictícios."""
+from contextlib import closing
 import json
 import sqlite3
 import unittest
@@ -33,12 +34,12 @@ class Contrato(AstraFixture,unittest.TestCase):
                 self.assertEqual(self.post('/api/grafo/vinculo',self.payload(**extra)).status_code,code)
 
     def test_leitor_e_sem_csrf_nao_alteram_indice(self):
-        with sqlite3.connect(self.db_path) as db: antes=db.execute('SELECT count(*) FROM arestas').fetchone()[0]
+        with closing(sqlite3.connect(self.db_path)) as db: antes=db.execute('SELECT count(*) FROM arestas').fetchone()[0]
         self.assertEqual(self.client.post('/api/grafo/vinculo',json=self.payload()).status_code,403)
         self.client.post('/api/sair',headers={'X-CPJ':'1'})
         self.client.post('/api/entrar',json={'login':'leitor_ficticio','senha':'Ficticia123'},headers={'X-CPJ':'1'})
         self.assertEqual(self.post('/api/grafo/vinculo',self.payload()).status_code,403)
-        with sqlite3.connect(self.db_path) as db: self.assertEqual(db.execute('SELECT count(*) FROM arestas').fetchone()[0],antes)
+        with closing(sqlite3.connect(self.db_path)) as db: self.assertEqual(db.execute('SELECT count(*) FROM arestas').fetchone()[0],antes)
 
     def test_texto_adversarial_e_auditoria_sem_trecho_investigativo(self):
         texto="<img src=x onerror=alert('ficticio')> ' OR 1=1 --"
