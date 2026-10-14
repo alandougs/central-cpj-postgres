@@ -26,7 +26,7 @@ def alvo(dados):
     if not isinstance(dados,dict) or set(dados)!=set(CAMPOS):raise ValueError('Identificação de evidência inválida.')
     if any(not isinstance(dados[k],str) or not dados[k].strip() or len(dados[k])>4000 for k in CAMPOS):
         raise ValueError('Identificação de evidência inválida.')
-    if not re.fullmatch(r'[\w-]+',dados['caso'],flags=re.A):raise ValueError('Caso inválido.')
+    if dados['caso'] in ('.','..') or not re.fullmatch(r'[\w.\-]+',dados['caso'],flags=re.A):raise ValueError('Caso inválido.')
     if any(dados[k] not in VM.TIPOS for k in ('a_tipo','b_tipo')):raise ValueError('Tipo de nó inválido.')
     return {k:dados[k] for k in CAMPOS}
 

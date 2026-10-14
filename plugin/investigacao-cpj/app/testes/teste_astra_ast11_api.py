@@ -40,6 +40,52 @@ class Revisoes(AstraFixture,unittest.TestCase):
         if acao=='conferir_fonte':extra={'fonte':'derivado',**extra}
         return self.post(URL,{**alvo,'acao':acao,'versao':versao,**extra})
 
+    def test_caso_com_ponto_revisao_overlay_historico_cas_e_limites_de_caminho(self):
+        import conferencias_grafo as cg
+        anterior=self.caso
+        self.addCleanup(setattr,self,'caso',anterior)
+        self.caso='OS.901-2099'
+        pasta=self.ws/'casos'/self.caso
+        shutil.copytree(self.ws/'casos'/anterior,pasta)
+        documento=pasta/'caso.json'
+        dados=json.loads(documento.read_text(encoding='utf-8'));dados['id']=self.caso
+        documento.write_text(json.dumps(dados),encoding='utf-8')
+        self.assertEqual(self.client.get('/api/casos/'+self.caso).status_code,200)
+        alvo=self.fonte()
+        self.assertEqual(self.client.get('/api/grafo',query_string={'caso':self.caso}).status_code,200)
+        r=self.revisar(alvo)
+        self.assertEqual(r.status_code,200,r.get_json())
+        revisao=r.get_json()['revisao']
+        self.assertEqual(revisao['versao'],1);self.assertTrue(revisao['id'].startswith('rev-'))
+        self.assertEqual(revisao['recurso_conferido'],'derivado')
+        g=self.client.get('/api/grafo',query_string={'caso':self.caso})
+        self.assertEqual(g.status_code,200,g.get_json())
+        fonte=next(a for a in g.get_json()['arestas'] if a['relacao']==self._testMethodName)['evidencias'][0]
+        self.assertEqual(fonte['revisao'],revisao)
+        self.assertEqual((fonte['tipo'],fonte['caso']),('extracao_candidata',self.caso))
+        self.assertEqual(self.revisar(alvo,'marcar_candidato',0).status_code,409)
+        r=self.revisar(alvo,'marcar_candidato',1)
+        self.assertEqual(r.status_code,200,r.get_json())
+        h=self.client.get(HIST,query_string=alvo)
+        self.assertEqual(h.status_code,200,h.get_json())
+        self.assertTrue(h.get_json()['referencia_atual'])
+        self.assertEqual([e['versao'] for e in h.get_json()['historico']],[1,2])
+        self.assertTrue(h.get_json()['revisao']['candidato'])
+        self.assertTrue(all(e['alvo']['caso']==self.caso for e in h.get_json()['historico']))
+        antes=cg.exportar(self.ws)
+        for invalido in ('.','..','../OS-901-2099','OS-901-2099/../OS-902-2099',
+                         'OS-901-2099\\..\\OS-902-2099','/OS-901-2099','\\OS-901-2099',
+                         'OS-901-2099/','OS-901-2099\\','%2e%2e','OS-901%2F..'):
+            with self.subTest(caso=invalido):
+                adulterado={**alvo,'caso':invalido}
+                with self.assertRaises(ValueError):cg.alvo(adulterado)
+                self.assertEqual(self.revisar(adulterado,'marcar_candidato',2).status_code,400)
+                self.assertEqual(self.client.get(HIST,query_string=adulterado).status_code,400)
+        ausente={**alvo,'caso':'OS.AUSENTE-2099'}
+        self.assertEqual(self.revisar(ausente,'marcar_candidato',2).status_code,404)
+        self.assertEqual(self.client.get(HIST,query_string=ausente).status_code,404)
+        self.assertEqual(cg.exportar(self.ws),antes)
+
     def test_conferir_candidato_observacao_historico_e_reabertura_sem_promocao(self):
         alvo=self.fonte();r=self.revisar(alvo)
         self.assertEqual(r.status_code,200,r.get_json())
