@@ -51,7 +51,7 @@ As métricas rastreáveis estão em [SQL/API](metricas-astra/sql/README.md), [gr
 
 ## Roteiro humano — execução separada
 
-O integrador repetiu o E2E em22,582s, com três fases estritas e hashes de fontes/original intactos; evidências locais `cpj-astra-ast17-e2e-b12xdkj3` em TEMP. A auditoria também corrigiu a conferência de IDs de caso com ponto:15 testes API/persistência repetidos em8,881s, com traversal/separadores recusados e CAS preservado. A suíte geral congelada terá resultado registrado no checkpoint técnico; esses focais não a substituem.
+O integrador repetiu o E2E em22,582s, com três fases estritas e hashes de fontes/original intactos; evidências locais `cpj-astra-ast17-e2e-b12xdkj3` em TEMP. A auditoria também corrigiu a conferência de IDs de caso com ponto:15 testes API/persistência repetidos em8,881s, com traversal/separadores recusados e CAS preservado. A suíte geral congelada terminou101/103, com as duas exceções anteriores detalhadas no checkpoint técnico; esses focais não a substituem.
 
 1. Em workspace de homologação, receber a O.S. fictícia e conferir a O.S. transcrita contra todas as páginas, especialmente o final e continuações. Conferir qual O.S. vigora pelo conteúdo/data, não pela posição.
 2. Abrir o caso no ASTRA; conferir contagens e avisos de materiais. Selecionar entidade identificada por documento/CPF/conta, sem unir homônimos pelo nome. Abrir cada fonte e comparar página/fls., trecho e recurso original ou derivado.
@@ -75,3 +75,18 @@ Para homologar, usar checkout separado e workspace fictício; executar o roteiro
 Fluxo cotidiano: **receber a O.S. → extrair → analisar e gerar a minuta → explorar ASTRA e conferir fontes → revisar/salvar → gerar DOCX → decidir FINAL**. As quatro perguntas locais apoiam a conferência do material indexado; a análise e a redação continuam usando a fila e o executor autorizado já existentes.
 
 As métricas de [memória Windows](metricas-astra/memoria/README.md) complementam grafo, SQL e polling: 24 amostras completas e três inválidas preservadas; soma de working sets p50 em 1.000 nós aumentou de601,08 para632,56MB. Pode duplicar páginas compartilhadas e não mede RAM privada/pico ou toda a aplicação. Não há afirmação de economia geral de memória.
+
+Para conferir hashes de artefatos textuais, preservar os bytes versionados, inclusive finais de linha, num checkout de auditoria sem conversão automática de LF para CRLF (`core.autocrlf=false` somente nesse checkout). Conversão de texto muda SHA-256; os snapshots gzip preservam os bytes originais independentemente dessa conversão.
+
+## Resultado automatizado final
+
+| Execução em snapshot congelado | Resultado | Limite |
+|---|---|---|
+| Runner rápido | 3/4 suítes; retorno 1 | Falha anterior no preenchimento de escrivão após OCR |
+| Runner completo | 101/103 suítes; retorno 1; 592,15s somados de execução | OCR anterior e assert de mtime sobre pasta operacional ativa |
+| Integração HTTP da Central | Aprovada dentro da rodada completa | Workspace e dados fictícios |
+| Node/Edge E2E integrado | Aprovado isoladamente e na completa | Análise/redação simuladas, PDF nativo e asset geométrico declarados |
+
+O runner informou skips de Tesseract/português, F03 Python por falta de Playwright e quatro cenários de symlink por permissão; os testes Node/Edge novos executaram. A falha de mtime não identifica qual processo modificou a pasta ativa e impede usar aquele assert como certificação integral de isolamento. Nenhuma das duas falhas anteriores foi ocultada ou corrigida fora do escopo.
+
+Os214 arquivos do plugin permaneceram idênticos ao manifesto do snapshot antes/depois da rodada. Comandos, nomes exatos dos testes, logs locais, hashes, ganhos e regressões estão no [checkpoint técnico](astra-evolucao-2026-10.md). A aceitação humana do roteiro e a autorização de integração operacional continuam pendentes.
