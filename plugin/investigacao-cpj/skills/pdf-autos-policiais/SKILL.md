@@ -32,6 +32,7 @@ Dois caminhos:
 - **Caso:** `casos\<ID>\`, onde `<ID>` deriva da **Ordem de Serviço** (O.S. `123/2026` → `OS-123-2026`).
   - `00-originais\` — arquivos originais (somente leitura), **nunca modificados**.
   - `01-extracao\<documento>\` — uma pasta por arquivo original (nome do arquivo sem extensão): `transcricao.md`, `tabelas\`, `entidades.csv`, `dados_extraidos.json`, `relatorio_extracao.json`, `diagnostico.json`, `processamento.log`.
+  - `ordens-de-servico\`, dentro da pasta de extração de cada documento — transcrições Markdown das O.S. localizadas e `indice.json` com páginas, fonte e SHA-256. `extrair.py` e `dados_json.py` geram/atualizam automaticamente esses derivados. A busca começa pelas páginas finais; a posição não determina vigência. Confira integralidade, continuações e datas no PDF antes de escolher a ordem principal.
   - `02-analise\`, `03-relatorios\` — etapas seguintes.
   - `caso.json`, `processamento.json`, `registro-tratamento.md`.
 - **Central CPJ** (`http://127.0.0.1:8765`, atalho `Central CPJ.bat`): o usuário normalmente envia os PDFs por ela, e ela já executa diagnóstico, extração/OCR, tabelas, entidades e indexação. **Antes de processar, verifique `processamento.json`**: se o documento já está `concluido`, não refaça — vá direto à transcrição visual das páginas pendentes/⚠ (se houver) e à análise.

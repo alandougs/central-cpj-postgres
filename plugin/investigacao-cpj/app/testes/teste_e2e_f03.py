@@ -221,8 +221,17 @@ class TesteE2EF03CentralCPJ(unittest.TestCase):
                 "(pág. 1 do PDF; fls. 1)."
             )
 
-            # Salva minuta e solicita geração do DOCX
+            # AST12: salvar conserva o editor; DOCX exige ação própria.
             page.locator("#ed-salvar").click()
+            page.wait_for_function("document.querySelector('#editor').dataset.estado === 'salvo'")
+            self.assertTrue(page.locator("#editor").is_visible())
+            antes_docx = page.request.get(f"{self.servidor.url}/api/casos/{caso_id}").json()
+            self.assertFalse(any(a["caminho"].lower().endswith(".docx") for a in antes_docx["arquivos"]))
+            with page.expect_response(lambda r: r.url.endswith("/docx") and r.request.method == "POST", timeout=30000) as captura_docx:
+                page.locator("#ed-docx").click()
+            self.assertEqual(captura_docx.value.status, 200, captura_docx.value.text())
+            page.wait_for_function("document.querySelector('#ed-msg').textContent.includes('DOCX gerado')")
+            page.locator("#ed-cancelar").click()
             page.locator("#editor").wait_for(state="hidden", timeout=15000)
 
             # -------------------------------------------------------------

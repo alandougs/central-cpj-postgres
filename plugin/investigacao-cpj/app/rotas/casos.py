@@ -6,6 +6,7 @@ import html
 import json
 import os
 import re
+import subprocess
 import tempfile
 import time
 import zipfile
@@ -138,6 +139,7 @@ def api_caso(id_):
         "processamento": ler_proc(id_),
         "relatorios": rels if trabalho else [r for r in rels if r["tipo"] == "final"],
         "trabalho": trabalho,
+        "local": eh_local(),
     }
     if trabalho:
         out["arquivos"] = arvore(C.caminho(id_))
@@ -449,10 +451,22 @@ def api_baixa(id_):
 def api_abrir(id_):
     if not eh_local():
         return jsonify({"erro": "Disponível apenas no computador da Central."}), 403
-    sub = (request.get_json(silent=True) or {}).get("sub", "")
+    d = request.get_json(silent=True) or {}
+    sub = d.get("sub", "")
     alvo = _caminho_do_caso(id_, sub)
     if not os.path.exists(alvo):
         abort(404)
+    if d.get("selecionar") is True:
+        if not os.path.isfile(alvo):
+            return jsonify({"erro": "Selecione um arquivo para abrir na pasta."}), 400
+        if not hasattr(os, "startfile"):
+            return jsonify({"erro": "O Explorador de Arquivos requer Windows."}), 400
+        try:
+            subprocess.Popen(["explorer.exe", "/select,", alvo])
+        except OSError:
+            return jsonify({"erro": "Não foi possível abrir o Explorador de Arquivos."}), 400
+        auditar("abrir_na_pasta", f"{id_}/{sub}")
+        return jsonify({"ok": True})
     if hasattr(os, "startfile"):
         os.startfile(alvo)
     return jsonify({"ok": True})

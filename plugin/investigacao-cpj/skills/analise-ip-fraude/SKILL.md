@@ -69,3 +69,10 @@ Em uso interativo (sem pedido da Central), não é necessário.
 ## Saída
 
 Arquivos em `02-analise\` listados acima (inclusive `pessoas.csv`) + resumo. Rode `indexar.py` ao final para a Pesquisa relacional enxergar as pessoas do caso. Todos são material de apoio e podem alimentar o RAG (ver `rag\README.md`).
+
+
+## O.S. transcrita em Markdown — determinação de 14/10/2026
+
+Antes da consolidação, redação ou revisão, leia `01-extracao/<documento>/ordens-de-servico/indice.json` e os Markdown ali indicados. Se a extração for anterior a esse recurso, gere-os localmente com `python plugin/investigacao-cpj/skills/pdf-autos-policiais/scripts/ordens_servico.py "casos/<ID>/01-extracao/<documento>"`. A rotina preserva os trechos e as páginas, começando a busca no fim dos autos; não confunde a posição com a data de vigência. Confira a O.S. principal pela data e pelo conteúdo, eventuais ordens anteriores pertinentes e continuações no PDF. A transcrição automática é candidata e precisa de conferência documental.
+
+Registre cada solicitação, trecho e página/fls. em `02-analise/solicitacoes-os.md`. A redação responde cada solicitação e indica onde foi atendida; a revisão confere todos os itens contra a própria O.S. e reprova omissões. Sem localizar a ordem, não redija por inferência: registre DADOS FALTANTES — PROVIDENCIAR (OPERADOR). Pedidos de análise do operador incluem o relatório DOCX; essa regra não amplia a tarefa exclusiva de cada analista de bloco.

@@ -1,0 +1,584 @@
+{
+  "schema": "astra-sql-comparacao/1",
+  "datasets": [
+    {
+      "cases": 100,
+      "density": "sparse",
+      "mode": "general",
+      "logicalTotal": 4000,
+      "before": {
+        "durationMs": 55.27720000100089,
+        "sqlStatements": 105,
+        "sqliteConnections": 1,
+        "caseFilesRead": 100,
+        "returnedRelations": 200,
+        "p95Ms": 64.46770000184188,
+        "returnedReferences": 200
+      },
+      "after": {
+        "durationMs": 116.71379999461351,
+        "sqlStatements": 11,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 137.12060000398196,
+        "returnedReferences": 800
+      }
+    },
+    {
+      "cases": 100,
+      "density": "sparse",
+      "mode": "case",
+      "logicalTotal": 40,
+      "before": {
+        "durationMs": 37.527300002693664,
+        "sqlStatements": 31,
+        "sqliteConnections": 1,
+        "caseFilesRead": 100,
+        "returnedRelations": 40,
+        "p95Ms": 40.50049999932526,
+        "returnedReferences": 40
+      },
+      "after": {
+        "durationMs": 14.552399996318854,
+        "sqlStatements": 8,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 40,
+        "p95Ms": 14.87240000278689,
+        "returnedReferences": 56
+      }
+    },
+    {
+      "cases": 100,
+      "density": "sparse",
+      "mode": "partial-global",
+      "logicalTotal": 4000,
+      "before": {
+        "durationMs": 110.62220000167144,
+        "sqlStatements": 307,
+        "sqliteConnections": 31,
+        "caseFilesRead": 100,
+        "returnedRelations": 90,
+        "p95Ms": 138.75800000096206,
+        "returnedReferences": 90
+      },
+      "after": {
+        "durationMs": 205.12739999685436,
+        "sqlStatements": 12,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 222.77619999658782,
+        "returnedReferences": 800
+      }
+    },
+    {
+      "cases": 100,
+      "density": "sparse",
+      "mode": "partial-case",
+      "logicalTotal": 40,
+      "before": {
+        "durationMs": 81.65349999762839,
+        "sqlStatements": 236,
+        "sqliteConnections": 17,
+        "caseFilesRead": 100,
+        "returnedRelations": 40,
+        "p95Ms": 83.62269999634009,
+        "returnedReferences": 40
+      },
+      "after": {
+        "durationMs": 21.65160000004107,
+        "sqlStatements": 9,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 40,
+        "p95Ms": 21.730400003434625,
+        "returnedReferences": 56
+      }
+    },
+    {
+      "cases": 100,
+      "density": "dense",
+      "mode": "general",
+      "logicalTotal": 49000,
+      "before": {
+        "durationMs": 325.336599998991,
+        "sqlStatements": 57,
+        "sqliteConnections": 1,
+        "caseFilesRead": 100,
+        "returnedRelations": 200,
+        "p95Ms": 423.2375999999931,
+        "returnedReferences": 200
+      },
+      "after": {
+        "durationMs": 265.00189999933355,
+        "sqlStatements": 10,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 284.0100000030361,
+        "returnedReferences": 800
+      }
+    },
+    {
+      "cases": 100,
+      "density": "dense",
+      "mode": "case",
+      "logicalTotal": 490,
+      "before": {
+        "durationMs": 120.97040000662673,
+        "sqlStatements": 207,
+        "sqliteConnections": 1,
+        "caseFilesRead": 100,
+        "returnedRelations": 470,
+        "p95Ms": 136.6626000017277,
+        "returnedReferences": 470
+      },
+      "after": {
+        "durationMs": 95.79739999753656,
+        "sqlStatements": 11,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 97.45499999553431,
+        "returnedReferences": 680
+      }
+    },
+    {
+      "cases": 100,
+      "density": "dense",
+      "mode": "partial-global",
+      "logicalTotal": 49000,
+      "before": {
+        "durationMs": 142.5567000042065,
+        "sqlStatements": 304,
+        "sqliteConnections": 31,
+        "caseFilesRead": 100,
+        "returnedRelations": 90,
+        "p95Ms": 167.85220000019763,
+        "returnedReferences": 90
+      },
+      "after": {
+        "durationMs": 1292.2913000002154,
+        "sqlStatements": 11,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 1346.350200001325,
+        "returnedReferences": 800
+      }
+    },
+    {
+      "cases": 100,
+      "density": "dense",
+      "mode": "partial-case",
+      "logicalTotal": 490,
+      "before": {
+        "durationMs": 562.2455000047921,
+        "sqlStatements": 304,
+        "sqliteConnections": 31,
+        "caseFilesRead": 100,
+        "returnedRelations": 90,
+        "p95Ms": 629.8013999985415,
+        "returnedReferences": 90
+      },
+      "after": {
+        "durationMs": 111.7350999993505,
+        "sqlStatements": 12,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 120.36420000367798,
+        "returnedReferences": 680
+      }
+    },
+    {
+      "cases": 500,
+      "density": "sparse",
+      "mode": "general",
+      "logicalTotal": 20000,
+      "before": {
+        "durationMs": 397.8054000035627,
+        "sqlStatements": 105,
+        "sqliteConnections": 1,
+        "caseFilesRead": 500,
+        "returnedRelations": 200,
+        "p95Ms": 575.9268000037991,
+        "returnedReferences": 200
+      },
+      "after": {
+        "durationMs": 189.7820000012871,
+        "sqlStatements": 11,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 204.6219000039855,
+        "returnedReferences": 800
+      }
+    },
+    {
+      "cases": 500,
+      "density": "sparse",
+      "mode": "case",
+      "logicalTotal": 40,
+      "before": {
+        "durationMs": 231.37609999685083,
+        "sqlStatements": 31,
+        "sqliteConnections": 1,
+        "caseFilesRead": 500,
+        "returnedRelations": 40,
+        "p95Ms": 249.5984999986831,
+        "returnedReferences": 40
+      },
+      "after": {
+        "durationMs": 25.96559999801684,
+        "sqlStatements": 8,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 40,
+        "p95Ms": 26.276500000676606,
+        "returnedReferences": 56
+      }
+    },
+    {
+      "cases": 500,
+      "density": "sparse",
+      "mode": "partial-global",
+      "logicalTotal": 20000,
+      "before": {
+        "durationMs": 459.99540000048,
+        "sqlStatements": 307,
+        "sqliteConnections": 31,
+        "caseFilesRead": 500,
+        "returnedRelations": 90,
+        "p95Ms": 617.4902000057045,
+        "returnedReferences": 90
+      },
+      "after": {
+        "durationMs": 613.1472999986727,
+        "sqlStatements": 12,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 638.5117000027094,
+        "returnedReferences": 800
+      }
+    },
+    {
+      "cases": 500,
+      "density": "sparse",
+      "mode": "partial-case",
+      "logicalTotal": 40,
+      "before": {
+        "durationMs": 271.6145999947912,
+        "sqlStatements": 236,
+        "sqliteConnections": 17,
+        "caseFilesRead": 500,
+        "returnedRelations": 40,
+        "p95Ms": 356.28670000005513,
+        "returnedReferences": 40
+      },
+      "after": {
+        "durationMs": 37.61369999847375,
+        "sqlStatements": 9,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 40,
+        "p95Ms": 42.56059999897843,
+        "returnedReferences": 56
+      }
+    },
+    {
+      "cases": 500,
+      "density": "dense",
+      "mode": "general",
+      "logicalTotal": 245000,
+      "before": {
+        "durationMs": 1357.6075000019046,
+        "sqlStatements": 57,
+        "sqliteConnections": 1,
+        "caseFilesRead": 500,
+        "returnedRelations": 200,
+        "p95Ms": 1451.1541000028956,
+        "returnedReferences": 200
+      },
+      "after": {
+        "durationMs": 918.68109999632,
+        "sqlStatements": 10,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 959.3358999991324,
+        "returnedReferences": 800
+      }
+    },
+    {
+      "cases": 500,
+      "density": "dense",
+      "mode": "case",
+      "logicalTotal": 490,
+      "before": {
+        "durationMs": 403.18000000115717,
+        "sqlStatements": 207,
+        "sqliteConnections": 1,
+        "caseFilesRead": 500,
+        "returnedRelations": 470,
+        "p95Ms": 461.4741000041249,
+        "returnedReferences": 470
+      },
+      "after": {
+        "durationMs": 111.05909999605501,
+        "sqlStatements": 11,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 124.83939999947324,
+        "returnedReferences": 680
+      }
+    },
+    {
+      "cases": 500,
+      "density": "dense",
+      "mode": "partial-global",
+      "logicalTotal": 245000,
+      "before": {
+        "durationMs": 382.2299999956158,
+        "sqlStatements": 304,
+        "sqliteConnections": 31,
+        "caseFilesRead": 500,
+        "returnedRelations": 90,
+        "p95Ms": 447.8250999964075,
+        "returnedReferences": 90
+      },
+      "after": {
+        "durationMs": 6528.274500000407,
+        "sqlStatements": 11,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 6599.03420000046,
+        "returnedReferences": 800
+      }
+    },
+    {
+      "cases": 500,
+      "density": "dense",
+      "mode": "partial-case",
+      "logicalTotal": 490,
+      "before": {
+        "durationMs": 955.1460000002407,
+        "sqlStatements": 304,
+        "sqliteConnections": 31,
+        "caseFilesRead": 500,
+        "returnedRelations": 90,
+        "p95Ms": 1631.5377999999328,
+        "returnedReferences": 90
+      },
+      "after": {
+        "durationMs": 123.89959999563871,
+        "sqlStatements": 12,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 140.2825000041048,
+        "returnedReferences": 680
+      }
+    },
+    {
+      "cases": 1000,
+      "density": "sparse",
+      "mode": "general",
+      "logicalTotal": 40000,
+      "before": {
+        "durationMs": 698.3228999961284,
+        "sqlStatements": 105,
+        "sqliteConnections": 1,
+        "caseFilesRead": 1000,
+        "returnedRelations": 200,
+        "p95Ms": 2136.4583000031416,
+        "returnedReferences": 200
+      },
+      "after": {
+        "durationMs": 261.52799999545095,
+        "sqlStatements": 11,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 276.1003999985405,
+        "returnedReferences": 800
+      }
+    },
+    {
+      "cases": 1000,
+      "density": "sparse",
+      "mode": "case",
+      "logicalTotal": 40,
+      "before": {
+        "durationMs": 380.4406999988714,
+        "sqlStatements": 31,
+        "sqliteConnections": 1,
+        "caseFilesRead": 1000,
+        "returnedRelations": 40,
+        "p95Ms": 408.56999999959953,
+        "returnedReferences": 40
+      },
+      "after": {
+        "durationMs": 40.31419999955688,
+        "sqlStatements": 8,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 40,
+        "p95Ms": 46.73470000125235,
+        "returnedReferences": 56
+      }
+    },
+    {
+      "cases": 1000,
+      "density": "sparse",
+      "mode": "partial-global",
+      "logicalTotal": 40000,
+      "before": {
+        "durationMs": 409.9729000008665,
+        "sqlStatements": 307,
+        "sqliteConnections": 31,
+        "caseFilesRead": 1000,
+        "returnedRelations": 90,
+        "p95Ms": 713.1583000009414,
+        "returnedReferences": 90
+      },
+      "after": {
+        "durationMs": 1190.8795999988797,
+        "sqlStatements": 12,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 1198.9266000018688,
+        "returnedReferences": 800
+      }
+    },
+    {
+      "cases": 1000,
+      "density": "sparse",
+      "mode": "partial-case",
+      "logicalTotal": 40,
+      "before": {
+        "durationMs": 494.4294000015361,
+        "sqlStatements": 236,
+        "sqliteConnections": 17,
+        "caseFilesRead": 1000,
+        "returnedRelations": 40,
+        "p95Ms": 584.3292999998084,
+        "returnedReferences": 40
+      },
+      "after": {
+        "durationMs": 48.08179999963613,
+        "sqlStatements": 9,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 40,
+        "p95Ms": 48.81560000649188,
+        "returnedReferences": 56
+      }
+    },
+    {
+      "cases": 1000,
+      "density": "dense",
+      "mode": "general",
+      "logicalTotal": 490000,
+      "before": {
+        "durationMs": 2379.6314999999595,
+        "sqlStatements": 57,
+        "sqliteConnections": 1,
+        "caseFilesRead": 1000,
+        "returnedRelations": 200,
+        "p95Ms": 2813.191500004905,
+        "returnedReferences": 200
+      },
+      "after": {
+        "durationMs": 1882.0130999956746,
+        "sqlStatements": 10,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 2017.1392999982345,
+        "returnedReferences": 800
+      }
+    },
+    {
+      "cases": 1000,
+      "density": "dense",
+      "mode": "case",
+      "logicalTotal": 490,
+      "before": {
+        "durationMs": 690.7824000008986,
+        "sqlStatements": 207,
+        "sqliteConnections": 1,
+        "caseFilesRead": 1000,
+        "returnedRelations": 470,
+        "p95Ms": 804.5008000044618,
+        "returnedReferences": 470
+      },
+      "after": {
+        "durationMs": 128.72770000103628,
+        "sqlStatements": 11,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 150.66949999891222,
+        "returnedReferences": 680
+      }
+    },
+    {
+      "cases": 1000,
+      "density": "dense",
+      "mode": "partial-global",
+      "logicalTotal": 490000,
+      "before": {
+        "durationMs": 703.4695999973337,
+        "sqlStatements": 304,
+        "sqliteConnections": 31,
+        "caseFilesRead": 1000,
+        "returnedRelations": 90,
+        "p95Ms": 717.6145999983419,
+        "returnedReferences": 90
+      },
+      "after": {
+        "durationMs": 13312.489700001606,
+        "sqlStatements": 11,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 13432.945699998527,
+        "returnedReferences": 800
+      }
+    },
+    {
+      "cases": 1000,
+      "density": "dense",
+      "mode": "partial-case",
+      "logicalTotal": 490,
+      "before": {
+        "durationMs": 1174.5074999998906,
+        "sqlStatements": 304,
+        "sqliteConnections": 31,
+        "caseFilesRead": 1000,
+        "returnedRelations": 90,
+        "p95Ms": 1261.2383000014233,
+        "returnedReferences": 90
+      },
+      "after": {
+        "durationMs": 142.6720999952522,
+        "sqlStatements": 12,
+        "sqliteConnections": 1,
+        "caseFilesRead": 0,
+        "returnedRelations": 400,
+        "p95Ms": 152.84470000187866,
+        "returnedReferences": 680
+      }
+    }
+  ],
+  "sourceFilesMatchSnapshot": true,
+  "allCurrentTotalsMatchOracle": true,
+  "databaseHashesPreserved": true
+}

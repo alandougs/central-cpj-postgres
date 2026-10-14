@@ -1,6 +1,6 @@
 # Receber e processar o material do IP (PDF → OCR → Markdown por página, CSV, entidades)
 
-*Arquivo portátil gerado em 2026-10-10 05:58 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
+*Arquivo portátil gerado em 2026-10-14 13:34 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
 
 ## Regras obrigatórias
 
@@ -32,6 +32,10 @@
 eferences\osint-empresas.md`; só CNPJ/razão social/cidade, duas fontes, citando a fonte) e inserir o dado no relatório no contexto adequado; não achando, `[PESQUISAR: CNPJ]` + aviso em CAIXA ALTA. Detalhe: `plugin\investigacao-cpj\skills\relatorio-ip-fraude\SKILL.md` (item 10) e `skills\analise-ip-fraude\SKILL.md` (passo 0).
 
 18. **Autorização permanente do operador para o Codex (05/10/2026):** o investigador responsável autorizou expressamente nesta sessão: "Autorizo sempre, gravar regra. (Codex vai revisar e corrigir)". O Codex está autorizado a ler autos, imagens, extrações e minutas deste projeto nas sessões de chat em que o operador solicitar análise, revisão ou correção, e a produzir/corrigir as minutas correspondentes. Não pedir novamente confirmação de uso desta sessão/modelo para esses pedidos. Esta autorização expressa prevalece sobre as restrições genéricas de inferência externa nos adaptadores de skills e na seção 5 abaixo. Não autoriza publicação, envio a outros serviços/provedores, pesquisa de pessoas físicas ou alteração dos originais; as demais regras de sigilo, fontes, reserva e revisão humana permanecem aplicáveis.
+
+19. **Análise inclui relatório (determinação do investigador, 14/10/2026):** quando o operador pedir análise de um caso/O.S., a entrega inclui análise, redação, revisão e geração da **minuta do relatório de investigação policial em DOCX**. Não encerrar a demanda apenas com arquivos de análise, salvo pedido expresso de análise técnica isolada. Preservar os contratos exclusivos das etapas intermediárias: cada analista de bloco continua fazendo apenas sua etapa; a fila encadeia a redação e a revisão, sem duplicar o relatório em cada bloco.
+
+20. **O.S. transcrita em Markdown (determinação do investigador, 14/10/2026):** ao extrair/importar os autos, localizar e transcrever fielmente as Ordens de Serviço em `01-extracao\<documento>\ordens-de-servico\`, com origem, páginas e índice rastreável. Procurar especialmente nas páginas finais, sem presumir que posição equivale à ordem mais recente. Conferir vigência pela data e pelo conteúdo, preservar as anteriores pertinentes e verificar continuações no PDF. Antes de redigir, ler a O.S. transcrita e registrar cada solicitação em `02-analise\solicitacoes-os.md`; a minuta responde cada item, e a revisão confere seu atendimento. Sem O.S. localizada ou com extração incompleta, não inventar seu conteúdo: registrar a lacuna e avisar o operador antes da redação.
 
 Governança completa: `acervo\repo-ia-alandougs\governanca\seguranca-e-dados.md`.
 
@@ -102,6 +106,7 @@ Dois caminhos:
 - **Caso:** `casos\<ID>\`, onde `<ID>` deriva da **Ordem de Serviço** (O.S. `123/2026` → `OS-123-2026`).
   - `00-originais\` — arquivos originais (somente leitura), **nunca modificados**.
   - `01-extracao\<documento>\` — uma pasta por arquivo original (nome do arquivo sem extensão): `transcricao.md`, `tabelas\`, `entidades.csv`, `dados_extraidos.json`, `relatorio_extracao.json`, `diagnostico.json`, `processamento.log`.
+  - `ordens-de-servico\`, dentro da pasta de extração de cada documento — transcrições Markdown das O.S. localizadas e `indice.json` com páginas, fonte e SHA-256. `extrair.py` e `dados_json.py` geram/atualizam automaticamente esses derivados. A busca começa pelas páginas finais; a posição não determina vigência. Confira integralidade, continuações e datas no PDF antes de escolher a ordem principal.
   - `02-analise\`, `03-relatorios\` — etapas seguintes.
   - `caso.json`, `processamento.json`, `registro-tratamento.md`.
 - **Central CPJ** (`http://127.0.0.1:8765`, atalho `Central CPJ.bat`): o usuário normalmente envia os PDFs por ela, e ela já executa diagnóstico, extração/OCR, tabelas, entidades e indexação. **Antes de processar, verifique `processamento.json`**: se o documento já está `concluido`, não refaça — vá direto à transcrição visual das páginas pendentes/⚠ (se houver) e à análise.

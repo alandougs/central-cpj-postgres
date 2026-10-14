@@ -271,12 +271,17 @@ for p in paginas:
 with open(os.path.join(a.saida, "transcricao.md"), "w", encoding="utf-8") as f:
     f.write("\n".join(cab + corpo))
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from ordens_servico import extrair_ordens
+ordens_extraidas = extrair_ordens(a.saida)
+
 from collections import Counter
 rel = {"arquivo": os.path.basename(a.pdf), "sha256_original": h.hexdigest(), "paginas": n, "gerado_em": agora,
        "ferramentas": {"texto": "pypdfium2", "ocr": f"tesseract ({a.lang})" if tess_ok else "indisponível"},
        "metodos": dict(Counter(p["metodo"] for p in paginas)),
        "pendentes_transcricao_visual": pendentes, "conferir_visualmente": conferir, "paginas_reaproveitadas": reaproveitadas,
-       "checkpoints_reutilizados": reaproveitadas, "ocr_workers": min(a.workers, ocr_jobs)}
+       "checkpoints_reutilizados": reaproveitadas, "ocr_workers": min(a.workers, ocr_jobs),
+       "ordens_servico": ordens_extraidas}
 with open(os.path.join(a.saida, "relatorio_extracao.json"), "w", encoding="utf-8") as f:
     json.dump(rel, f, ensure_ascii=False, indent=2)
 print(json.dumps(rel, ensure_ascii=False, indent=2))

@@ -15,6 +15,7 @@ from contextlib import contextmanager
 AQUI = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.dirname(AQUI)
 S_BASE = os.path.join(PLUGIN, "skills", "base-cpj", "scripts")
+S_PDF = os.path.join(PLUGIN, "skills", "pdf-autos-policiais", "scripts")
 SEM_JANELA = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 TIPOS = ("claude", "codex", "gemini", "antigravity", "gpt", "copilot", "deepseek", "outro", "simulado",
          "openai-api", "anthropic-api", "gemini-api", "deepseek-api", "xai-api", "openrouter-api", "groq-api", "nvidia-api")
@@ -224,12 +225,17 @@ def prompt_etapa(job, ws, etapa):
         "revisao": f"REVISOR INDEPENDENTE: siga portatil/05-revisar-relatorio.md. Confira minuta-v{arg.get('versao', 0):02d}.md e rastreabilidade-v{arg.get('versao', 0):02d}.md contra os autos e as solicitações da O.S.; o mapa não substitui a fonte documental. Não altere a minuta. Termine com 'Resultado: N sustentadas · N parciais · N não localizadas · N contraditórias'.",
         "ajuste": f"Ajuste somente os achados sustentados pela revisão independente na minuta-v{arg.get('versao', 0):02d}.md e atualize rastreabilidade-v{arg.get('versao', 0):02d}.md para o conteúdo corrigido da mesma versão. Não remova lacunas nem atribua autoria sem base.",
     }[tipo]
+    contexto_os = ""
+    if tipo in ("consolidacao", "redacao", "revisao", "ajuste"):
+        if S_PDF not in sys.path: sys.path.insert(0, S_PDF)
+        from ordens_servico import contexto_caso
+        contexto_os = contexto_caso(os.path.join(ws, "casos", job["caso"]))
     return (f"ETAPA EXCLUSIVA: {etapa['etapa']}. Execute SOMENTE esta etapa; a Central orquestra as demais.\n"
             + tarefa + "\nSaídas obrigatórias: " + ", ".join(etapa["saidas"]) +
             "\nNesta execução, confira e grave novamente TODAS as saídas obrigatórias, mesmo que já existam. "
             "Se estiverem corretas, regenere o conteúdo conferido sem alterar os fatos. Não basta declarar reutilização "
             "ou apenas mudar timestamps; a Central exige produtos atualizados nesta sessão." +
-            "\nBases de consulta e referências NÃO são fonte de fatos. Use somente os autos do caso. Não altere 00-originais.")
+            "\nBases de consulta e referências NÃO são fonte de fatos. Use somente os autos do caso. Não altere 00-originais." + contexto_os)
 
 
 # ------------------------------------------------------------------ fila persistente
@@ -792,8 +798,9 @@ def pos_processar(ws, id_, acao, anteriores=None):
             if os.path.isdir(d) else []
         if mins:
             m = mins[-1]; v = re.findall(r"\d+", m)[0]; docx = os.path.join(d, f"RELATORIO-{id_}-v{v}.docx")
-            if not os.path.exists(docx) or os.path.getmtime(docx) < os.path.getmtime(os.path.join(d, m)):
-                gerar_docx(ws, id_, m)
+            # A entrega final usa o modelo oficial, inclusive sua assinatura;
+            # um DOCX recente criado pelo agente pode não seguir esse modelo.
+            gerar_docx(ws, id_, m)
             extra = {"minuta": m, "docx": os.path.basename(docx)}
         else:
             raise RuntimeError("Relatório não entregue: nenhuma minuta encontrada em 03-relatorios.")

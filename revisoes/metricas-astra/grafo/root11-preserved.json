@@ -1,0 +1,38 @@
+{
+  "grFontes": {
+    "unchanged": true,
+    "sha256": "d31179359860ba115342c2f1c2d8576b1145623863f71f970ab568ad3c8c4a8b"
+  },
+  "grEvidenciasHTML": {
+    "unchanged": true,
+    "sha256": "7ccc5123e85d307c46a0bddd4f0fc5bd7ce65fd1cad980e704d8af2ccb6e2c41"
+  },
+  "grInspecionarNo": {
+    "unchanged": true,
+    "sha256": "f8706ff0a0afeef794b0704cba850d932e2bd523be3a8c7915624a91b3825c2e"
+  },
+  "grFindEdgeAt": {
+    "unchanged": true,
+    "sha256": "e2d2971a71c91d6f5733a390d418b368b3a238bab37f99ef653ddce0c17a1a54"
+  },
+  "grRevisaoHTML": {
+    "unchanged": true,
+    "sha256": "140a660a5414a42847cb7d9a9f46d3df14ba67ae4beccaf31e42a783b9987e5f"
+  },
+  "grIdentificarFonte": {
+    "unchanged": true,
+    "sha256": "e03e387c6af05124279c078dde3fa93626afba22fcdb2c1800e0a791d96846be"
+  },
+  "grAtualizarInspetor": {
+    "unchanged": true,
+    "sha256": "56b26b54f6c035729a5ecdfae1de9738bdbf1099e1f73149eb8f50afcec59239"
+  },
+  "grVincularFontes": {
+    "unchanged": true,
+    "sha256": "5e6953a7a4ff53a257690d2059bb7ef5ce31b078838eea5f14d7f2d39e0eac0e"
+  },
+  "grInspecionarAresta": {
+    "unchanged": true,
+    "sha256": "50d6de9c45201068b2f942a5595c69aada079aedad6f8c4ced519b3c0f649e60"
+  }
+}

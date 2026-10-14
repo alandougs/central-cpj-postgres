@@ -267,18 +267,117 @@ def norm(tipo, v):
     return v.lower()
 
 
+_hashes_fontes = {}
+
+
+def _texto_fonte(valor):
+    return valor if isinstance(valor, str) and valor.strip() else None
+
+
+def _relativo_seguro(caminho, raiz=WS):
+    """Referência local contida na raiz, inclusive após resolver atalhos."""
+    try:
+        alvo, base, workspace = os.path.realpath(caminho), os.path.realpath(raiz), os.path.realpath(WS)
+        for limite in (base, workspace):
+            if os.path.normcase(os.path.commonpath((limite, alvo))) != os.path.normcase(limite):
+                return None
+        return os.path.relpath(alvo, workspace).replace('\\', '/')
+    except (OSError, ValueError):
+        return None
+
+
+def _referencia_caso(caso, caminho):
+    if not caso or not isinstance(caminho, str):
+        return None
+    partes = caminho.strip().replace('\\', '/').split('/')
+    if any(not p or p in ('.', '..') or re.search(r'[:\x00<>"|?*]', p) for p in partes):
+        return None
+    if partes[:2] == ['casos', caso]:
+        partes = partes[2:]
+    if not partes:
+        return None
+    base = os.path.join(CASOS, caso)
+    return _relativo_seguro(os.path.join(base, *partes), base)
+
+
+def _paginas_fonte(valor):
+    if type(valor) is int:
+        return [valor] if valor > 0 else None
+    if not isinstance(valor, str) or not re.fullmatch(r'\s*\d+(?:\s*[|,]\s*\d+)*\s*', valor):
+        return None
+    paginas = [int(p) for p in re.split(r'[|,]', valor)]
+    return list(dict.fromkeys(paginas)) if all(p > 0 for p in paginas) else None
+
+
+def evidencia_fonte(origem, caso, arquivo, localizador, *, documento=None, paginas=None,
+                    fls=None, trecho=None, linha=None, seq=None, tipo='documental',
+                    data_fato=None, status_fonte=None):
+    """Metadado de origem; não significa conferência humana nem prova de autoria."""
+    derivado = _relativo_seguro(os.path.join(WS, arquivo))
+    original, meta = None, {}
+    declarado = _texto_fonte(documento)
+    pasta = None
+    if caso and derivado and derivado.startswith(f'casos/{caso}/01-extracao/'):
+        pasta = os.path.dirname(derivado)
+    elif caso and declarado:
+        candidato = declarado if declarado.replace('\\', '/').startswith('01-extracao/') else '01-extracao/' + declarado
+        pasta = _referencia_caso(caso, candidato)
+    if pasta:
+        caminho_meta = _referencia_caso(caso, os.path.relpath(os.path.join(WS, pasta, 'relatorio_extracao.json'), os.path.join(CASOS, caso)))
+        if caminho_meta:
+            try:
+                with open(os.path.join(WS, caminho_meta), encoding='utf-8') as f:
+                    lido = json.load(f)
+                if isinstance(lido, dict):
+                    meta = lido
+            except (OSError, ValueError):
+                pass
+    nome_original = _texto_fonte(meta.get('arquivo')) or declarado
+    if caso and nome_original:
+        nome = nome_original.replace('\\', '/')
+        if '/' not in nome:
+            nome = '00-originais/' + nome if os.path.splitext(nome)[1] else ''
+        if nome.startswith(('00-originais/', f'casos/{caso}/00-originais/')):
+            original = _referencia_caso(caso, nome)
+    if derivado not in _hashes_fontes:
+        try:
+            _hashes_fontes[derivado] = sha(os.path.join(WS, derivado)) if derivado else None
+        except OSError:
+            _hashes_fontes[derivado] = None
+    paginas = _paginas_fonte(paginas)
+    hash_original = meta.get('sha256_original')
+    hash_original = hash_original if original and isinstance(hash_original, str) and re.fullmatch(r'[0-9a-fA-F]{64}', hash_original) else None
+    return {'schema': 'astra-evidencia/1', 'localizador_original': localizador,
+            'origem': origem, 'caso': caso, 'documento': declarado or _texto_fonte(meta.get('arquivo')),
+            'arquivo_derivado': derivado, 'arquivo_original': original,
+            'pagina': paginas[0] if paginas and len(paginas) == 1 else None, 'paginas': paginas,
+            'fls': _texto_fonte(fls), 'trecho': _texto_fonte(trecho),
+            'registro_origem': {'linha': linha, 'seq': _texto_fonte(seq)}, 'tipo': tipo,
+            'data_fato': _texto_fonte(data_fato), 'status_fonte': _texto_fonte(status_fonte),
+            'sha256_original': hash_original, 'sha256_derivado': _hashes_fontes[derivado],
+            'extraido_em': _texto_fonte(meta.get('gerado_em'))}
+
+
+entidades_grafo = []
 db.execute("DELETE FROM entidades")
 for id_ in casos:
     base = os.path.join(CASOS, id_)
     for ent in glob.glob(os.path.join(base, "01-extracao", "**", "entidades.csv"), recursive=True):
-        for r in csv.DictReader(open(ent, encoding="utf-8-sig"), delimiter=";"):
+        for linha, r in enumerate(csv.DictReader(open(ent, encoding="utf-8-sig"), delimiter=";"), 2):
             if r.get("tipo") in ("DATA", "FLS", "VALOR"): continue
+            arq = os.path.relpath(ent, WS)
+            pg = int(r["pagina_pdf"]) if (r.get("pagina_pdf") or "").isdigit() else None
             db.execute("INSERT INTO entidades VALUES(?,?,?,?,?,?,?)", (id_, r.get("tipo"), r.get("valor"),
-                       norm(r.get("tipo"), r.get("valor")), int(r["pagina_pdf"]) if (r.get("pagina_pdf") or "").isdigit() else None,
-                       os.path.relpath(ent, WS), (r.get("trecho") or "")[:200]))
+                       norm(r.get("tipo"), r.get("valor")), pg, arq, (r.get("trecho") or "")[:200]))
+            localizador = f"{arq} pág. {pg}" if pg else arq
+            evidencia = evidencia_fonte('caso', id_, arq, localizador, paginas=r.get('pagina_pdf'),
+                                        fls=r.get('fls'), trecho=r.get('trecho'), linha=linha,
+                                        tipo='extracao_candidata', status_fonte=r.get('status'))
+            entidades_grafo.append((id_, r.get('tipo'), r.get('valor'),
+                                   norm(r.get('tipo'), r.get('valor')), evidencia))
     ff = os.path.join(base, "02-analise", "fluxo-financeiro.csv")
     if os.path.exists(ff):
-        for r in csv.DictReader(open(ff, encoding="utf-8-sig"), delimiter=";"):
+        for linha, r in enumerate(csv.DictReader(open(ff, encoding="utf-8-sig"), delimiter=";"), 2):
             pg = r.get("fonte_pag") or ""
             for lado in ("origem", "destino"):
                 for col, tipo in ((f"{lado}_chave", "CHAVE_PIX"), (f"{lado}_ag_conta", "CONTA"), (f"{lado}_titular", "TITULAR")):
@@ -288,13 +387,27 @@ for id_ in casos:
                     valor, vn = (f"{banco} {v}".strip(), conta_chave(banco, v)) if tipo == "CONTA" else (v, norm(tipo, v))
                     db.execute("INSERT INTO entidades VALUES(?,?,?,?,?,?,?)", (id_, tipo, valor, vn,
                                int(pg) if pg.isdigit() else None, os.path.relpath(ff, WS), f"{col} seq {r.get('seq','')}"))
+                    arq = os.path.relpath(ff, WS)
+                    localizador = f"{arq} pág. {int(pg)}" if pg.isdigit() else arq
+                    evidencia = evidencia_fonte('caso', id_, arq, localizador, documento=r.get('documento'),
+                                                paginas=pg, fls=r.get('fls'), linha=linha, seq=r.get('seq'),
+                                                trecho=r.get('trecho'), data_fato=r.get('data'),
+                                                status_fonte=r.get('status_conferencia'))
+                    entidades_grafo.append((id_, tipo, valor, vn, evidencia))
 
 # ------------------------------------------------------------ pessoas (pesquisa relacional)
 # Fontes: casos\*\02-analise\pessoas.csv (qualificação extraída dos autos) e consulta\*\registros.jsonl
 # (bases de consulta, ex. Muralha Paulista — somente pesquisa, nunca fonte de relatório).
 import consulta as Q  # noqa: E402
+import vinculos_manuais as VM  # noqa: E402
 
-db.executescript("""
+# Publique pessoas/grafo como um conjunto: falha deixa o grafo anterior intacto.
+# executescript faria commit implícito antes dos DELETEs; execute cada instrução
+# dentro desta transação, capturando os manuais legados antes de removê-los.
+db.commit()
+db.execute('BEGIN IMMEDIATE')
+VM.migrar_legados(WS, db)
+for instrucao in """
 CREATE TABLE IF NOT EXISTS pessoas(id INTEGER PRIMARY KEY, origem TEXT, fonte TEXT, arquivo TEXT, localizador TEXT,
   nome TEXT, mae TEXT, pai TEXT, cpf TEXT, rg TEXT, nascimento TEXT, telefones TEXT, enderecos TEXT,
   empresas TEXT, cnpj TEXT, emails TEXT, placas TEXT, veiculos TEXT, processos TEXT, bos TEXT, mandados TEXT,
@@ -315,7 +428,10 @@ CREATE INDEX IF NOT EXISTS ix_ar_b ON arestas(b_tipo, b_valor);
 DELETE FROM pessoas;
 DELETE FROM arestas;
 DELETE FROM rotulos;
-""")
+DROP TABLE IF EXISTS grafo_rotulos_manuais;
+""".split(';'):
+    if instrucao.strip():
+        db.execute(instrucao)
 # Estados que contam como "tem ou teve" (o negado nunca conta). Ver consulta.estado_antecedente.
 ESTADOS_POSITIVOS = ("confirmado", "indeterminado", "historico")
 
@@ -331,6 +447,8 @@ def valores(v, sep=r"\s\|\s"):
 
 def aresta(a_tipo, a_valor, b_tipo, b_valor, relacao, origem, fonte, loc=""):
     if a_valor and b_valor:
+        if isinstance(loc, dict):
+            loc = json.dumps(loc, ensure_ascii=False, sort_keys=True)
         db.execute("INSERT INTO arestas VALUES(?,?,?,?,?,?,?,?)", (a_tipo, a_valor, b_tipo, b_valor, relacao, origem, fonte, loc))
 
 
@@ -349,16 +467,21 @@ def rotulo(tipo, valor, texto):
     if valor and texto: db.execute("INSERT OR IGNORE INTO rotulos VALUES(?,?,?)", (tipo, valor, texto[:160]))
 
 
-def id_registro(origem, fonte, arquivo, localizador, nome, cpf):
+def id_registro(origem, fonte, arquivo, localizador, nome, cpf, documento='', paginas='', linha=None):
     """Identidade de PESSOA = registro de origem (nunca o nome sozinho)."""
     base = "|".join([origem, fonte or "", arquivo or "", localizador or "", Q.norm(nome), re.sub(r"\D", "", cpf or "")])
+    if documento:
+        base += '|fonte:' + json.dumps([documento, paginas], ensure_ascii=False)
+    if linha is not None:
+        base += '|linha:' + str(linha)
     return "P:" + hashlib.sha1(base.encode("utf-8")).hexdigest()[:14]
 
 
-def insere_pessoa(origem, fonte, arquivo, r):
+def insere_pessoa(origem, fonte, arquivo, r, *, linha=None, tipo='documental', documento=None):
     if (r.get("mandados") or r.get("cautelares")) and "antecedentes_itens" not in r: Q._itens(r)
     g = lambda k: (r.get(k) or "").strip()
-    no = id_registro(origem, fonte, arquivo, g("localizador"), g("nome"), g("cpf"))
+    no = id_registro(origem, fonte, arquivo, g("localizador"), g("nome"), g("cpf"),
+                     g('documento'), g('paginas'), linha=linha)
     extras = r.get("extras") or {}
     extras_txt = " ".join(f"{k} {v}" for k, v in extras.items()) if isinstance(extras, dict) else str(extras)
     tudo = " ".join([g(k) for k in Q.CAMPOS] + [g("condicao"), extras_txt, g("texto")])
@@ -381,7 +504,10 @@ def insere_pessoa(origem, fonte, arquivo, r):
     # ---- grafo de vínculos: nó PESSOA = registro (id próprio); o nome liga a um nó NOME apenas como candidato
     if not (g("nome") or g("cpf")): return
     p = no
-    loc = f"{arquivo} {g('localizador')}".strip()
+    loc = evidencia_fonte(origem, fonte if origem == 'caso' else None, arquivo,
+                          f"{arquivo} {g('localizador')}".strip(), documento=documento or g('documento'),
+                          paginas=r.get('paginas'), fls=r.get('fls'), trecho=r.get('trecho') or r.get('texto'),
+                          linha=linha, tipo=tipo, status_fonte=r.get('status'))
     rotulo("PESSOA", p, " · ".join(x for x in (g("nome") or "(sem nome)", f"CPF {g('cpf')}" if g("cpf") else "",
                                                    f"{origem}: {fonte}") if x))
     if g("nome"):
@@ -407,9 +533,10 @@ for id_ in casos:
     nomes_cadastrados = set()
     pc = os.path.join(CASOS, id_, "02-analise", "pessoas.csv")
     if os.path.exists(pc):
-        for r in csv.DictReader(open(pc, encoding="utf-8-sig"), delimiter=";"):
-            r["localizador"] = ("pág. " + r["paginas"]) if r.get("paginas") else (r.get("documento") or "")
-            insere_pessoa("caso", id_, os.path.relpath(pc, WS), r); n_p += 1
+        for linha, r in enumerate(csv.DictReader(open(pc, encoding="utf-8-sig"), delimiter=";"), 2):
+            if not r.get('localizador'):
+                r["localizador"] = ("pág. " + r["paginas"]) if r.get("paginas") else (r.get("documento") or "")
+            insere_pessoa("caso", id_, os.path.relpath(pc, WS), r, linha=linha); n_p += 1
             if r.get("nome"): nomes_cadastrados.add(Q.norm(r["nome"]))
     c_json = os.path.join(CASOS, id_, "caso.json")
     if os.path.exists(c_json):
@@ -421,7 +548,7 @@ for id_ in casos:
                         "nome": vit,
                         "condicao": "vítima",
                         "localizador": f"caso.json (vítima do caso {id_})"
-                    })
+                    }, tipo='cadastro')
                     n_p += 1
                     nomes_cadastrados.add(Q.norm(vit))
             for inv in cj.get("investigados") or []:
@@ -430,24 +557,25 @@ for id_ in casos:
                         "nome": inv,
                         "condicao": "investigado(a)",
                         "localizador": f"caso.json (investigado do caso {id_})"
-                    })
+                    }, tipo='cadastro')
                     n_p += 1
                     nomes_cadastrados.add(Q.norm(inv))
         except Exception: pass
 for base in Q.listar():
     arq = os.path.join(Q.BASES, base["id"], "registros.jsonl")
-    for ln in open(arq, encoding="utf-8"):
-        insere_pessoa("consulta", base["nome"], os.path.relpath(arq, WS), json.loads(ln)); n_p += 1
+    for linha, ln in enumerate(open(arq, encoding="utf-8"), 1):
+        insere_pessoa("consulta", base["nome"], os.path.relpath(arq, WS), json.loads(ln),
+                       linha=linha, tipo='consulta', documento=base.get('arquivo_original')); n_p += 1
 
 # vínculos vindos dos autos: caso ↔ identificadores extraídos; caminho do dinheiro (conta/chave Pix)
 MAPA_ENT = {"CPF": "CPF", "CNPJ": "CNPJ", "TELEFONE": "TELEFONE", "PLACA": "PLACA", "EMAIL": "EMAIL",
             "CHAVE_PIX": "CHAVE_PIX", "CONTA": "CONTA", "TITULAR": "NOME"}
-for caso_, tipo, valor, vn, pag, arq in db.execute("SELECT caso, tipo, valor, valor_norm, pagina, arquivo FROM entidades").fetchall():
+for caso_, tipo, valor, vn, evidencia in entidades_grafo:
     t = MAPA_ENT.get((tipo or "").upper())
     if not t: continue
     k = vn if t == "CONTA" else chave(t, valor)
     aresta("CASO", caso_, t, k, "titular citado nos autos (nome — conferir)" if t == "NOME" else "consta nos autos",
-           "caso", caso_, f"{arq} pág. {pag}" if pag else arq)
+           "caso", caso_, evidencia)
     rotulo(t, k, valor)
 
 
@@ -463,8 +591,12 @@ for id_ in casos:
     ff = os.path.join(CASOS, id_, "02-analise", "fluxo-financeiro.csv")
     if not os.path.exists(ff): continue
     rel_ff = os.path.relpath(ff, WS)
-    for r in csv.DictReader(open(ff, encoding="utf-8-sig"), delimiter=";"):
-        loc = f"{rel_ff} seq {r.get('seq') or '?'}; pág. {r.get('fonte_pag') or '?'}" + (f"; fls. {r['fls']}" if r.get("fls") else "")
+    for linha, r in enumerate(csv.DictReader(open(ff, encoding="utf-8-sig"), delimiter=";"), 2):
+        localizador = f"{rel_ff} seq {r.get('seq') or '?'}; pág. {r.get('fonte_pag') or '?'}" + (f"; fls. {r['fls']}" if r.get("fls") else "")
+        loc = evidencia_fonte('caso', id_, rel_ff, localizador, documento=r.get('documento'),
+                              paginas=r.get('fonte_pag'), fls=r.get('fls'), trecho=r.get('trecho'),
+                              linha=linha, seq=r.get('seq'), data_fato=r.get('data'),
+                              status_fonte=r.get('status_conferencia'))
         (to, o, ro), (td, d, rd) = lado_no(r, "origem"), lado_no(r, "destino")
         rel = f"transferiu R$ {r.get('valor') or '?'} em {r.get('data') or '?'} ({r.get('meio') or ''})".strip()
         if o and d: aresta(to, o, td, d, rel, "caso", id_, loc)
@@ -480,7 +612,10 @@ for id_ in casos:
                 aresta("NOME", nm, t, k, "titular (nome — conferir)", "caso", id_, loc); rotulo("NOME", nm, r[f"{lado}_titular"])
 db.execute("CREATE INDEX IF NOT EXISTS ix_ar_a ON arestas(a_tipo, a_valor)")
 db.execute("CREATE INDEX IF NOT EXISTS ix_ar_b ON arestas(b_tipo, b_valor)")
+from rag import INDICES_GRAFO_SQL
+for instrucao in INDICES_GRAFO_SQL:db.execute(instrucao)
 
+VM.projetar(WS, db)
 db.commit()
 n_t = db.execute("SELECT COUNT(*) FROM trechos").fetchone()[0]
 n_e = db.execute("SELECT COUNT(*) FROM entidades").fetchone()[0]
