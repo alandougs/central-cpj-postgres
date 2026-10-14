@@ -1,7 +1,7 @@
 """Tarefas em segundo plano da Central CPJ com progresso real:
 exportação/importação do banco de dados, importação de bases de consulta e referências, e agentes de IA.
 """
-import datetime, hashlib, json, os, re, shutil, subprocess, sys, threading, time, uuid, zipfile, queue
+import datetime, hashlib, io, json, os, re, shutil, subprocess, sys, threading, time, uuid, zipfile, queue
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.dirname(AQUI)
@@ -46,6 +46,11 @@ def _caminho_importavel(caminho):
     # ":" bloqueia unidade de disco ("D:") e fluxo alternativo NTFS ("a.txt:x") em qualquer componente
     if any(not p or p in (".", "..") or ":" in p for p in partes): return False
     raiz = partes[0]
+    if len(partes) >= 2 and raiz == 'consulta' and partes[1].rstrip(' .').casefold() == '_grafo-manual':
+        if len(partes) != 4 or partes[1] != '_grafo-manual': return False
+        if partes[2] == 'legados': return bool(re.fullmatch(r'[0-9a-f]{64}\.json',partes[3]))
+        return partes[2] == 'eventos' and bool(re.fullmatch(
+            r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.json', partes[3]))
     if raiz == "casos": return len(partes) >= 3 and partes[1] != "_MODELO-CASO"
     if raiz in ("calibracao", "consulta", "referencias"): return len(partes) >= 2
     return caminho in ("producao/config.json", "producao/base.csv", "producao/base.json", "modelos/dados-padrao.json") or (
@@ -54,6 +59,8 @@ def _caminho_importavel(caminho):
 
 sys.path.insert(0, AQUI)
 import plantao as PL  # noqa: E402  (fila de pedidos de IA e agentes de plantão)
+sys.path.insert(0, S_BASE)
+import vinculos_manuais as VM  # noqa: E402
 
 
 def plantao_config(ws):
@@ -169,6 +176,7 @@ class Tarefas:
                 for a in arqs:
                     p = os.path.join(raiz, a); r = os.path.relpath(p, W).replace("\\", "/")
                     if a.endswith(".tmp") or a.startswith("~$"): continue
+                    if r.startswith('consulta/_grafo-manual/') and not _caminho_importavel(r): continue
                     if filtro and not filtro(r): continue
                     itens.append((p, r))
         leve = lambda r: not (re.search(r"/00-originais/|/paginas_visao/", r))
@@ -183,8 +191,13 @@ class Tarefas:
 
     def exportar(self, tid, modo, incluir_modelo):
         self.at(tid, etapa="atualizando a base"); self.indexar()
-        itens = self._lista_export(modo, incluir_modelo)
-        total = sum(os.path.getsize(p) for p, _ in itens) or 1
+        prefixo = 'consulta/_grafo-manual/eventos/'
+        eventos = {prefixo+n: b for n,b in VM.exportar_eventos(self.ws).items()}
+        eventos.update({'consulta/_grafo-manual/legados/'+n:b for n,b in VM.exportar_legados(self.ws).items()})
+        itens = [(p,r) for p,r in self._lista_export(modo, incluir_modelo)
+                 if not r.casefold().startswith('consulta/_grafo-manual/')]
+        itens.extend((None,r) for r in eventos)
+        total = sum(len(eventos[r]) if r in eventos else os.path.getsize(p) for p,r in itens) or 1
         os.makedirs(os.path.join(self.ws, "exportacoes"), exist_ok=True)
         nome = f"CPJ-export-{modo}-{datetime.datetime.now():%Y%m%d-%H%M%S}.zip"
         destino = os.path.join(self.ws, "exportacoes", nome); tmp = destino + ".parcial"
@@ -194,13 +207,14 @@ class Tarefas:
                 if self.obter(tid)["status"] == "cancelada": break
                 comp = zipfile.ZIP_STORED if r.lower().endswith(SEM_COMPRESSAO) else zipfile.ZIP_DEFLATED
                 h = hashlib.sha256()
-                zi = zipfile.ZipInfo.from_file(p, "dados/" + r); zi.compress_type = comp
-                with open(p, "rb") as f, z.open(zi, "w", force_zip64=True) as w:
+                zi = zipfile.ZipInfo('dados/'+r) if r in eventos else zipfile.ZipInfo.from_file(p, "dados/" + r)
+                zi.compress_type = comp
+                with (io.BytesIO(eventos[r]) if r in eventos else open(p, "rb")) as f, z.open(zi, "w", force_zip64=True) as w:
                     for b in iter(lambda: f.read(1 << 20), b""):
                         w.write(b); h.update(b); feito += len(b)
                         self.at(tid, progresso=min(99, int(98 * feito / total)), etapa=f"compactando {i}/{len(itens)} arquivos",
                                 detalhe=f"{feito / 1048576:.1f} de {total / 1048576:.1f} MB")
-                manifesto.append({"caminho": r, "tamanho": os.path.getsize(p), "sha256": h.hexdigest()})
+                manifesto.append({"caminho": r, "tamanho": len(eventos[r]) if r in eventos else os.path.getsize(p), "sha256": h.hexdigest()})
             casos = sorted({m["caminho"].split("/")[1] for m in manifesto if m["caminho"].startswith("casos/")} - {"_MODELO-CASO"})
             z.writestr("manifest.json", json.dumps({"schema": EXPORT_SCHEMA, "gerado_em": agora(), "modo": modo,
                        "inclui_modelo_docx": incluir_modelo, "casos": casos, "arquivos": manifesto}, ensure_ascii=False, indent=1))
@@ -250,6 +264,11 @@ class Tarefas:
                             cancelar(); h.update(b); feito += len(b)
                             self.at(tid, progresso=int(45 * feito / (total or 1)), etapa=f"verificando integridade {i}/{len(arqs)}")
                     if h.hexdigest() != a["sha256"]: raise ValueError(f"Arquivo corrompido no pacote: {a['caminho']}")
+                eventos = {a['caminho'].split('/')[-1]: z.read('dados/'+a['caminho']) for a in arqs
+                           if a['caminho'].startswith('consulta/_grafo-manual/eventos/')}
+                legados = {a['caminho'].split('/')[-1]: z.read('dados/'+a['caminho']) for a in arqs
+                           if a['caminho'].startswith('consulta/_grafo-manual/legados/')}
+                VM.validar_importacao(W, eventos, legados)
                 # 2) preparar fora das pastas operacionais. Cada caso só aparece ao final, por os.replace().
                 shutil.rmtree(temporaria, ignore_errors=True); os.makedirs(temporaria)
                 existentes = set(os.listdir(os.path.join(W, "casos"))) if os.path.isdir(os.path.join(W, "casos")) else set()
@@ -257,6 +276,7 @@ class Tarefas:
                 pulados = casos_pacote & existentes; novos = casos_pacote - existentes
                 for i, a in enumerate(arqs, 1):
                     cancelar(); r = a["caminho"]; partes = r.split("/")
+                    if r.startswith('consulta/_grafo-manual/'): continue
                     if partes[0] == "casos" and partes[1] in pulados: continue
                     destino = os.path.join(temporaria, *partes)
                     base = os.path.normcase(os.path.abspath(temporaria))
@@ -271,6 +291,7 @@ class Tarefas:
             # 3) confirmar. A partir daqui a operação é curta e não cancelável: cada caso
             # entra inteiro por renomeação atômica, nunca como uma pasta parcialmente copiada.
             cancelar(); self.at(tid, etapa="confirmando importação")
+            VM.importar_eventos(W, eventos, legados)
             for caso in sorted(novos):
                 origem, destino = os.path.join(temporaria, "casos", caso), os.path.join(W, "casos", caso)
                 if os.path.isdir(origem) and not os.path.exists(destino):
@@ -332,6 +353,8 @@ class Tarefas:
 
     def enfileirar_ia(self, id_, acao, usuario, observacoes="", preferido=None, consentimento=None):
         """O botão da Central cria um pedido na fila do plantão; o primeiro agente ocioso e aprovado executa."""
+        if acao == "analisar":
+            acao = "completo"
         if not preferido:
             import executores_llm as EL
             preferido = EL.agente_padrao(self.ws)  # modo padrão "api" (Sistema → Configurações)

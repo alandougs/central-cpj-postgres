@@ -293,8 +293,15 @@ for id_ in casos:
 # Fontes: casos\*\02-analise\pessoas.csv (qualificação extraída dos autos) e consulta\*\registros.jsonl
 # (bases de consulta, ex. Muralha Paulista — somente pesquisa, nunca fonte de relatório).
 import consulta as Q  # noqa: E402
+import vinculos_manuais as VM  # noqa: E402
 
-db.executescript("""
+# Publique pessoas/grafo como um conjunto: falha deixa o grafo anterior intacto.
+# executescript faria commit implícito antes dos DELETEs; execute cada instrução
+# dentro desta transação, capturando os manuais legados antes de removê-los.
+db.commit()
+db.execute('BEGIN IMMEDIATE')
+VM.migrar_legados(WS, db)
+for instrucao in """
 CREATE TABLE IF NOT EXISTS pessoas(id INTEGER PRIMARY KEY, origem TEXT, fonte TEXT, arquivo TEXT, localizador TEXT,
   nome TEXT, mae TEXT, pai TEXT, cpf TEXT, rg TEXT, nascimento TEXT, telefones TEXT, enderecos TEXT,
   empresas TEXT, cnpj TEXT, emails TEXT, placas TEXT, veiculos TEXT, processos TEXT, bos TEXT, mandados TEXT,
@@ -315,7 +322,10 @@ CREATE INDEX IF NOT EXISTS ix_ar_b ON arestas(b_tipo, b_valor);
 DELETE FROM pessoas;
 DELETE FROM arestas;
 DELETE FROM rotulos;
-""")
+DROP TABLE IF EXISTS grafo_rotulos_manuais;
+""".split(';'):
+    if instrucao.strip():
+        db.execute(instrucao)
 # Estados que contam como "tem ou teve" (o negado nunca conta). Ver consulta.estado_antecedente.
 ESTADOS_POSITIVOS = ("confirmado", "indeterminado", "historico")
 
@@ -481,6 +491,7 @@ for id_ in casos:
 db.execute("CREATE INDEX IF NOT EXISTS ix_ar_a ON arestas(a_tipo, a_valor)")
 db.execute("CREATE INDEX IF NOT EXISTS ix_ar_b ON arestas(b_tipo, b_valor)")
 
+VM.projetar(WS, db)
 db.commit()
 n_t = db.execute("SELECT COUNT(*) FROM trechos").fetchone()[0]
 n_e = db.execute("SELECT COUNT(*) FROM entidades").fetchone()[0]

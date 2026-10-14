@@ -22,6 +22,32 @@ from rotas.comum import (
 bp_consulta = Blueprint("consulta", __name__)
 
 
+def _fonte_manual(registro):
+    evidencia = registro.get("evidencia") or {}
+    localizador = " · ".join(str(v) for v in (evidencia.get("documento"), f"pág. {evidencia['pagina']}" if evidencia.get("pagina") else "", f"fls. {evidencia['fls']}" if evidencia.get("fls") else "", evidencia.get("observacao")) if v)
+    return {**registro, "origem":"manual", "fonte":registro.get("caso", ""), "localizador":localizador}
+
+
+def _manuais_grafo(caso, termo):
+    import vinculos_manuais as VM
+    todos = VM.listar(WS, incluir_excluidos=True)
+    ativos = [r for r in todos if not r.get("excluido") and (not caso or r.get("caso") == caso)]
+    if termo:
+        busca = R._n(termo)
+        ativos = [r for r in ativos if busca in R._n(" ".join(str(r.get(c, "")) for c in ("a_valor","b_valor","a_rotulo","b_rotulo","relacao")))]
+    return [_fonte_manual(r) for r in ativos], {r["id"] for r in todos}
+
+
+def _grafo_sem_indice(vazio, manuais):
+    nos = {}
+    for a in manuais:
+        for lado in ("a", "b"):
+            tipo, valor = a[f"{lado}_tipo"], a[f"{lado}_valor"]
+            nos[tipo,valor] = {"tipo":tipo,"valor":valor,"nivel":0,"rotulo":a.get(f"{lado}_rotulo") or valor}
+    return jsonify({**vazio,"nos":list(nos.values()),"arestas":manuais,
+                    "aviso":"Vínculos manuais preservados; reindexe para recuperar as relações documentais." if manuais else ""})
+
+
 @bp_consulta.get("/api/consulta/bases")
 @requer("dados")
 def api_bases():
@@ -138,15 +164,19 @@ def api_grafo():
     vazio = {"nos": [], "arestas": [], "casos": casos_disp, "ordens_servico": ordens,
              "indice_disponivel": False}
     try:
+        manuais, ids_manuais = _manuais_grafo(caso, termo)
+    except (OSError, ValueError):
+        return jsonify({"erro":"Não foi possível ler a fonte de vínculos manuais. Preserve os arquivos e confira a integridade."}),503
+    try:
         db = R.conectar()
-    except FileNotFoundError:
-        return jsonify(vazio)
+    except (OSError, sqlite3.Error):
+        return _grafo_sem_indice(vazio, manuais)
     try:
         db.execute("SELECT 1 FROM arestas LIMIT 1")
         db.execute("SELECT 1 FROM rotulos LIMIT 1")
     except sqlite3.OperationalError:
         db.close()
-        return jsonify(vazio)
+        return _grafo_sem_indice(vazio, manuais)
 
     arestas = []
     if termo:
@@ -196,21 +226,33 @@ def api_grafo():
         """).fetchall()
         arestas = [dict(zip(("a_tipo", "a_valor", "b_tipo", "b_valor", "relacao", "origem", "fonte", "localizador"), r)) for r in rows]
 
+    # O índice é cache: a fonte autoritativa prevalece, inclusive após exclusões.
+    filtradas = []
+    for a in arestas:
+        if a["origem"] == "manual":
+            try:
+                meta = json.loads(a["localizador"])
+            except (TypeError, ValueError):
+                meta = {}
+            if isinstance(meta,dict) and meta.get("id") in ids_manuais:
+                continue
+        filtradas.append(a)
+    arestas = filtradas + manuais
     unicas = []
     vistos_arestas = set()
     vistos_nos = set()
     for a in arestas:
-        if a["origem"] == "manual":
+        if a["origem"] == "manual" and "evidencia" not in a:
             a["caso"] = a["fonte"]
             try:
                 meta = json.loads(a["localizador"])
             except (TypeError, ValueError):
                 meta = {}
             if isinstance(meta, dict) and meta.get("schema") == "astra-manual/1":
-                a["evidencia"] = meta["evidencia"]
+                a["evidencia"] = meta.get("evidencia") or {}
                 e = a["evidencia"]
                 a["localizador"] = " · ".join(str(v) for v in (e.get("documento"), f"pág. {e['pagina']}" if e.get("pagina") else "", f"fls. {e['fls']}" if e.get("fls") else "", e.get("observacao")) if v)
-        chave_a = (a["a_tipo"], a["a_valor"], a["b_tipo"], a["b_valor"], a["relacao"])
+        chave_a = (a["a_tipo"], a["a_valor"], a["b_tipo"], a["b_valor"], a["relacao"], a.get("id"))
         if chave_a not in vistos_arestas:
             vistos_arestas.add(chave_a)
             unicas.append(a)
@@ -227,6 +269,10 @@ def api_grafo():
             rot[(t, v)] = n_row[0].title() if n_row and n_row[0] else v
         else:
             rot[(t, v)] = v
+    for a in manuais:
+        for lado in ("a", "b"):
+            if a.get(f"{lado}_rotulo"):
+                rot[a[f"{lado}_tipo"],a[f"{lado}_valor"]] = a[f"{lado}_rotulo"]
 
     db.close()
     nos_saida = [{"tipo": t, "valor": v, "nivel": 0, "rotulo": rot.get((t, v), v)} for t, v in vistos_nos]
@@ -273,31 +319,53 @@ def api_grafo_adicionar_vinculo():
         existente = False
     if not existente:
         return jsonify({"erro": "O.S. não localizada no cadastro."}), 404
-    localizador = json.dumps({"schema":"astra-manual/1","evidencia":evidencia},ensure_ascii=False,sort_keys=True)
+    import vinculos_manuais as VM
+    # Capture a projeção legada antes de criar a nova fonte; falha de cache não impede salvar.
+    db = None
+    try:
+        db = R.conectar()
+    except (OSError, sqlite3.Error):
+        pass
+    if db is not None:
+        try:
+            db.execute("BEGIN IMMEDIATE")
+            VM.migrar_legados(WS, db)
+            db.commit()
+        except (OSError, sqlite3.Error, ValueError):
+            db.rollback()
+            return jsonify({"erro":"Não foi possível preservar integralmente os vínculos anteriores. Nenhum vínculo novo foi salvo. Tente novamente; os dados anteriores foram mantidos."}),503
+        finally:
+            db.close()
+    try:
+        registro = VM.criar(WS, {"a_tipo":a_tipo,"a_valor":a_valor,"b_tipo":b_tipo,"b_valor":b_valor,
+                                "relacao":relacao,"caso":caso,"evidencia":evidencia,
+                                "a_rotulo":texto("a_rotulo"),"b_rotulo":texto("b_rotulo")}, request.usuario["login"])
+    except VM.Conflito:
+        return jsonify({"erro":"Este vínculo com esta fonte já foi registrado ou sofreu alteração concorrente."}),409
+    except ValueError as e:
+        return jsonify({"erro":str(e)}),400
+    except OSError:
+        return jsonify({"erro":"Falha ao salvar vínculo; tente novamente sem fechar o formulário."}),503
+    pendente = _projetar_manuais()
+    auditar("grafo_vinculo_criado", f"id={registro['id']}; caso={caso}")
+    return jsonify({"ok":True,"id":registro["id"],"versao":registro["versao"],"indexacao_pendente":pendente,
+                    "aviso":"Vínculo salvo. Índice pendente de atualização." if pendente else ""})
 
+
+def _projetar_manuais():
+    import vinculos_manuais as VM
+    db = None
     try:
         db = R.conectar()
         db.execute("BEGIN IMMEDIATE")
-        if db.execute("SELECT 1 FROM arestas WHERE a_tipo=? AND a_valor=? AND b_tipo=? AND b_valor=? AND relacao=? AND origem='manual' AND fonte=? AND localizador=?",
-                      (a_tipo,a_valor,b_tipo,b_valor,relacao,caso,localizador)).fetchone():
-            db.close()
-            return jsonify({"erro":"Este vínculo com esta fonte já foi registrado."}),409
-        db.execute("""
-            INSERT INTO arestas (a_tipo, a_valor, b_tipo, b_valor, relacao, origem, fonte, localizador)
-            VALUES (?, ?, ?, ?, ?, 'manual', ?, ?)
-        """, (a_tipo, a_valor, b_tipo, b_valor, relacao, caso, localizador))
-
-        if dados.get("a_rotulo"):
-            db.execute("INSERT OR REPLACE INTO rotulos (tipo, valor, rotulo) VALUES (?, ?, ?)", (a_tipo, a_valor, dados["a_rotulo"]))
-        if dados.get("b_rotulo"):
-            db.execute("INSERT OR REPLACE INTO rotulos (tipo, valor, rotulo) VALUES (?, ?, ?)", (b_tipo, b_valor, dados["b_rotulo"]))
-
+        VM.projetar(WS, db)
         db.commit()
-        db.close()
-        auditar("grafo_vinculo_criado", f"caso={caso}; tipos={a_tipo},{b_tipo}")
-        return jsonify({"ok": True})
-    except (OSError, sqlite3.Error):
-        return jsonify({"erro": "Índice indisponível. Reindexe os materiais e tente novamente."}), 503
+        return False
+    except (OSError, sqlite3.Error, ValueError):
+        if db is not None: db.rollback()
+        return True
+    finally:
+        if db is not None: db.close()
 
 
 @bp_consulta.post("/api/grafo/vinculo/remover")
