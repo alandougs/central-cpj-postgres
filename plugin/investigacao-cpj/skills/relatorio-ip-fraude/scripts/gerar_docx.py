@@ -124,6 +124,11 @@ if m:
             meta[k.strip().lower()] = v.strip()
     corpo = m.group(2)
 
+# No DOCX, a folha dos autos prevalece quando ambos os localizadores constam.
+# A minuta e o mapa de rastreabilidade mantêm a numeração do PDF; não deduza fls.
+corpo = re.sub(r"\(\s*p[áa]g(?:ina)?s?\.?\s+[^();\n]+;\s*(fls?\.\s*[^();\n]+)\s*\)",
+               lambda m: "(" + m.group(1).strip() + ")", corpo, flags=re.I)
+
 secoes = {s: [] for s in SECOES}
 atual = None
 for ln in corpo.splitlines():
@@ -557,6 +562,11 @@ for i, p in enumerate(doc.paragraphs):
             if i + 1 < len(doc.paragraphs):
                 doc.paragraphs[i + 1].paragraph_format.page_break_before = True
             remove(p)
+        elif p._element in imagens_modelo:
+            p.paragraph_format.page_break_before = False
+            p.paragraph_format.keep_with_next = True
+            if i + 1 < len(doc.paragraphs):
+                doc.paragraphs[i + 1].paragraph_format.keep_with_next = True
         else:
             p.paragraph_format.page_break_before = True
 
