@@ -402,3 +402,128 @@ def api_cruzar(id_):
     except FileNotFoundError:
         return jsonify([])
 
+
+# ------------------------------------------------------------ Inteligência Etapa 1: Correlações e Mapa Offline
+import correlacoes as CORR  # noqa: E402
+
+
+def _ws_inteligencia():
+    return os.environ.get("CPJ_WORKSPACE") or getattr(C, "WS", None) or WS
+
+
+@bp_consulta.get("/api/inteligencia/correlacoes")
+@requer("pesquisa")
+def api_inteligencia_correlacoes():
+    caso = (request.args.get("caso") or "").strip() or None
+    tipo = (request.args.get("tipo") or "").strip().upper() or None
+    if tipo and tipo not in CORR.TIPOS_PERMITIDOS:
+        return jsonify({"erro": f"Tipo de identificador inválido: {tipo}. Permitidos: {', '.join(CORR.TIPOS_PERMITIDOS)}."}), 400
+
+    estado = (request.args.get("estado") or "").strip().lower() or None
+    if estado and estado not in ("ativo", "fixado", "descartado", "ativos_e_fixados", "todos"):
+        return jsonify({"erro": f"Filtro de estado inválido: {estado}."}), 400
+
+    lido_arg = (request.args.get("lido") or "").strip().lower()
+    lido = None
+    if lido_arg in ("1", "true", "sim"):
+        lido = True
+    elif lido_arg in ("0", "false", "nao", "não"):
+        lido = False
+    elif lido_arg:
+        return jsonify({"erro": "Parâmetro 'lido' inválido (use 1/0 ou true/false)."}), 400
+
+    inc_sem_sup = (request.args.get("incluir_sem_suporte") or "").strip().lower() in ("1", "true", "sim")
+    ordem = (request.args.get("ordem") or "procedimentos").strip().lower()
+    if ordem not in ("procedimentos", "recentes"):
+        return jsonify({"erro": "Parâmetro 'ordem' inválido (use 'procedimentos' ou 'recentes')."}), 400
+
+    try:
+        pagina = max(1, int(request.args.get("pagina") or 1))
+        limite = max(1, min(500, int(request.args.get("limite") or 50)))
+    except ValueError:
+        return jsonify({"erro": "Parâmetros 'pagina' e 'limite' devem ser inteiros."}), 400
+
+    res = CORR.consultar_correlacoes(
+        _ws_inteligencia(),
+        caso=caso,
+        tipo=tipo,
+        estado=estado,
+        lido=lido,
+        incluir_sem_suporte=inc_sem_sup,
+        ordem=ordem,
+        pagina=pagina,
+        limite=limite,
+    )
+    auditar("inteligencia_correlacoes", f"caso={caso or '*'} tipo={tipo or '*'} estado={estado or '*'} p={pagina}")
+    return jsonify(res)
+
+
+@bp_consulta.get("/api/inteligencia/mapa")
+@requer("pesquisa")
+def api_inteligencia_mapa():
+    caso = (request.args.get("caso") or "").strip() or None
+    tipo_pessoa = (request.args.get("tipo_pessoa") or "").strip().upper() or None
+    if tipo_pessoa and tipo_pessoa not in ("PF", "PJ"):
+        return jsonify({"erro": "Parâmetro 'tipo_pessoa' inválido (use 'PF' ou 'PJ')."}), 400
+
+    papel = (request.args.get("papel") or "").strip() or None
+    municipio = (request.args.get("municipio") or "").strip() or None
+    uf = (request.args.get("uf") or "").strip().upper() or None
+    if uf and len(uf) != 2:
+        return jsonify({"erro": "Parâmetro 'uf' deve ter 2 letras."}), 400
+
+    correlacao_id = (request.args.get("correlacao_id") or "").strip() or None
+    try:
+        limite = max(1, min(2000, int(request.args.get("limite") or 500)))
+    except ValueError:
+        return jsonify({"erro": "Parâmetro 'limite' deve ser inteiro."}), 400
+
+    res = CORR.consultar_mapa(
+        _ws_inteligencia(),
+        caso=caso,
+        tipo_pessoa=tipo_pessoa,
+        papel=papel,
+        municipio=municipio,
+        uf=uf,
+        correlacao_id=correlacao_id,
+        limite=limite,
+    )
+    auditar("inteligencia_mapa", f"caso={caso or '*'} tipo={tipo_pessoa or '*'} corr={correlacao_id or '-'}")
+    return jsonify(res)
+
+
+@bp_consulta.post("/api/inteligencia/correlacoes/estado")
+@requer("pesquisa")
+def api_inteligencia_correlacoes_estado():
+    if not request.headers.get("X-CPJ"):
+        return jsonify({"erro": "Cabeçalho X-CPJ obrigatório."}), 400
+    d = request.get_json(silent=True)
+    if not isinstance(d, dict):
+        return jsonify({"erro": "Corpo JSON inválido."}), 400
+
+    cid = (d.get("id") or d.get("correlacao_id") or "").strip()
+    estado = d.get("estado")
+    lido = d.get("lido")
+    motivo = d.get("motivo")
+
+    try:
+        reg = CORR.atualizar_estado_correlacao(
+            _ws_inteligencia(),
+            correlacao_id=cid,
+            usuario=request.usuario["login"],
+            estado=estado,
+            lido=lido,
+            motivo=motivo,
+        )
+    except ValueError as e:
+        return jsonify({"erro": str(e)}), 400
+    except TimeoutError as e:
+        return jsonify({"erro": str(e)}), 503
+
+    auditar(
+        "correlacao_estado_atualizado",
+        f"id={cid} estado={reg['estado']} lido={reg['lido']} motivo={reg.get('motivo', '')[:80]}",
+    )
+    return jsonify({"ok": True, "item": reg})
+
+

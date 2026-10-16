@@ -211,13 +211,21 @@ def idioma_ocr(env):
 
 
 # ================================================================== autenticação e permissões
-def modo_solo():
-    """Operação solo (config\\solo.json {"ativo": true}): no próprio computador entra direto, sem senha."""
+def usuario_solo_local():
+    """Entrada direta só em loopback/Host local, pelo admin definido em config\\solo.json."""
+    if (request.remote_addr not in ("127.0.0.1", "::1")
+            or request.host.rsplit(":", 1)[0] not in ("127.0.0.1", "localhost", "[::1]")):
+        return None
     try:
         with open(os.path.join(WS, "config", "solo.json"), encoding="utf-8") as f:
-            return bool(json.load(f).get("ativo"))
+            cfg = json.load(f)
+        if not cfg.get("ativo"):
+            return None
+        if "usuario" in cfg and not isinstance(cfg["usuario"], str):
+            return None
+        return auth.usuario_solo(cfg.get("usuario"))
     except (OSError, ValueError, AttributeError):
-        return False
+        return None
 
 
 def usuario():
@@ -225,10 +233,8 @@ def usuario():
     atual = auth.obter_sessao(u, session.get("v")) if u else None
     if u and atual is None:
         session.clear()
-    # Modo solo: só loopback e só pelo endereço local (evita DNS rebinding); acesso pela rede continua com senha.
-    if (atual is None and request.remote_addr in ("127.0.0.1", "::1")
-            and request.host.rsplit(":", 1)[0] in ("127.0.0.1", "localhost", "[::1]") and modo_solo()):
-        atual = auth.usuario_solo()
+    if atual is None:
+        atual = usuario_solo_local()
     return atual
 
 

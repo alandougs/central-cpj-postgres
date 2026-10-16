@@ -14,8 +14,10 @@ T = tempfile.mkdtemp(prefix="cpj-l05-")
 falhas = []
 
 env = dict(os.environ, PYTHONIOENCODING="utf-8")
-TESS_DIR = r"C:\Program Files\Tesseract-OCR"
-if os.path.isdir(TESS_DIR): env["PATH"] = env.get("PATH", "") + ";" + TESS_DIR
+for TESS_DIR in (r"C:\Program Files\Tesseract-OCR", r"C:\Program Files\PDF24\tesseract"):
+    if os.path.isfile(os.path.join(TESS_DIR, "tesseract.exe")):
+        env["PATH"] = TESS_DIR + os.pathsep + env.get("PATH", "")
+        break
 td = os.path.join(RAIZ, "ferramentas", "tessdata")
 if os.path.isfile(os.path.join(td, "por.traineddata")) and os.path.getsize(os.path.join(td, "por.traineddata")) > 0: env["TESSDATA_PREFIX"] = td
 os.environ.update(env)

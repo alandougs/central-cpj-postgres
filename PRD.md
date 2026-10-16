@@ -2,7 +2,7 @@
 
 > Documento de continuidade. Qualquer agente (Claude Code, Codex, Gemini, modelo local) deve ler **este arquivo + `AGENTS.md`** antes de alterar o sistema. Atualize a seção **9 (Estado atual)** e o **Registro de mudanças** a cada entrega.
 > Dono do produto: Alan Douglas Silva — Investigador de Polícia, Central de Polícia Judiciária (CPJ), Seccional de Presidente Prudente, DEINTER 8, PCSP.
-> Última atualização: 2026-10-14 (AR01 — O.S. em Markdown e análise com relatório; EX01 — arquivos no Explorer).
+> Última atualização: 2026-10-14 (FP01 — atividade e previsão da fila; RP01 — relatório de O.S. cumpridas por período; AR01 — O.S. em Markdown e análise com relatório; EX01 — arquivos no Explorer).
 
 ---
 
@@ -60,7 +60,7 @@ Permissões codificadas em `plugin/investigacao-cpj/app/auth.py` (`PERMISSOES`):
 | RF14 | **Relatórios de referência** por autor, modalidade e peso (1–5) para calibração/exemplos; importar DOCX/PDF/MD; editar peso; remover | implementado (backend) |
 | RF15 | **Exportar banco de dados**: pacote ZIP (`manifest.json` com SHA-256 por arquivo), modo completo (com PDFs) ou só dados, opcional modelo DOCX; baixar planilha CSV | implementado (backend) |
 | RF16 | **Importar pacote** em outro PC: verifica integridade, acrescenta casos novos, nunca sobrescreve | implementado (backend) |
-| RF17 | **Estatísticas/KPIs**: entregues dia/mês/ano × meta, páginas, prazo mediano, em aberto por etapa, modalidades, autoria indicada, valor rastreado | implementado, inclusive % entregue no prazo, vencidos em aberto e retrabalho (versões por relatório) no painel |
+| RF17 | **Estatísticas/KPIs**: entregues dia/mês/ano × meta, páginas, prazo mediano, em aberto por etapa, modalidades, autoria indicada, valor rastreado; relatório de O.S. cumpridas por intervalo | implementado, inclusive relatório completo por data de cumprimento, O.S., data do relatório, natureza, policial responsável, total e resumo por natureza; impressão/PDF e CSV |
 | RF18 | **Rede local**: admin habilita acesso de outros PCs com HTTPS (certificado autoassinado); padrão desligado | implementado (backend); exige autorização do firewall pelo usuário e aval da TI |
 | RF19 | Usuários (admin): criar/editar/desativar/remover, trocar a própria senha, ver auditoria | implementado (backend) |
 | RF20 | Interface única, responsiva, claro/escuro, progresso em upload, OCR, exportação, importação e IA | implementada; integração HTTP e Edge F03 aprovados; AI03 verificada em 12 cenários Chrome, nos dois temas |
@@ -128,6 +128,14 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 - Teste isolado: `python plugin\investigacao-cpj\app\servidor.py --workspace <pasta-teste> --porta 8766 --somente-local --sem-navegador` (use `CPJ_WORKSPACE` nos scripts). PDF fictício: `skills\pdf-autos-policiais\teste\gerar_pdf_ficticio.py`.
 
 ## 9. Estado atual e próximos passos (atualizar sempre)
+
+**FP01 —14/10/2026:** fila mostra atividade/etapa, tempo decorrido, estimativas por arquivo e acumuladas; dados de início/fim/progresso/histórico já disponíveis, sem reiniciar o worker. Página corrente apenas no OCR; dados insuficientes indicam cálculo, duração superada recalcula e falha preserva cartões. Interface aplicada à Central primária preservando RP01; portabilidade ASTRA e limites em `revisoes/fila-progresso-2026-10-14.md`.
+
+
+**14/10/2026 — RP01:** Estatísticas oferece relatório completo das O.S. cumpridas entre duas datas, com limites inclusivos pela data de cumprimento e status `entregue`. Colunas: O.S., data do relatório, data de cumprimento, natureza e policial responsável; total do período e resumo por natureza. Relatório HTML próprio para impressão/salvar PDF e CSV no mesmo intervalo, sem o limite de 12 entregas do painel. `GET /api/producao/relatorio?inicio=AAAA-MM-DD&fim=AAAA-MM-DD[&formato=csv]` exige permissão `estatisticas`, lê `caso.json` sem indexar/alterar baixas e audita a emissão. A data do relatório vem do registro da versão vinculada à baixa ou, sem correspondência, da última versão cadastrada; ausências são declaradas. Responsável é resolvido pelo cadastro do policial; sem atribuição individual, usa o investigador configurado na produção. Campos escapados no HTML e fórmulas neutralizadas no CSV. Sete testes fictícios aprovados, incluindo Edge headless, relação com mais de 12 O.S., datas distintas, autorização, integridade dos cadastros, período vazio/inválido, CSV e texto extraído do PDF. Central reiniciada em segundo plano e saúde HTTP confirmada; formulário novo servido e rota protegida por autenticação (401 sem sessão).
+
+
+**Verificação geral RP01:** `ferramentas/testar-tudo.py`: **75/84 suítes aprovadas**, 281,53 s de testes, incluindo RP01 (sete testes), segurança e Central HTTP isolada. Nove suítes falharam: `teste_consentimento_interface_se01.py`, `teste_grafo_interface_gf02.py`, `teste_modelos_api_ai03.py`, `teste_modos_px06.py`, `teste_relatorios_interface_ux01.py` e `teste_transcricao_visual_px05.py` por `quickjs` ausente; `teste_dados_os_codex.py` por escrivão fictício não preenchido após OCR; `teste_docx_f04.py` por duas asserções de estilos/bloco de assinatura; `teste_workspace_v01.py` por mtimes do workspace real com Central ativa. Não se declara a suíte geral aprovada. Há testes ignorados por falta de OCR/Tesseract, Playwright Python ou permissão de links simbólicos; o teste RP01 de navegador foi efetivamente executado por Node/Edge. Falhas e dependências fora do pedido preservadas. Log: `%TEMP%/cpj-rp01-suite-20261014.log`.
 
 **14/10/2026 — AR01:** a extração de PDF e a consolidação de derivados de Markdown separam automaticamente as páginas candidatas de Ordem de Serviço em `01-extracao/<documento>/ordens-de-servico/*.md`, com texto transcrito, páginas, SHA-256 da transcrição e `indice.json`. A busca começa pelas páginas finais, preserva continuações reconhecidas e todas as candidatas, sem presumir vigência pela posição. Reprocessamentos atualizam o índice; versões anteriores permanecem rastreáveis. Os prompts de consolidação, redação, revisão e ajuste apontam os MDs e exigem identificar a O.S. vigente, mapear cada solicitação em `02-analise/solicitacoes-os.md` e conferir sua resposta no relatório. Integralidade e vigência exigem conferência nos autos; ausência da O.S. determina interrupção da redação e aviso ao operador. A detecção é textual e depende da qualidade da extração/OCR.
 
@@ -236,7 +244,18 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
   - **Resiliência da Fila de Tarefas (RV14):** Normalização de atalhos de caminho (`app/...` $\leftrightarrow$ `plugin/...`), novo comando `reabrir` com histórico e transição de estado, parâmetro `proxima` com busca global e purga de dependências obsoletas. Validado por `teste_fila_tarefas_rv14.py` (**8/8 testes OK**).
   - **Versionamento Git Local (GH01):** Repositório local inicializado na branch `consolidacao-2026-10-01` com `.gitignore` rigoroso contra vazamento de casos/dados e varredura de segurança aprovada com 0 bloqueios.
 
+**UX03 — 15/10/2026:** a lista da aba Casos destaca com fundo verde as linhas cujo status é `entregue`, mantendo realce na passagem do cursor. Os demais status e a abertura da ficha pelo clique na linha não mudam.
+
 ## Registro de mudanças
+
+- **16/10/2026 — GEO01:** implementação da Etapa 1 do Radar de Coincidências Documentadas entre Procedimentos Distintos e Mapa de Referência Offline (`revisoes/plano-correlacoes-mapa-etapa-1.md`). Inclui base cartográfica estática local (`municipios_br.json` com metadados IBGE), resolvedor geográfico offline (`geo_local.py` com distinção entre `municipio_aproximado` e `coordenada_documentada`, rejeição de coordenadas de `local_fato` como residência, separação PF/PJ e lista `sem_localizacao` sem jitter), motor de coincidências exatas (`correlacoes.py` com desduplicação por procedimento via `inquerito`/`processo`, bloqueio de identificadores incertos ou contas sem banco, estado humano persistente fora do SQLite regenerável com trava e `os.replace`, detecção de evidência alterada `requer_revisao` e isolamento de falhas em `indexar.py`), rotas `GET /api/inteligencia/correlacoes`, `GET /api/inteligencia/mapa` e `POST /api/inteligencia/correlacoes/estado` em `rotas/consulta.py`, e modos **Radar de Coincidências** e **Mapa (Etapa 1)** na aba Pesquisa (`inteligencia-mapa.js` e `index.html`) com 4 atalhos de navegação e zero requisições externas. Validado por `teste_correlacoes_mapa_etapa1.py` (7/7 testes OK), `teste_interface_f01.py` (15/15 OK) e `teste_seguranca_codex.py` (11/11 OK).
+
+- **15/10/2026 — UX03:** linhas da aba Casos com status `entregue` recebem fundo verde, inclusive ao passar o cursor; os demais status e a navegação por linha permanecem iguais. Mudança localizada na interface.
+
+- **14/10/2026 — FP01:** atividade/etapa e tempo decorrido, estimativa por arquivo, espera e previsão total na fila, com falta de base/atraso/erro explícitos. Interface aplicada sem reiniciar a Central e preservando RP01. Nove testes novos e regressões de interface/polling/fluxo aprovados; método e limites em revisoes/fila-progresso-2026-10-14.md.
+
+
+- **14/10/2026 — RP01:** relatório completo das O.S. cumpridas por intervalo inclusivo, com número, data do relatório e do cumprimento, natureza, policial responsável, total e resumo por natureza; impressão/salvar PDF e CSV, respeitando permissão e auditoria. Sete testes fictícios aprovados, incluindo interface Edge e conteúdo do PDF. Não altera baixas nem lê os autos.
 
 - **14/10/2026 — AR01:** extração automática da O.S. em Markdown por documento, busca a partir das páginas finais e índice com proveniência; consolidação, redação e revisão orientadas a todas as solicitações da O.S. Pedido público de análise inclui relatório DOCX e revisão. Onze testes novos aprovados em fixtures fictícias, com CLI de PDF e navegador Edge real; replay visual e consentimento também conferidos. Limitações da suíte geral registradas na seção 9.
 

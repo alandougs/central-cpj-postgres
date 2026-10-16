@@ -482,6 +482,23 @@ db.execute("CREATE INDEX IF NOT EXISTS ix_ar_a ON arestas(a_tipo, a_valor)")
 db.execute("CREATE INDEX IF NOT EXISTS ix_ar_b ON arestas(b_tipo, b_valor)")
 
 db.commit()
+
+# ------------------------------------------------------------ correlações documentadas e mapa offline (Etapa 1)
+# Isolado em try/except: falha neste módulo derivado nunca bloqueia extração, análise, relatório ou RAG principal.
+try:
+    import correlacoes as CORR  # noqa: E402
+    if os.environ.get("CPJ_SIMULAR_ERRO_INTELIGENCIA") == "1":
+        raise RuntimeError("Falha simulada no módulo de correlações/mapa")
+    casos_lista_meta = [dict(c, id=id_) for id_, c in casos.items()]
+    CORR.atualizar_indice(WS, db, casos_lista_meta)
+except Exception as e_corr:
+    print(f"AVISO: atualização de correlações/mapa falhou (RAG principal preservado): {e_corr}")
+    try:
+        import correlacoes as CORR  # noqa: E402
+        CORR.registrar_erro_indice(db, e_corr)
+    except Exception:
+        pass
+
 n_t = db.execute("SELECT COUNT(*) FROM trechos").fetchone()[0]
 n_e = db.execute("SELECT COUNT(*) FROM entidades").fetchone()[0]
 print(f"RAG: {novos} arquivo(s) (re)indexado(s); {n_t} trechos; {n_e} entidades; {n_p} pessoas -> rag\\cpj.sqlite")

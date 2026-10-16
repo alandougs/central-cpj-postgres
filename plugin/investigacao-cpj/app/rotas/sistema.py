@@ -10,6 +10,7 @@ import urllib.parse
 import urllib.request
 import datetime
 from flask import Blueprint, abort, current_app, jsonify, request, send_file, send_from_directory
+from relatorio_producao import preparar, html_relatorio, csv_relatorio
 import plantao as PL
 import rotas.comum as comum
 from rotas.comum import (
@@ -231,6 +232,31 @@ def api_planilha():
         return jsonify({"erro": "Ainda não há dados."}), 404
     auditar("planilha_baixada")
     return send_file(p, as_attachment=True, download_name=f"CPJ-producao-{C.hoje()}.csv")
+
+
+@bp_sistema.get("/api/producao/relatorio")
+@requer("estatisticas")
+def relatorio_cumpridas():
+    inicio, fim = request.args.get("inicio"), request.args.get("fim")
+    formato = request.args.get("formato", "html")
+    if formato not in ("html", "csv"):
+        return jsonify({"erro": "Formato de relatório inválido."}), 400
+    try:
+        with open(os.path.join(WS, "producao", "config.json"), encoding="utf-8") as f:
+            config = json.load(f)
+    except (OSError, ValueError):
+        config = {}
+    try:
+        dados = preparar(comum.visiveis(request.usuario), inicio, fim,
+                         {u["login"]: u["nome"] for u in auth.listar()}, config)
+    except ValueError as erro:
+        return jsonify({"erro": str(erro)}), 400
+    auditar("relatorio_cumpridas", f"{inicio} a {fim}; {formato}; total={dados['total']}")
+    if formato == "csv":
+        return current_app.response_class(
+            ("\ufeff" + csv_relatorio(dados)).encode("utf-8"), mimetype="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="OS-cumpridas-{inicio}-a-{fim}.csv"'})
+    return current_app.response_class(html_relatorio(dados), mimetype="text/html")
 
 
 @bp_sistema.post("/api/importar")
