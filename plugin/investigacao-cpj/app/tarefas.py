@@ -332,6 +332,8 @@ class Tarefas:
 
     def enfileirar_ia(self, id_, acao, usuario, observacoes="", preferido=None, consentimento=None):
         """O botão da Central cria um pedido na fila do plantão; o primeiro agente ocioso e aprovado executa."""
+        if acao == "analisar":
+            acao = "completo"
         if not preferido:
             import executores_llm as EL
             preferido = EL.agente_padrao(self.ws)  # modo padrão "api" (Sistema → Configurações)

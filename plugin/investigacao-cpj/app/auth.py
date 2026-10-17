@@ -153,8 +153,11 @@ class Auth:
         u = self._ler()["usuarios"].get(login)
         return self.publico(login, u) if u and u.get("ativo", True) else None
 
-    def usuario_solo(self):
-        """Modo solo: o único administrador ativo; havendo mais de um (ou nenhum), exige login normal."""
+    def usuario_solo(self, login=None):
+        """Administrador ativo escolhido; sem escolha, exige administrador ativo único."""
+        if login is not None:
+            u = self.obter(login) if isinstance(login, str) else None
+            return u if u and u["perfil"] == "admin" else None
         admins = [(k, v) for k, v in self._ler()["usuarios"].items() if v.get("perfil") == "admin" and v.get("ativo", True)]
         return self.publico(*admins[0]) if len(admins) == 1 else None
 

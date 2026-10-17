@@ -122,7 +122,7 @@ textarea{resize:vertical}input:focus-visible,select:focus-visible,textarea:focus
 
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
 
-th{color:var(--ink2);font-weight:600;font-size:12px;background:var(--surface-2)}tbody.clic tr{cursor:pointer;transition:background .1s}tbody.clic tr:hover{background:var(--acc-soft)}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+th{color:var(--ink2);font-weight:600;font-size:12px;background:var(--surface-2)}tbody.clic tr{cursor:pointer;transition:background .1s}tbody.clic tr:hover{background:var(--acc-soft)}tbody.clic tr.caso-entregue,tbody.clic tr.caso-entregue:hover{background:var(--good-soft)}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 
 .barra{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}.barra input{flex:1;min-width:220px}.barra select{width:auto}
 
@@ -134,7 +134,7 @@ th{color:var(--ink2);font-weight:600;font-size:12px;background:var(--surface-2)}
 
 .lista-os div.it{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer}.lista-os div.it:hover{color:var(--acc-2)}
 
-.arqs{font-size:13px;max-height:320px;overflow:auto}.arqs a,.lk{color:var(--acc-2);text-decoration:none;cursor:pointer;font-weight:500}.arqs a:hover,.lk:hover{text-decoration:underline}.arqs div{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.arqs{font-size:13px;max-height:320px;overflow:auto}.arqs a,.lk{color:var(--acc-2);text-decoration:none;cursor:pointer;font-weight:500}.arqs a:hover,.lk:hover{text-decoration:underline}.arqs div{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding:4px 0;border-bottom:1px dashed var(--line)}.arqs a{overflow-wrap:anywhere;min-width:0}
 
 code{background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:12.5px;color:var(--acc-2)}
 
@@ -354,7 +354,7 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 <section class="aba" id="pesquisa"><h2>Pesquisa</h2><p class="sub">Relacional: combine nome, mãe, pai, CPF, telefone, CNPJ, endereço… em qualificações extraídas dos autos e nas bases de consulta. Clique em um valor para cruzá-lo. Bases de consulta servem só para pesquisa — não são fonte do relatório.</p>
 
-<div class="seg"><button data-m="pessoas" class="on">Pessoas (relacional)</button><button data-m="texto">Texto nos documentos</button></div>
+<div class="seg"><button data-m="pessoas" class="on">Pessoas (relacional)</button><button data-m="texto">Texto nos documentos</button><button data-m="correlacoes" id="b-seg-correlacoes">Correlações (Radar)</button><button data-m="mapa" id="b-seg-mapa">Mapa (Offline)</button></div>
 
 <div id="m-pessoas"><form class="card" id="f-pessoas"><div class="campos">
 
@@ -382,6 +382,9 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 <div id="m-texto" hidden><form class="barra" id="f-busca"><input id="q-busca" placeholder="Ex.: falsa central · 123.456.789-00 · chave pix aleatória"><select id="tp-busca"><option value="">todos</option><option value="transcricao">transcrição</option><option value="analise">análise</option><option value="relatorio">relatório final</option><option value="referencia">referência</option><option value="acervo">acervo</option></select><button class="btn pri">Buscar</button></form><div id="r-busca"></div></div>
 
+<div id="m-correlacoes" hidden></div>
+<div id="m-mapa" hidden></div>
+
 </section>
 
 
@@ -405,6 +408,10 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
     <button class="btn sm" id="b-gr-reset">Centralizar</button>
 
     <button class="btn sm" id="b-gr-foto">Salvar PNG</button>
+
+    <button type="button" class="btn sm" id="b-gr-correlacoes">Correlações</button>
+
+    <button type="button" class="btn sm" id="b-gr-mapa">Mapa Offline</button>
 
   </div>
 
@@ -465,6 +472,12 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 <div class="acoes" style="margin:0"><a class="btn pri" href="/api/painel/pdf" target="_blank" id="b-exp-pdf" title="Exportar relatório oficial de produção em PDF">Exportar PDF</a><a class="btn" href="/api/planilha">Baixar planilha (CSV)</a><button type="button" class="btn" onclick="$('#if-painel').contentWindow.print()" title="Imprimir diretamente no navegador">Imprimir</button><button class="btn" id="b-ir-export" data-perm="dados">Exportar banco de dados</button></div></div>
 
+<div class="card" style="margin-bottom:14px"><h3>Relatório de O.S. cumpridas</h3>
+<p class="muted">Relação completa por data de cumprimento, com total e resumo por natureza. Imprima ou salve em PDF.</p>
+<form id="f-producao" action="/api/producao/relatorio" method="get" target="_blank" rel="noopener">
+<div class="g2"><label>Início do período<input id="prod-inicio" name="inicio" type="date" required></label>
+<label>Fim do período<input id="prod-fim" name="fim" type="date" required></label></div>
+<div class="acoes"><button class="btn pri" type="submit">Gerar relatório</button></div></form></div>
 <iframe id="if-painel" title="Painel"></iframe></section>
 
 
@@ -785,6 +798,7 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 
 
+<script src="/static/js/fila-progresso.js"></script>
 <script>
 
 const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
@@ -995,11 +1009,12 @@ $("#b-salvar-os").onclick=()=>salvarRecebimento(false);
 
 $("#b-nova-os").onclick=()=>{++deteccaoOS;$("#f-os").reset();$("#f-os").elements.caso_id.value="";$("#f-os").recebido.value=hoje();arquivos=[];autoOS={};listaArqs();$("#msg-up").textContent="Novo cadastro. Selecione o IP/processo ou preencha os campos.";$("#dados-os-auto").textContent="Os dados serão detectados ao selecionar o documento."};
 
-async function atualizarFila(){const j=await api("/api/fila");$("#ocr-lang").textContent=j.idioma_ocr?`OCR: ${j.idioma_ocr==="por"?"português":j.idioma_ocr}`:"";
-
- $("#fila").innerHTML=j.trabalhos.length?j.trabalhos.map(t=>{const run=t.status==="processando";return `<div class="job"><div class="l1"><div><b>${esc(t.caso)}</b> · ${esc(t.arquivo)}</div>${badge(t.status)}</div>
-
- <div class="muted">${esc(t.etapa||"")}${run&&t.paginas?` · página ${t.pagina_atual||0} de ${t.paginas}`:(t.paginas?` · ${t.paginas} págs.`:"")}${t.erro?` · <span style="color:var(--crit)">${esc(t.erro)}</span>`:""}</div>${run||t.status==="na_fila"?barraHTML(t.progresso):""}</div>`}).join(""):'<div class="vazio">Nada na fila</div>'}
+async function atualizarFila(){
+ let aviso=$("#fila-aviso");if(!aviso){aviso=document.createElement("div");aviso.id="fila-aviso";aviso.className="muted";aviso.setAttribute("role","status");$("#fila").before(aviso)}
+ try{const j=await api("/api/fila");$("#ocr-lang").textContent=j.idioma_ocr?`OCR: ${j.idioma_ocr==="por"?"português":j.idioma_ocr}`:"";
+  $("#fila").innerHTML=CPJFilaProgresso.html(CPJFilaProgresso.calcular(j.trabalhos),{esc,badge,barraHTML});aviso.textContent="";return j;
+ }catch(e){aviso.textContent=`Não foi possível atualizar a fila: ${e.message}. Os últimos dados continuam visíveis.`;throw e}
+}
 
 
 
@@ -1014,7 +1029,7 @@ let tq;$("#q-casos").oninput=()=>{clearTimeout(tq);tq=setTimeout(carregarCasos,2
 async function carregarCasos(){const cs=await api(`/api/casos?q=${enc($("#q-casos").value)}&status=${$("#st-casos").value}&prazo=${$("#pz-casos").value}&meus=${$("#meus-casos").checked?1:""}`);
  cs.sort(compararNumeroOS);
 
- $("#casos-vazio").hidden=!!cs.length;$("#t-casos").innerHTML=cs.map(c=>`<tr data-id="${esc(c.id)}"><td><b>${esc(c.ordem_servico||c.id)}</b>${!c.visto&&pode("trabalho")?' <span class="badge b-wait"><i aria-hidden="true"></i>nova</span>':""}${c.prioridade&&c.prioridade!=="normal"?` <span class="badge pz-hoje">${esc(c.prioridade)}</span>`:""}</td>
+ $("#casos-vazio").hidden=!!cs.length;$("#t-casos").innerHTML=cs.map(c=>`<tr class="${c.status==="entregue"?"caso-entregue":""}" data-id="${esc(c.id)}"><td><b>${esc(c.ordem_servico||c.id)}</b>${!c.visto&&pode("trabalho")?' <span class="badge b-wait"><i aria-hidden="true"></i>nova</span>':""}${c.prioridade&&c.prioridade!=="normal"?` <span class="badge pz-hoje">${esc(c.prioridade)}</span>`:""}</td>
 
  <td>${esc(c.bo||"—")}<br><span class="muted">${esc(c.inquerito||"")}</span></td><td>${esc([...c.vitimas,...c.investigados].slice(0,3).join("; ")||"—")}</td><td>${esc(c.modalidade||"—")}</td>
 
@@ -1072,7 +1087,7 @@ function renderPendencias(){
       <td><input type="checkbox" class="pend-chk" data-idx="${idx}" checked></td>
       <td><b>${esc(i.os)}</b></td>
       <td>${esc(i.arquivo)}</td>
-      <td>${i.status?badge(i.status):(i.erro?badge("erro"):esc("-"))}${i.erro?` <span style="color:var(--crit)">${esc(i.erro)}</span>`:""}</td>
+      <td>${i.status?badge(i.status):(i.erro?badge("erro"):esc("-"))}${i.erro?` <span style="color:var(--crit)">${esc(i.erro)}</span>`:""}${i.motivo?` <span style="color:var(--crit)">${esc(i.motivo)}</span>`:""}</td>
     </tr>
   `).join("");
   
@@ -1138,10 +1153,13 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
  const proc=(j.processamento.trabalhos||[]).map(t=>`<div class="job"><div class="l1"><span>${esc(t.arquivo)} · <span class="muted">${esc(t.etapa||"")}</span></span><span>${badge(t.status)} ${T?`<button class="btn sm" data-rep="${esc(t.doc)}">reprocessar</button>`:""}</span></div>${["processando","na_fila"].includes(t.status)?barraHTML(t.progresso):""}${t.erro?`<div class="muted" style="color:var(--crit)">${esc(t.erro)}</div>`:""}</div>`).join("");
 
  const link=a=>`/arquivo/${enc(id)}/${a.split("/").map(enc).join("/")}`;
+ const pastaArquivo=a=>T&&j.local===true?`<button class="btn sm" data-pasta-arquivo="${esc(a)}" title="Mostrar ${esc(a)} no Explorador de Arquivos">Abrir na pasta</button>`:"";
 
- const rels=j.relatorios.map(f=>{const a="03-relatorios/"+f.arquivo,dx=/\.docx$/i.test(f.arquivo),visual=dx||/\.pdf$/i.test(f.arquivo);return `<tr><td><a class="lk" href="${link(a)}" target="_blank">${esc(f.arquivo)}</a></td><td>${esc(f.tipo)}</td><td class="muted">${esc(f.modificado.replace("T"," "))}</td>
+ const linhaRelatorio=f=>{const a="03-relatorios/"+f.arquivo,dx=/\.docx$/i.test(f.arquivo),visual=dx||/\.pdf$/i.test(f.arquivo);return `<tr><td><a class="lk" href="${link(a)}" target="_blank">${esc(f.arquivo)}</a></td><td>${esc(f.tipo)}</td><td class="muted">${esc(f.modificado.replace("T"," "))}</td>
 
-  <td>${visual?`<button class="btn sm" data-visualizar="${esc(f.arquivo)}" title="Visualizar relatório no sistema">Visualizar</button> `:""}${T&&f.tipo==="minuta"?`<button class="btn sm" data-edit="${esc(f.arquivo)}">editar</button> <button class="btn sm" data-gdocx="${esc(f.arquivo)}">gerar DOCX</button>`:""}${T&&dx?`<button class="btn sm" data-pdf="${esc(f.arquivo)}">PDF</button> ${j.local!==false?`<button class="btn sm" data-word="${esc(a)}">abrir no Word</button>`:""} ${f.tipo!=="final"?`<button class="btn sm" data-final="${esc(f.arquivo)}">definir FINAL</button>`:""} <button class="btn sm" data-calibrar="${esc(f.arquivo)}" title="Calibrar estilo com este relatório">calibrar estilo</button>`:""}</td></tr>`}).join("");
+  <td>${pastaArquivo(a)} ${visual?`<button class="btn sm" data-visualizar="${esc(f.arquivo)}" title="Visualizar relatório no sistema">Visualizar</button> `:""}${T&&f.tipo==="minuta"?`<button class="btn sm" data-edit="${esc(f.arquivo)}">editar</button> <button class="btn sm" data-gdocx="${esc(f.arquivo)}">gerar DOCX</button>`:""}${T&&dx?`<button class="btn sm" data-pdf="${esc(f.arquivo)}">PDF</button> ${j.local!==false?`<button class="btn sm" data-word="${esc(a)}">abrir no Word</button>`:""} ${f.tipo!=="final"?`<button class="btn sm" data-final="${esc(f.arquivo)}">definir FINAL</button>`:""} <button class="btn sm" data-calibrar="${esc(f.arquivo)}" title="Calibrar estilo com este relatório">calibrar estilo</button>`:""}</td></tr>`};
+ const rels=[["relatorios-docx","Word (DOCX)",true],["relatorios-outros","Outros relatórios",false]].map(([grupo,titulo,docx])=>{const arquivos=j.relatorios.filter(f=>/\.docx$/i.test(f.arquivo)===docx);return arquivos.length?`<section id="${grupo}"><h5>${titulo}</h5><table><tbody>${arquivos.map(linhaRelatorio).join("")}</tbody></table></section>`:""}).join("");
+ const arqs=[["arquivos-docx","Word (DOCX)",true],["arquivos-outros","Outros arquivos",false]].map(([grupo,titulo,docx])=>{const arquivos=j.arquivos.filter(a=>/\.docx$/i.test(a.caminho)===docx);return arquivos.length?`<section id="${grupo}"><h5>${titulo}</h5>${arquivos.map(a=>`<div><a href="${link(a.caminho)}" target="_blank">${esc(a.caminho)}</a><span class="muted">${kb(a.tamanho)}</span>${pastaArquivo(a.caminho)}</div>`).join("")}</section>`:""}).join("");
 
  const baixa=c.status==="entregue"?`<div>${badge("concluido")} Baixa em <b>${dt((c.datas||{}).entregue)}</b> · origem: ${esc((c.baixa||{}).origem||"—")} ${T?'<button class="btn sm" id="b-desfazer">Desfazer baixa</button>':""}</div>`
 
@@ -1157,7 +1175,7 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
  ${T?`<div class="card" id="nv-ia" style="margin-top:14px;background:var(--page)"><h4>Inteligência artificial</h4><div class="acoes" style="margin:0 0 8px">
   <button class="btn" id="b-transcricao-visual">Transcrever páginas a conferir</button>
 
-  <button class="btn pri" data-ia="esteira" style="background:#1b5e20;border-color:#1b5e20;color:#fff;font-weight:600" title="Executa a esteira completa: OCR, RAG, analistas, redação, revisão e DOCX">⚡ Esteira Completa 1-Clique</button><button class="btn" data-ia="analisar">Analisar IP</button><button class="btn pri" data-ia="relatorio">Gerar relatório</button><button class="btn" data-ia="completo">Análise + relatório</button><button class="btn" data-ia="revisar">Revisar relatório</button><button class="btn" id="b-ia-ver-fluxo">Ver Fluxograma</button><a class="btn" href="/api/casos/${enc(id)}/fluxo-csv" target="_blank">Planilha de Rastreio (CSV)</a></div>
+  <button class="btn pri" data-ia="esteira" style="background:#1b5e20;border-color:#1b5e20;color:#fff;font-weight:600" title="Executa a esteira completa: OCR, RAG, analistas, redação, revisão e DOCX">⚡ Esteira Completa 1-Clique</button><button class="btn" data-ia="completo">Analisar IP e gerar relatório</button><button class="btn pri" data-ia="relatorio">Gerar relatório</button><button class="btn" data-ia="revisar">Revisar relatório</button><button class="btn" id="b-ia-ver-fluxo">Ver Fluxograma</button><a class="btn" href="/api/casos/${enc(id)}/fluxo-csv" target="_blank">Planilha de Rastreio (CSV)</a></div>
 
   <div class="campos" style="margin:0 0 8px;grid-template-columns:minmax(0,2fr) minmax(0,1fr)"><div><input id="ia-obs" placeholder="Observações para o agente (opcional): diligências que você fez, consultas, foco pedido pelo delegado…"></div>
 
@@ -1171,7 +1189,7 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
 
  <div class="g2" style="margin-top:14px"><div>
 
-  <h4 id="nv-relatorios">Relatórios</h4>${rels?`<table><tbody>${rels}</tbody></table>`:'<div class="muted">Nenhum relatório ainda.</div>'}${T?'<div class="acoes"><button class="btn sm" id="b-nova-minuta">Escrever/editar minuta</button></div>':""}
+  <h4 id="nv-relatorios">Relatórios</h4>${rels||'<div class="muted">Nenhum relatório ainda.</div>'}${T?'<div class="acoes"><button class="btn sm" id="b-nova-minuta">Escrever/editar minuta</button></div>':""}
 
   <h4 style="margin-top:14px">Produção</h4>${baixa}
 
@@ -1179,7 +1197,7 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
 
   <h4 style="margin-top:14px">Processamento</h4>${T?'<label for="modo-reprocessar">Modo ao reprocessar</label><select id="modo-reprocessar"><option value="rapido">Rápido — somente local</option><option value="inteligente" selected>Inteligente — páginas a conferir</option><option value="ia_completa">IA Completa — todas as páginas</option></select>':""}${proc||'<div class="muted">—</div>'}<div id="cruz"></div></div>
 
- <div><h4>Arquivos</h4><div class="arqs">${j.arquivos.map(a=>`<div><a href="${link(a.caminho)}" target="_blank">${esc(a.caminho)}</a><span class="muted">${kb(a.tamanho)}</span></div>`).join("")||'<span class="muted">—</span>'}</div></div></div></div>`;
+ <div><h4>Arquivos</h4><div class="arqs">${arqs||'<span class="muted">—</span>'}</div></div></div></div>`;
 
  if(rolar||novoCaso)requestAnimationFrame(()=>$("#detalhe").scrollIntoView({behavior:"smooth",block:"start"}));
  const irPara=k=>{const e=$("#"+k);if(e)e.scrollIntoView({behavior:"smooth",block:"start"})};
@@ -1207,6 +1225,7 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;casoAberto=id;
 
  if($("#b-pasta"))$("#b-pasta").onclick=()=>post("/abrir",{}).catch(x=>toast(x.message));
  if($("#b-pasta-relatorios"))$("#b-pasta-relatorios").onclick=()=>post("/abrir",{sub:"03-relatorios"}).catch(x=>toast(x.message));
+ $$("#detalhe [data-pasta-arquivo]").forEach(b=>b.onclick=()=>post("/abrir",{sub:b.dataset.pastaArquivo,selecionar:true}).catch(x=>toast(x.message)));
  $$("#detalhe [data-visualizar]").forEach(b=>b.onclick=()=>visualizarRelatorio(id,b.dataset.visualizar,b));
 
  if($("#b-cruzar"))$("#b-cruzar").onclick=async()=>{const r=await api("/api/cruzar/"+enc(id));$("#cruz").innerHTML=`<h4 style="margin-top:14px">Conexões com outros casos</h4>`+(r.length?`<table><tbody>${r.map(x=>`<tr><td>${esc(x.tipo)}</td><td>${esc(x.valor)}</td><td>também em <b>${esc(x.outro_caso)}</b> (págs. ${esc(x.paginas)})</td></tr>`).join("")}</tbody></table><div class="muted">Indícios de vinculação a verificar nos originais.</div>`:'<div class="muted">Nenhuma conexão encontrada.</div>')};
@@ -2105,6 +2124,12 @@ function grInitEvents(){
 // ---------------- estatísticas
 
 $("#b-ir-export").onclick=()=>{abrirAba("sistema");$("#b-exportar").scrollIntoView({behavior:"smooth"})};
+{
+ const hoje=new Date(),ano=hoje.getFullYear(),mes=String(hoje.getMonth()+1).padStart(2,"0");
+ $("#prod-inicio").value=`${ano}-${mes}-01`;
+ $("#prod-fim").value=`${ano}-${mes}-${String(hoje.getDate()).padStart(2,"0")}`;
+ $("#f-producao").onsubmit=e=>{if($("#prod-inicio").value>$("#prod-fim").value){e.preventDefault();toast("O início do período deve ser anterior ou igual ao fim.")}};
+}
 
 
 
@@ -2696,4 +2721,4 @@ async function grRemoverVinculo(aTipo,aVal,bTipo,bVal,rel){
 
 iniciar();
 
-</script></body></html>
+</script><script src="/static/js/inteligencia-mapa.js?v=ibge5570"></script></body></html>

@@ -211,13 +211,21 @@ def idioma_ocr(env):
 
 
 # ================================================================== autenticação e permissões
-def modo_solo():
-    """Operação solo (config\\solo.json {"ativo": true}): no próprio computador entra direto, sem senha."""
+def usuario_solo_local():
+    """Entrada direta só em loopback/Host local, pelo admin definido em config\\solo.json."""
+    if (request.remote_addr not in ("127.0.0.1", "::1")
+            or request.host.rsplit(":", 1)[0] not in ("127.0.0.1", "localhost", "[::1]")):
+        return None
     try:
         with open(os.path.join(WS, "config", "solo.json"), encoding="utf-8") as f:
-            return bool(json.load(f).get("ativo"))
+            cfg = json.load(f)
+        if not cfg.get("ativo"):
+            return None
+        if "usuario" in cfg and not isinstance(cfg["usuario"], str):
+            return None
+        return auth.usuario_solo(cfg.get("usuario"))
     except (OSError, ValueError, AttributeError):
-        return False
+        return None
 
 
 def usuario():
@@ -225,10 +233,8 @@ def usuario():
     atual = auth.obter_sessao(u, session.get("v")) if u else None
     if u and atual is None:
         session.clear()
-    # Modo solo: só loopback e só pelo endereço local (evita DNS rebinding); acesso pela rede continua com senha.
-    if (atual is None and request.remote_addr in ("127.0.0.1", "::1")
-            and request.host.rsplit(":", 1)[0] in ("127.0.0.1", "localhost", "[::1]") and modo_solo()):
-        atual = auth.usuario_solo()
+    if atual is None:
+        atual = usuario_solo_local()
     return atual
 
 
@@ -472,6 +478,17 @@ def preparar_modo(modo, usuario, pdfs, consentimento=None):
     return EL.criar_consentimento(usuario["login"], aceitos, escopo="transcricao_visual"), None, None
 
 
+def limitacao_ocr(rel):
+    """Alerta quando a extração rodou sem OCR e deixou páginas sem texto; None se não houver ou se o relatório for inválido."""
+    if not isinstance(rel, dict) or not isinstance(rel.get("ferramentas"), dict):
+        return None
+    pendentes = rel.get("pendentes_transcricao_visual") or []
+    if rel["ferramentas"].get("ocr") != "indisponível" or not pendentes:
+        return None
+    return (f"OCR indisponível (Tesseract ou idioma português não encontrado): {len(pendentes)} página(s) sem texto "
+            "ficaram pendentes. Verifique o Tesseract e o pacote de idioma e reprocesse o documento.")
+
+
 def processar(trab, app_logger=None):
     id_, doc, arq = trab["caso"], trab["doc"], trab["arquivo"]
     base = C.caminho(id_)
@@ -527,9 +544,11 @@ def processar(trab, app_logger=None):
         rodar([PY, os.path.join(S_PDF, "dados_json.py"), dest], env, log)
         etapa("registro", progresso=96)
         rel = os.path.join(dest, "relatorio_extracao.json")
+        sem_ocr = None
         if os.path.exists(rel):
             C.importar_ip(id_, rel)
             r = json.load(open(rel, encoding="utf-8"))
+            sem_ocr = limitacao_ocr(r)
             registrar_tratamento(
                 id_,
                 [
@@ -538,8 +557,10 @@ def processar(trab, app_logger=None):
                     f"- Métodos: {r.get('metodos')} · OCR: {r.get('ferramentas', {}).get('ocr')}",
                     f"- Pendentes de transcrição visual: {len(r.get('pendentes_transcricao_visual', []))} · a conferir: {len(r.get('conferir_visualmente', []))}",
                     f"- Saída: `01-extracao\\{doc}\\`",
-                ],
+                ] + ([f"- ATENÇÃO: {sem_ocr}"] if sem_ocr else []),
             )
+            if sem_ocr:
+                atualizar_trabalho(id_, doc, limitacao=" ".join(filter(None, [trab.get("limitacao"), sem_ocr])))
         else:
             c = C.carregar(id_)
             c["documentos"] = [d for d in c.get("documentos", []) if d.get("arquivo") != arq] + [{"arquivo": arq, "pasta": doc, "tipo": ext.lstrip(".")}]
@@ -575,7 +596,7 @@ def processar(trab, app_logger=None):
                     raise
             elif plano:
                 limitacao = "Inteligente concluído apenas localmente: transcrição visual pendente, sem API ativa/aceite."
-                atualizar_trabalho(id_, doc, limitacao=limitacao)
+                atualizar_trabalho(id_, doc, limitacao=" ".join(filter(None, [trab.get("limitacao"), sem_ocr, limitacao])))
                 registrar_tratamento(id_, [f"- {arq}: {limitacao}"])
         atualizar_trabalho(id_, doc, status="concluido", etapa="concluído", fim=agora(), progresso=100)
     except Exception as e:
