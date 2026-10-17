@@ -8,9 +8,10 @@
 |---|---|---|---|
 | UN10 | concluída (código/teste); sem migração real | ver `git log` da branch | `teste_recuperacao_un10.py` 5/5; runner `--rapido --incluir` 5/5 suítes, saída 0 |
 | UN11 | concluída (integração local; sem merge remoto/produção) | merge `8c9241d` + commit de ajustes (ver `git log`) | AST06 27/27, AST07 13/13, AST08 11/11, regressões abaixo |
-| UN12–UN18 | pendentes | — | — |
+| UN12 | concluída com pendência de decisão (identidade/CPF) | `1e65bfd` + este registro | suíte completa 109/112 em `1e65bfd`; 2 falhas explicadas por ambiente e reexecutadas 5/5 e 5/5; 1 suíte falha (decisão); 1 skip |
+| UN13–UN18 | pendentes | — | — |
 
-**Próximo comando seguro:** `python ferramentas/fila-tarefas.py assumir UN12 --agente Claude-unificacao` e preparar o ambiente de testes (QuickJS, Playwright, Tesseract `por`; os dados `por.traineddata` existem localmente em `C:\CPJ - TRABALHOerramentas	essdata`, ignorados pelo Git — usar via `TESSDATA_PREFIX`, sem copiar para o repositório).
+**Próximo comando seguro:** `python ferramentas/fila-tarefas.py assumir UN13 --agente Claude-unificacao` (rascunho do módulo e 14 testes fora do repositório; mover para `app/` e `app/testes/`). Antes (UN12, já feito): preparar o ambiente de testes (QuickJS, Playwright, Tesseract `por`; os dados `por.traineddata` existem localmente em `C:\CPJ - TRABALHOerramentas	essdata`, ignorados pelo Git — usar via `TESSDATA_PREFIX`, sem copiar para o repositório).
 **Autorização pendente:** merge em `main`, troca da branch padrão e instalação/migração operacional (liberação final em UN18). Nada disso foi feito.
 **Processos de teste ativos:** nenhum.
 
@@ -82,3 +83,24 @@ Reprodução do defeito de perda de vínculo manual (fixture fictícia, mesmo sc
 Regressões executadas na integração (saída 0 salvo indicado): AR01, OS-markdown, pendências OCR, OCR indisponível, correlações/mapa, Explorer (dados e UI), FP01, RP01, visualizador de relatórios, fila de O.S. e tarefas, AST05/09/11/12/13/14/15, interface_claude, interface_f01, minuta_campos, painel_plantao, segurança_codex, DOCX F04 (via runner).
 **Falhas conhecidas, tratadas em UN12 (não ocultas):** `teste_casos_status_visual_codex.py` (2 falhas: helper `casoEstaFinalizado`/classe `linha-concluida` — expectativa antiga vs. determinação UX03 "entregue"), `teste_identidade_form_codex.py` (8 subfalhas: cargo/CPF), e dependência ausente `quickjs` em `teste_relatorios_interface_ux01`, `teste_grafo_interface_gf02`, e no teste de `fonte_interface` do AST16 (1 erro), além de modelo DOCX oficial ausente quando o teste é executado direto no worktree (o runner gera o modelo sintético).
 Não executado em UN11: suíte completa, navegador (Playwright ausente), OCR com `por` — ficam para UN12.
+
+
+## UN12 — ambiente reproduzível e suíte completa (17/10/2026)
+
+Ambiente de teste (venv separado, fora do Git): Python 3.12, `quickjs`, Playwright + Edge (`msedge`), Tesseract com `por` (dados em `ferramentas/tessdata`, `TESSDATA_PREFIX`), runner `ferramentas/testar-tudo.py` (sandbox com modelo DOCX sintético). Dados exclusivamente fictícios; nenhum caso real tocado.
+
+Correções por requisito (nenhum teste enfraquecido nem removido): `teste_casos_status_visual_codex.py` reescrito conforme UX03 (somente `entregue` recebe `caso-entregue`; 3 testes) — commit `1e65bfd`.
+
+Suíte completa em `1e65bfd` (worktree sem o brasão ignorado pelo Git): **109/112 suítes aprovadas em 747 s**, saída 1. Falhas e causas:
+
+| Suíte | Causa | Situação |
+|---|---|---|
+| `teste_astra_ast11_ui.py` (clique na aresta) | `static/brasao-pcsp.png` é ignorado pelo Git (`*.png`); no clone/sandbox dá 404, o texto alternativo estoura o cabeçalho fixo (≈390 px) e o canvas sai da viewport de 720 px. Prova: no baseline ASTRA passa (canvas a 468 px); com o script do mapa e os 2 atalhos de menu o canvas desce 75 px (543 px) e o clique cai fora. | Com o brasão presente o teste **original** passa (runner, 5/5). Teste não alterado. |
+| `teste_e2e_f03.py` | O mesmo 404 do brasão (imagem + favicon) = 2 erros de console; o teste exige zero. | Com o brasão presente passa (runner, 5/5). |
+| `teste_identidade_form_codex.py` (8 subfalhas) | Seletor de cargo e máscara de CPF no cadastro não existem em nenhuma linha integrada nem em requisito registrado. | **Pendente de decisão do operador**: implementar a funcionalidade ou aposentar o teste. Teste mantido como está. |
+
+Skip (não conta como aprovação): `teste_executores_rv17.py::test_escrita_nao_altera_original_por_alias` — este Windows nega link simbólico (WinError 1314: sem privilégio); hardlink funciona. Cobertura do bloqueio por alias fica não demonstrada nesta máquina.
+
+Consequência para UN17: o CI (clone limpo) não terá `brasao-pcsp.png`; a suíte do CI precisa fornecer um PNG sintético ou o teste precisa tolerar a ausência, sob decisão registrada. Hoje, em clone limpo, F03 e AST11 falham.
+
+Limites: renderização visual do DOCX não verificável (sem Word/LibreOffice); suíte completa não foi repetida após copiar o brasão (nenhuma mudança funcional no código desde `1e65bfd`; reexecutadas só as 2 suítes afetadas).
