@@ -683,7 +683,7 @@
     }
   }
 
-  // Projeção Equiretangular com correção de cosseno médio para o Brasil (lon: -74.5 a -34.0, lat: 5.8 a -34.2)
+  // Projeção Plate Carrée com correção de cosseno médio para o Brasil (lon: -74.5 a -34.0, lat: 5.8 a -34.2)
   function projetarLatLon(lat, lon) {
     const lonMin = -74.5, lonMax = -34.0;
     const latMax = 5.8, latMin = -34.2;

@@ -285,6 +285,8 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
 
 ## Registro de mudanças
 
+- **16/10/2026 — UN11:** PR19 (ASTRA) integrado à base PR18 na branch `codex/unificacao-cpj`; `index.html` modular com as mudanças do PR18 reaplicadas (Correlações/Mapa, relatório de O.S., destaque de entregue, motivo de pendência). Vínculo manual sobrevive à reindexação (0 → 1 na fixture); exclusivos de `master` avaliados (Docker/PostgreSQL já em `legado/`). Falhas conhecidas de status visual, identidade e QuickJS seguem para UN12. Detalhes e rulings em `revisoes/unificacao-execucao.md`. Sem merge remoto nem instalação.
+
 - **16/10/2026 — UN10:** execução da unificação iniciada na branch `codex/unificacao-cpj`; base Git inventariada e ensaio de recuperação sintético. O restaurador legado sobrescrevia dados posteriores e perdia linha de banco; novo `ferramentas/backup_consistente.py` (snapshot SQLite com WAL, manifesto SHA-256, restauração sem sobrescrever divergentes) com `teste_recuperacao_un10.py`. Sem migração, merge ou instalação. Checkpoint: `revisoes/unificacao-execucao.md`.
 
 - **16/10/2026 — UN02:** aprovação do desenho registrada e plano/prompt para outro agente publicados como referência única; espinha dorsal vinculada ao AGENTS e fila UN10–UN18, sem execução das mudanças de produto.

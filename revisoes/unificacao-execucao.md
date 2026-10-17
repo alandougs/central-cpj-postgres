@@ -7,10 +7,10 @@
 | Tarefa | Estado | Commit/SHA | Testes |
 |---|---|---|---|
 | UN10 | concluída (código/teste); sem migração real | ver `git log` da branch | `teste_recuperacao_un10.py` 5/5; runner `--rapido --incluir` 5/5 suítes, saída 0 |
-| UN11 | próxima | — | — |
+| UN11 | concluída (integração local; sem merge remoto/produção) | merge `8c9241d` + commit de ajustes (ver `git log`) | AST06 27/27, AST07 13/13, AST08 11/11, regressões abaixo |
 | UN12–UN18 | pendentes | — | — |
 
-**Próximo comando seguro:** reservar UN11 (`python ferramentas/fila-tarefas.py assumir UN11 --agente Claude-unificacao`) e integrar `origin/codex/astra-evolucao-20261014` no checkout isolado.
+**Próximo comando seguro:** `python ferramentas/fila-tarefas.py assumir UN12 --agente Claude-unificacao` e preparar o ambiente de testes (QuickJS, Playwright, Tesseract `por`; os dados `por.traineddata` existem localmente em `C:\CPJ - TRABALHOerramentas	essdata`, ignorados pelo Git — usar via `TESSDATA_PREFIX`, sem copiar para o repositório).
 **Autorização pendente:** merge em `main`, troca da branch padrão e instalação/migração operacional (liberação final em UN18). Nada disso foi feito.
 **Processos de teste ativos:** nenhum.
 
@@ -58,3 +58,27 @@ Os scripts legados `backup.ps1`/`restaurar.ps1` e `teste_backup_antigravity.py` 
 ## Limites e skips desta etapa
 
 Nenhum skip na UN10. Não coberto: restauração sobre Central em execução real, volumes grandes, permissões/ACL do Windows em destino de rede.
+
+## UN11 — integração das melhorias (16/10/2026)
+
+Integrado `origin/codex/astra-evolucao-20261014` (f981f90) à branch (base PR18 + UN10) em `8c9241d`. PR18 já era ancestral. Histórias: `master` **não tem ancestral comum** com esta linha (merge-base inexistente), portanto não foi feito merge dela; a comparação foi por árvore.
+
+Decisões de conflito:
+
+| Arquivo | Decisão |
+|---|---|
+| `PRD.md`, `TAREFAS-COMPARTILHADAS.md` | União dos dois lados, sem duplicar parágrafos idênticos (FP01 aparecia nos dois). Linha "Última atualização" recomposta. |
+| `app/static/index.html` | Base = versão modular da ASTRA (CSS/JS externos). Reaplicado o que só o PR18 tinha: regra `caso-entregue` (central.css), abas Correlações/Mapa na Pesquisa e botões no grafo, contêineres `m-correlacoes`/`m-mapa`, cartão "Relatório de O.S. cumpridas" + seu JS (`estatisticas.js`), classe `caso-entregue` na linha (`casos.js`), `motivo` na pendência (`casos.js`), script `inteligencia-mapa.js` por último. `fila-progresso.js` idêntico nos dois lados. |
+
+Rulings:
+- Ruling: `inteligencia-mapa.js` carregado após `bootstrap.js` (mesma posição relativa que o PR18 tinha após `iniciar()`) — custo se errado: mapa/correlações sem handlers; coberto por `teste_correlacoes_mapa_etapa1.py` (passou).
+- Ruling: comentário "Projeção Equiretangular" → "Projeção Plate Carrée" em `inteligencia-mapa.js`, porque `teste_interface_f01` (proibição de frameworks) casa a substring "angular" e agora a verificação expande os scripts. Preferida a ajuste do comentário a enfraquecer o teste. Custo: nenhum funcional.
+- Ruling: `teste_astra_ast16.py` passou a esperar `inteligencia-mapa.js?v=ibge5570` ao final da lista; mantida a verificação de ordem, HTTP 200 e MIME. Requisito vigente (GEO01) exige o script.
+- Ruling: exclusivos de `master` — (a) pilha Docker/PostgreSQL já presente em `legado/postgres-docker` (renomeações idênticas, R100): nada a integrar, contrato vigente é SQLite; (b) `teste_revisao_pr1_f12.py` (correções P1 do PR #1) passa na integração; (c) `ferramentas/tessdata/*.traineddata` só existem em `master` e são ignorados pelo `.gitignore` desta linha: não incorporados; (d) demais diferenças de texto são versões antigas superseded (master é de 28/09). Custo se errado: perder uma correção de master que não tenha teste — mitigação: suíte completa em UN12.
+- Nenhum teste foi removido ou renomeado pela integração (verificado: `git diff --name-status`; zero `D`). 16 testes existentes foram adaptados pela ASTRA (leitor `fonte_interface.py`, fls., sem quebra forçada antes da assinatura, salvar sem DOCX); lidos, mantêm as asserções semânticas.
+
+Reprodução do defeito de perda de vínculo manual (fixture fictícia, mesmo script nas duas revisões): base `782563a` → **0** vínculos após `indexar.py --tudo`; integração → **1** (vínculo preservado na fonte autoritativa de eventos). Script descartável no diretório temporário da sessão; AST06/07/08 aprovados (27, 13, 11 testes).
+
+Regressões executadas na integração (saída 0 salvo indicado): AR01, OS-markdown, pendências OCR, OCR indisponível, correlações/mapa, Explorer (dados e UI), FP01, RP01, visualizador de relatórios, fila de O.S. e tarefas, AST05/09/11/12/13/14/15, interface_claude, interface_f01, minuta_campos, painel_plantao, segurança_codex, DOCX F04 (via runner).
+**Falhas conhecidas, tratadas em UN12 (não ocultas):** `teste_casos_status_visual_codex.py` (2 falhas: helper `casoEstaFinalizado`/classe `linha-concluida` — expectativa antiga vs. determinação UX03 "entregue"), `teste_identidade_form_codex.py` (8 subfalhas: cargo/CPF), e dependência ausente `quickjs` em `teste_relatorios_interface_ux01`, `teste_grafo_interface_gf02`, e no teste de `fonte_interface` do AST16 (1 erro), além de modelo DOCX oficial ausente quando o teste é executado direto no worktree (o runner gera o modelo sintético).
+Não executado em UN11: suíte completa, navegador (Playwright ausente), OCR com `por` — ficam para UN12.
