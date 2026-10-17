@@ -34,7 +34,20 @@ def argumentos():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--rapido", action="store_true", help="roda a regressão mínima")
     ap.add_argument("--incluir", metavar="TESTE", help="inclui teste_*.py na execução rápida")
+    ap.add_argument("--estrito", action="store_true",
+                    help="falha se qualquer teste for pulado por motivo fora de SKIPS_TOLERADOS (uso em CI)")
     return ap.parse_args()
+
+
+# Único tipo de skip aceito em modo estrito: depende de privilégio do sistema operacional (não de ferramenta ausente),
+# e a recusa de link simbólico segue coberta pelos demais testes de caminho. Navegador, OCR, git, PowerShell e
+# quickjs ausentes NÃO são toleráveis: o CI precisa provisioná-los.
+SKIPS_TOLERADOS = (re.compile(r"link simbólico|symlink", re.I),)
+
+
+def motivos_de_skip(texto: str) -> list[str]:
+    """Motivos impressos pelo unittest em modo verboso (`... skipped 'motivo'`)."""
+    return re.findall(r"skipped '([^\n]*)'", texto)
 
 
 def comando_python(script: Path) -> list[str]:
@@ -47,6 +60,8 @@ def clonar_codigo(destino: Path) -> Path:
     (raiz_teste / "plugin").mkdir(parents=True)
     shutil.copytree(PLUGIN, raiz_teste / "plugin" / "investigacao-cpj")
     shutil.copytree(ROOT / "plugin" / ".claude-plugin", raiz_teste / "plugin" / ".claude-plugin")   # marketplace.json faz parte do pacote
+    if (ROOT / ".github").is_dir():      # o teste de CI fiscaliza o workflow
+        shutil.copytree(ROOT / ".github", raiz_teste / ".github")
     shutil.copytree(ROOT / "modelos", raiz_teste / "modelos")
     # Um clone não contém o modelo oficial ignorado pelo Git. Gere somente na sandbox.
     spec = importlib.util.spec_from_file_location("fixtures_docx", TESTES / "fixtures_docx.py")
@@ -157,7 +172,7 @@ def limpar_diretorio_tolerante(pasta: Path, tentativas: int = 5, espera: float =
         pass
 
 
-def rodar_suíte(nome: str) -> tuple[int, float, str]:
+def rodar_suíte(nome: str, extra: tuple[str, ...] = ()) -> tuple[int, float, str]:
     td = tempfile.mkdtemp(prefix=f"cpj-suite-{Path(nome).stem}-")
     raiz_teste = Path(td)
     try:
@@ -169,7 +184,7 @@ def rodar_suíte(nome: str) -> tuple[int, float, str]:
         env["CPJ_SEM_AGENTE_EMBUTIDO"] = "1"
         inicio = time.monotonic()
         try:
-            proc = subprocess.run(comando_python(script), cwd=raiz_teste, env=env,
+            proc = subprocess.run(comando_python(script) + list(extra), cwd=raiz_teste, env=env,
                                   capture_output=True, text=True, encoding="utf-8", errors="replace",
                                   timeout=600)
         except subprocess.TimeoutExpired as e:
@@ -323,6 +338,7 @@ def main() -> int:
     resultados: list[tuple[str, int, float]] = []
     detalhes_falha: list[tuple[str, str]] = []
     pulados: list[tuple[str, str]] = []
+    skips_criticos: list[tuple[str, str]] = []
     for nome in nomes:
         codigo, duracao, detalhe = rodar_suíte(nome)
         resultados.append((nome, codigo, duracao))
@@ -333,6 +349,13 @@ def main() -> int:
         elif re.search(r"skipped=\d+|SkipTest|SKIP|não executado", detalhe):
             resumo = " | ".join(l.strip() for l in detalhe.splitlines() if re.search(r"skipped|SkipTest|SKIP|não executado", l))
             pulados.append((nome, resumo))
+            if args.estrito:
+                motivos = motivos_de_skip(detalhe)
+                if not motivos:      # saída silenciosa: repete a suíte em modo verboso só para conhecer o motivo
+                    _, _, detalhe_v = rodar_suíte(nome, ("-v",))
+                    motivos = motivos_de_skip(detalhe_v)
+                criticos = [m for m in (motivos or ["motivo não identificado"]) if not any(p.search(m) for p in SKIPS_TOLERADOS)]
+                skips_criticos.extend((nome, m) for m in criticos)
 
     if not args.rapido:
         try:
@@ -364,6 +387,11 @@ def main() -> int:
     total = sum(d for _, _, d in resultados)
     falhas = sum(1 for _, codigo, _ in resultados if codigo)
     print(f"\n{len(resultados) - falhas}/{len(resultados)} suítes aprovadas em {total:.2f}s")
+    if skips_criticos:
+        print("\nCOBERTURA CRÍTICA IGNORADA (modo estrito):")
+        for nome, motivo in skips_criticos:
+            print(f"  {nome}: {motivo}")
+        return 1
     return 1 if falhas else 0
 
 

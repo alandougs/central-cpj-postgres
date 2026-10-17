@@ -1,0 +1,122 @@
+# Validação da revisão candidata. Somente leitura do repositório; nenhum segredo, nenhuma publicação e nenhum
+# acesso ao ambiente operacional. Dados exclusivamente fictícios gerados pelas próprias suítes.
+#
+# Capacidades por job (registradas no log de cada um):
+#   sigilo  (ubuntu)  : git, Python 3.12 — varredura de sigilo, portáteis, adaptadores e testes do verificador.
+#   suite   (windows) : Python 3.12 + dependências de requirements-dev.txt (quickjs, Playwright), Node 24.19.0 +
+#                       Playwright 1.62.1 (mesma pilha local), Microsoft Edge (canal msedge), Tesseract 5.4 com
+#                       dados `por` de tessdata_best fixados por commit e SHA-256, PowerShell.
+#   desempenho (windows, só sob demanda): medição comparável baseline × candidato; não bloqueia a regressão.
+name: validacao
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master, codex/unificacao-cpj]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validacao-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: utf-8
+
+jobs:
+  sigilo:
+    name: sigilo, distribuicao e portateis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Capacidades do job
+        run: |
+          python --version
+          git --version
+      - name: Varredura de sigilo da revisao candidata
+        run: python ferramentas/verificar-publicacao.py --ref HEAD
+      - name: Portateis e adaptadores conferem com a fonte
+        run: |
+          python ferramentas/exportar-portatil.py --verificar
+          python ferramentas/configurar-codex.py --verificar
+      - name: Testes do verificador e do workflow
+        run: python plugin/investigacao-cpj/app/testes/teste_publicacao_un17.py
+
+  suite:
+    name: suite completa (Windows, navegador e OCR)
+    runs-on: windows-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "24.19.0"
+          package-manager-cache: false
+      - name: Dependencias Python
+        run: python -m pip install -r requirements-dev.txt
+      - name: Tesseract com idioma por (dados fixados por commit e hash)
+        shell: pwsh
+        run: |
+          choco install tesseract --version 5.4.0.20240606 -y --no-progress
+          if ($LASTEXITCODE) { throw 'Tesseract nao instalado' }
+          $tess = 'C:\Program Files\Tesseract-OCR'
+          $dados = Join-Path $env:RUNNER_TEMP 'tessdata'
+          New-Item -ItemType Directory -Force $dados | Out-Null
+          Copy-Item (Join-Path $tess 'tessdata\eng.traineddata'), (Join-Path $tess 'tessdata\osd.traineddata') $dados
+          $por = Join-Path $dados 'por.traineddata'
+          Invoke-WebRequest -UseBasicParsing -OutFile $por 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/e12c65a915945e4c28e237a9b52bc4a8f39a0cec/por.traineddata'
+          if ((Get-FileHash $por -Algorithm SHA256).Hash.ToLower() -ne '711de9dbb8052067bd42f16b9119967f30bada80d57e2ef24f65d09f531adb04') { throw 'por.traineddata com hash inesperado' }
+          Add-Content $env:GITHUB_PATH $tess
+          Add-Content $env:GITHUB_ENV "TESSDATA_PREFIX=$dados"
+      - name: Runtime Node e Playwright no caminho que as suites esperam
+        shell: pwsh
+        run: |
+          $rt = Join-Path $HOME '.cache/codex-runtimes/codex-primary-runtime/dependencies/node'
+          New-Item -ItemType Directory -Force (Join-Path $rt 'bin') | Out-Null
+          Copy-Item (Get-Command node).Source (Join-Path $rt 'bin/node.exe')
+          npm install --prefix $rt --no-audit --no-fund playwright@1.62.1
+          if ($LASTEXITCODE) { throw 'Playwright nao instalado' }
+      - name: Brasao sintetico (o emblema real fica fora do Git)
+        run: python -c "from PIL import Image; Image.new('RGBA', (120, 120), (255, 255, 255, 255)).save(r'plugin/investigacao-cpj/app/static/brasao-pcsp.png')"
+      - name: Capacidades do job
+        shell: pwsh
+        run: |
+          python --version
+          node --version
+          git --version
+          $PSVersionTable.PSVersion.ToString()
+          tesseract --version
+          $idiomas = (tesseract --list-langs) -join ' '
+          if ($idiomas -notmatch '\bpor\b') { throw "Tesseract sem idioma por: $idiomas" }
+          $edge = Get-Item "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
+          "Edge $($edge.VersionInfo.ProductVersion)"
+          python -c "import quickjs, playwright, reportlab; print('quickjs, playwright e reportlab importados')"
+      - name: Sigilo e distribuicao
+        run: |
+          python ferramentas/verificar-publicacao.py --ref HEAD
+          python ferramentas/exportar-portatil.py --verificar
+          python ferramentas/configurar-codex.py --verificar
+          python plugin/investigacao-cpj/app/testes/teste_distribuicao_un16.py
+      - name: Suite completa em modo estrito (skip fora da lista tolerada reprova)
+        run: python ferramentas/testar-tudo.py --estrito
