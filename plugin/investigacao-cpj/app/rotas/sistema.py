@@ -2,6 +2,7 @@
 """Rotas do sistema: página inicial, IA, agentes de plantão, tarefas, importação/exportação e painel."""
 import json
 import os
+import re
 import subprocess
 import threading
 import time
@@ -12,6 +13,7 @@ import datetime
 from flask import Blueprint, abort, current_app, jsonify, request, send_file, send_from_directory
 from relatorio_producao import preparar, html_relatorio, csv_relatorio
 import plantao as PL
+from fluxo_execucao import ConflitoVersao, TransicaoInvalida
 import rotas.comum as comum
 from rotas.comum import (
     C,
@@ -191,6 +193,161 @@ def api_tarefa_cancelar(tid):
     ok = tarefas.cancelar(tid)
     auditar("tarefa_cancelada", t["titulo"])
     return jsonify({"ok": ok})
+
+
+# ------------------------------------------------------------------ fluxos por O.S. (contrato cpj-fluxos/1)
+SCHEMA_FLUXOS = "cpj-fluxos/1"
+_ID_FLUXO = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+_LIMITE_TEXTO = 300
+
+
+def _param_inteiro(nome, padrao, minimo, maximo):
+    bruto = request.args.get(nome)
+    if bruto is None or bruto == "":
+        return padrao
+    if not re.fullmatch(r"[0-9]{1,6}", bruto) or not minimo <= int(bruto) <= maximo:
+        raise ValueError(f"{nome} deve ser um inteiro entre {minimo} e {maximo}.")
+    return int(bruto)
+
+
+def _texto_operacional(valor, pode):
+    """Texto de erro/diagnóstico só para quem trabalha nos casos; os demais veem apenas o tipo da pendência."""
+    return str(valor or "")[:_LIMITE_TEXTO] if pode else ""
+
+
+def _pendencia(p, pode):
+    out = {"tipo": p.get("tipo"), "etapa": p.get("etapa"), "documento": p.get("documento"),
+           "detalhe": _texto_operacional(p.get("detalhe"), pode), "execucao_id": p.get("execucao_id")}
+    if pode:
+        out["etapa_id"] = p.get("etapa_id")
+        out["etapa_versao"] = p.get("etapa_versao")
+    return out
+
+
+def _item_fluxo(i, u, pode):
+    acoes = [{"acao": "cancelar", "execucao_id": ex["execucao_id"], "versao": ex["versao"]}
+             for ex in i["execucoes"] if pode or ex["solicitante"] == u["login"]]
+    if pode:
+        acoes += [{"acao": "reconciliar", "execucao_id": p["execucao_id"], "etapa_id": p["etapa_id"], "versao": p["etapa_versao"]}
+                  for p in i["pendencias"] if p["tipo"] == "aguardando_operador" and p.get("etapa_id")]
+    progresso = i["progresso"]
+    return {"caso": i["caso"], "execucao_id": i["execucao_id"], "versao": i["versao"], "estado": i["estado"],
+            "etapa": i["etapa"], "progresso": progresso if isinstance(progresso, (int, float)) and 0 <= progresso <= 100 else None,
+            "atualizado_em": i["atualizado_em"], "pendencias": [_pendencia(p, pode) for p in i["pendencias"]],
+            "documentos": i["documentos"], "acoes": acoes}
+
+
+def _execucao_autorizada(execucao_id):
+    """400 para identificador malformado; 404 para inexistente ou de O.S. fora da lista autorizada (sem distinguir)."""
+    if not isinstance(execucao_id, str) or not _ID_FLUXO.fullmatch(execucao_id):
+        abort(400)
+    exe = comum.fluxos().obter(execucao_id)
+    if exe is None or exe["caso"] not in {c["id"] for c in comum.visiveis(request.usuario)}:
+        abort(404)
+    return exe
+
+
+@bp_sistema.get("/api/fluxos")
+@requer("casos")
+def api_fluxos():
+    u = request.usuario
+    try:
+        limite = _param_inteiro("limite", 50, 1, 100)
+        bruto = request.args.get("estado")
+        estados = [x for x in bruto.split(",") if x] if bruto else None
+        cursor = request.args.get("cursor") or None
+        if cursor is not None and len(cursor) > 200:
+            raise ValueError("Cursor inválido.")
+        pagina = comum.fluxos().listar([c["id"] for c in comum.visiveis(u)], limite, cursor, estados)
+    except ValueError as e:
+        return jsonify({"erro": str(e)}), 400
+    pode = auth.pode(u["perfil"], "trabalho")
+    resp = jsonify({"schema": SCHEMA_FLUXOS, "itens": [_item_fluxo(i, u, pode) for i in pagina["itens"]],
+                    "proximo_cursor": pagina["proximo_cursor"]})
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@bp_sistema.get("/api/fluxos/<execucao_id>")
+@requer("casos")
+def api_fluxo(execucao_id):
+    _execucao_autorizada(execucao_id)
+    u = request.usuario
+    pode = auth.pode(u["perfil"], "trabalho")
+    try:
+        pagina = comum.fluxos().etapas_paginadas(execucao_id, _param_inteiro("limite", 50, 1, 100), request.args.get("cursor") or None)
+    except ValueError as e:
+        return jsonify({"erro": str(e)}), 400
+    if pagina is None:
+        abort(404)
+    ex = pagina["execucao"]
+    etapas = [{"id": e["id"], "etapa": e["etapa"], "documento": e["documento"], "estado": e["estado"], "versao": e["versao"],
+               "progresso": e["progresso"], "tentativa": e["tentativa"], "anterior_id": e["anterior_id"], "origem": e["origem"],
+               "detalhe": _texto_operacional(e["detalhe"], pode), "criado_em": e["criado_em"], "atualizado_em": e["atualizado_em"]}
+              for e in pagina["etapas"]]
+    resp = jsonify({"schema": SCHEMA_FLUXOS, "execucao": {
+        "execucao_id": ex["id"], "caso": ex["caso"], "versao": ex["versao"], "estado": ex["estado"], "etapa": ex["etapa"],
+        "atualizado_em": ex["atualizado_em"], "documentos": ex["documentos"],
+        "pendencias": [_pendencia(p, pode) for p in ex["pendencias"]]}, "etapas": etapas, "proximo_cursor": pagina["proximo_cursor"]})
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+def _versao_do_corpo():
+    versao = (request.get_json(silent=True) or {}).get("versao")
+    if type(versao) is not int or versao < 1:
+        return None
+    return versao
+
+
+@bp_sistema.post("/api/fluxos/<execucao_id>/cancelar")
+@requer()
+def api_fluxo_cancelar(execucao_id):
+    exe = _execucao_autorizada(execucao_id)
+    u = request.usuario
+    if not (auth.pode(u["perfil"], "trabalho") or exe["solicitante"] == u["login"]):
+        abort(403)
+    versao = _versao_do_corpo()
+    if versao is None:
+        return jsonify({"erro": "Informe a versão (inteira) da execução exibida."}), 400
+    fx = comum.fluxos()
+    try:
+        res = fx.cancelar_execucao(execucao_id, versao, "cancelamento pelo painel")
+    except ConflitoVersao:
+        atual = fx.obter(execucao_id)
+        return jsonify({"erro": "A execução mudou desde a última atualização. Confira o estado atual e tente de novo.",
+                        "versao_atual": atual["versao"] if atual else None}), 409
+    for e in res["etapas_canceladas"]:       # extração ainda na fila não deve ser processada depois
+        if e["origem"] == "processamento" and e["estado_anterior"] == "na_fila":
+            partes = e["origem_id"].split("|")
+            if len(partes) >= 3:
+                comum.atualizar_trabalho(partes[0], partes[1], status="cancelado", etapa="cancelado pelo painel de fluxos",
+                                         fim=comum.agora())
+    auditar("fluxo_cancelado", f"{exe['caso']}: {execucao_id}")
+    return jsonify({"ok": True, "canceladas": res["canceladas"], "preservadas": res["preservadas"]})
+
+
+@bp_sistema.post("/api/fluxos/<execucao_id>/etapas/<etapa_id>/reconciliar")
+@requer("trabalho")
+def api_fluxo_reconciliar(execucao_id, etapa_id):
+    """Ação do operador sobre etapa `aguardando_operador`: só registra o que ele conferiu; não dispara nova chamada."""
+    exe = _execucao_autorizada(execucao_id)
+    if not isinstance(etapa_id, str) or not _ID_FLUXO.fullmatch(etapa_id):
+        abort(400)
+    etapa = next((e for e in exe["etapas"] if e["id"] == etapa_id), None)
+    if etapa is None:
+        abort(404)
+    d = request.get_json(silent=True) or {}
+    versao, estado, motivo = d.get("versao"), d.get("estado"), d.get("motivo")
+    if type(versao) is not int or versao < 1 or estado not in ("na_fila", "cancelada") \
+            or not isinstance(motivo, str) or not 3 <= len(motivo.strip()) <= _LIMITE_TEXTO:
+        return jsonify({"erro": "Informe versão, estado (na_fila ou cancelada) e o motivo conferido (3 a 300 caracteres)."}), 400
+    try:
+        nova = comum.fluxos().reconciliar(etapa_id, versao, estado, motivo.strip())
+    except (ConflitoVersao, TransicaoInvalida) as e:
+        return jsonify({"erro": str(e), "versao_atual": etapa["versao"]}), 409
+    auditar("fluxo_reconciliado", f"{exe['caso']}: {etapa_id} -> {estado}")
+    return jsonify({"ok": True, "estado": nova["estado"], "versao": nova["versao"]})
 
 
 @bp_sistema.post("/api/exportar")

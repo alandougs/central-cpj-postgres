@@ -360,7 +360,7 @@ class Fluxos:
                 raise KeyError(f"Execução inexistente: {execucao_id}")
             if versao is not None and ex["versao"] != versao:
                 raise ConflitoVersao(f"versão {versao} obsoleta; atual {ex['versao']}")
-            t, canceladas, preservadas = agora(), 0, 0
+            t, canceladas, preservadas, lista = agora(), 0, 0, []
             for e in c.execute("SELECT * FROM fluxos_etapas WHERE execucao_id=?", (execucao_id,)).fetchall():
                 if e["estado"] in TERMINAIS:
                     preservadas += 1
@@ -373,8 +373,10 @@ class Fluxos:
                               "etapa='cancelamento solicitado', fim=CASE WHEN estado='pendente' THEN ? ELSE fim END "
                               "WHERE id=? AND estado IN ('pendente','executando')", (t, e["origem_id"].split("#t")[0]))
                 canceladas += 1
+                lista.append({"id": e["id"], "origem": e["origem"], "origem_id": e["origem_id"], "documento": e["documento"],
+                              "estado_anterior": e["estado"]})
             self._tocar(c, execucao_id, t)
-        return {"execucao_id": execucao_id, "canceladas": canceladas, "preservadas": preservadas}
+        return {"execucao_id": execucao_id, "canceladas": canceladas, "preservadas": preservadas, "etapas_canceladas": lista}
 
     def proximas(self, limite: int = 10) -> list[dict]:
         """Etapas na fila elegíveis e sem reserva, por prioridade (maior primeiro), entrada e ID."""
@@ -551,7 +553,7 @@ class Fluxos:
         for e in sorted(vig, key=lambda x: (ETAPAS.index(x["etapa"]), x["documento"] or "")):
             if e["estado"] in ("aguardando_operador", "falhou"):
                 pend.append({"tipo": e["estado"], "etapa": e["etapa"], "documento": e["documento"],
-                             "detalhe": e["detalhe"], "etapa_id": e["id"]})
+                             "detalhe": e["detalhe"], "etapa_id": e["id"], "etapa_versao": e["versao"]})
         if exe["tipo"] != "legado" and estado not in ("cancelada", "concluida") and vig:
             for o in ETAPAS:
                 if not any(e["etapa"] == o for e in vig):
@@ -592,10 +594,14 @@ class Fluxos:
         except Exception:
             raise ValueError("Cursor inválido.") from None
 
-    def listar(self, casos_permitidos: list[str], limite: int = 50, cursor: str | None = None) -> dict:
-        """Um item por O.S. autorizada: a execução ativa mais recente (ou, sem ativa, a mais recente)."""
+    def listar(self, casos_permitidos: list[str], limite: int = 50, cursor: str | None = None,
+               estados: list[str] | None = None) -> dict:
+        """Um item por O.S. autorizada: a execução ativa mais recente (ou, sem ativa, a mais recente). Pendências,
+        documentos e estado consideram todas as execuções ativas da O.S., para que nada fique escondido por outra mais nova."""
         if type(limite) is not int or not 1 <= limite <= LIMITE_MAX:
             raise ValueError(f"limite deve estar entre 1 e {LIMITE_MAX}.")
+        if estados is not None and (not isinstance(estados, (list, tuple, set)) or not set(estados) <= set(ESTADOS)):
+            raise ValueError("estado inválido.")
         apos = self._decodificar(cursor) if cursor else None
         casos = sorted({c for c in casos_permitidos if isinstance(c, str) and c})
         escolhidas = []
@@ -609,7 +615,17 @@ class Fluxos:
                 for caso, execs in por_caso.items():
                     todas = [self._execucao(c, r) for r in execs]
                     ativas = [e for e in todas if e["estado"] not in ("concluida", "cancelada")]
-                    escolhidas.append((ativas or todas)[-1])
+                    principal = dict((ativas or todas)[-1])
+                    grupo = ativas or [principal]
+                    if ativas:
+                        principal["estado"] = next((s for s in PRECEDENCIA if any(e["estado"] == s for e in ativas)), principal["estado"])
+                    principal["pendencias"] = [dict(p, execucao_id=e["id"]) for e in grupo for p in e["pendencias"]]
+                    principal["documentos"] = sorted({d for e in grupo for d in e["documentos"]})
+                    principal["execucoes"] = [{"execucao_id": e["id"], "versao": e["versao"], "estado": e["estado"],
+                                               "solicitante": e["solicitante"]} for e in ativas]
+                    escolhidas.append(principal)
+        if estados is not None:
+            escolhidas = [e for e in escolhidas if e["estado"] in set(estados)]
         escolhidas.sort(key=lambda e: (-e["prioridade"], e["seq"]))
         if apos is not None:
             escolhidas = [e for e in escolhidas if (-e["prioridade"], e["seq"]) > (-apos[0], apos[1])]
@@ -618,9 +634,37 @@ class Fluxos:
         for e in pagina:
             itens.append({"caso": e["caso"], "execucao_id": e["id"], "versao": e["versao"], "estado": e["estado"],
                           "etapa": e["etapa"], "progresso": e["progresso"], "atualizado_em": e["atualizado_em"],
-                          "prioridade": e["prioridade"], "pendencias": e["pendencias"], "documentos": e["documentos"]})
+                          "prioridade": e["prioridade"], "pendencias": e["pendencias"], "documentos": e["documentos"],
+                          "execucoes": e["execucoes"]})
         prox = self._codificar([pagina[-1]["prioridade"], pagina[-1]["seq"]]) if resto and pagina else None
         return {"itens": itens, "proximo_cursor": prox}
+
+    def etapas_paginadas(self, execucao_id: str, limite: int = 50, cursor: str | None = None) -> dict | None:
+        """Histórico completo de etapas/tentativas da execução, em ordem de criação, com cursor opaco."""
+        if type(limite) is not int or not 1 <= limite <= LIMITE_MAX:
+            raise ValueError(f"limite deve estar entre 1 e {LIMITE_MAX}.")
+        apos = 0
+        if cursor:
+            try:
+                v = json.loads(base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)).decode())
+                if type(v) is not int or v < 0:
+                    raise ValueError
+                apos = v
+            except Exception:
+                raise ValueError("Cursor inválido.") from None
+        with self._c() as c:
+            exe = c.execute("SELECT * FROM fluxos_execucoes WHERE id=?", (execucao_id,)).fetchone()
+            if exe is None:
+                return None
+            linhas = c.execute("SELECT * FROM fluxos_etapas WHERE execucao_id=? AND seq>? ORDER BY seq LIMIT ?",
+                               (execucao_id, apos, limite + 1)).fetchall()
+            resumo = self._execucao(c, exe)
+        pagina = linhas[:limite]
+        etapas = [dict(self._resumo_etapa(r), seq=r["seq"]) for r in pagina]
+        prox = self._codificar(pagina[-1]["seq"]) if len(linhas) > limite and pagina else None
+        return {"execucao": {k: resumo[k] for k in ("id", "caso", "solicitante", "versao", "estado", "etapa", "progresso",
+                                                    "atualizado_em", "pendencias", "documentos")},
+                "etapas": etapas, "proximo_cursor": prox}
 
     # ------------------------------------------------------------ importação do legado
     def importar_legado(self) -> dict:

@@ -14,8 +14,8 @@ function pollingAviso(erro){
 }
 function reiniciarPolling(limpar=false){
  clearTimeout(tc);tc=0;polling.geracao++;polling.leituras.forEach(r=>r.controller.abort());polling.leituras.clear();polling.emCurso=null;
- polling.erros=0;polling.erroAgentes=false;polling.ativo=false;polling.ocrAtivo=false;polling.pendente=false;polling.observados.clear();
- if(limpar){["#ia-painel","#lista-tarefas"].forEach(sel=>{const el=$(sel);if(el){el.innerHTML="";delete el._pollingHTML}});const msg=$("#polling-aviso");if(msg)msg.textContent="";const b=$("#polling-retentar");if(b)b.hidden=true;const chip=$("#chip-tarefas");if(chip)chip.textContent="tarefas: —"}
+ if(typeof FilaUnificada!=="undefined")FilaUnificada.invalidar();polling.erros=0;polling.erroAgentes=false;polling.ativo=false;polling.ocrAtivo=false;polling.pendente=false;polling.observados.clear();
+ if(limpar){if(typeof FilaUnificada!=="undefined")FilaUnificada.limpar();["#ia-painel","#lista-tarefas"].forEach(sel=>{const el=$(sel);if(el){el.innerHTML="";delete el._pollingHTML}});const msg=$("#polling-aviso");if(msg)msg.textContent="";const b=$("#polling-retentar");if(b)b.hidden=true;const chip=$("#chip-tarefas");if(chip)chip.textContent="tarefas: —"}
 }
 function lerAtualizacao(url){
  if(polling.leituras.has(url))return polling.leituras.get(url).promise;
@@ -54,6 +54,7 @@ async function ciclo(){
    await atualizarTarefas(ts);if(!atual())return;
    if($("#nova").classList.contains("on")||$("#inicio").classList.contains("on")||polling.ocrAtivo){const fila=await atualizarFila();if(fila)polling.ocrAtivo=fila.trabalhos.some(t=>["processando","na_fila"].includes(t.status))}
    if(!atual())return;
+   if($("#inicio").classList.contains("on")&&typeof FilaUnificada!=="undefined"&&pode("casos")){await FilaUnificada.atualizarPainel();if(!atual())return}
    if($("#pendencias").classList.contains("on"))await carregarPendencias();
    if(!atual())return;
    if(casoAberto&&$("#casos").classList.contains("on"))await atualizarIA(ts);

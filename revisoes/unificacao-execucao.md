@@ -11,9 +11,10 @@
 | UN12 | concluída com pendência de decisão (identidade/CPF) | `1e65bfd` + este registro | suíte completa 109/112 em `1e65bfd`; 2 falhas explicadas por ambiente e reexecutadas 5/5 e 5/5; 1 suíte falha (decisão); 1 skip |
 | UN13 | concluída (somente banco fictício) | ver `git log` | `teste_fluxo_store_un13.py` 15/15; 11 suítes de Plantão/fila/concorrência/consentimento/orçamento com saída 0 |
 | UN14 | concluída (somente banco/workspace fictício) | ver `git log` | `teste_fluxo_execucao_un14.py` 15/15; mutações 7/7 mortas pelos testes certos; 25 suítes de regressão com saída 0 (esteira e E2E F03 via runner) |
-| UN15–UN18 | pendentes | — | — |
+| UN15 | concluída (API + painel, banco/workspace fictício) | ver `git log` | `teste_fila_unificada_un15.py` 15/15; `teste_fila_unificada_un15_ui.py` 5/5; mutações 7/7 mortas (4 API, 3 tela); regressões AST07–AST15, FP01, RV14, RV20, UN13, UN14, esteira e runner rápido sem queda |
+| UN16–UN18 | pendentes | — | — |
 
-**Próximo comando seguro:** `python ferramentas/fila-tarefas.py assumir UN15 --agente Claude-unificacao` (API `/api/fluxos`, contrato `cpj-fluxos/1`, painel `fila-unificada.js`; ler o escopo da UN15 no plano).
+**Próximo comando seguro:** `python ferramentas/fila-tarefas.py assumir UN16 --agente Claude-unificacao` (distribuição/portáteis/`atualizar-plugin.ps1` devem incluir `fluxo_execucao.py`, `fila-unificada.js` e o CSS; mapear as issues #4–#17).
 **Autorização pendente:** merge em `main`, troca da branch padrão e instalação/migração operacional (liberação final em UN18). Nada disso foi feito.
 **Processos de teste ativos:** nenhum.
 
@@ -143,3 +144,23 @@ Limites e riscos abertos:
 - Dois registros por O.S. podem coexistir (execução `legado-importado` e `extracao`); a visão agregada por O.S. é tarefa da UN15.
 - Reserva de plantão vale 1 h, renovada a cada ≥30 s de progresso; a de extração vale 12 h.
 - Concorrência entre processos (duas Centrais no mesmo `plantao.sqlite`) não foi testada.
+
+
+## UN15 — fila única por O.S. e painel (17/10/2026)
+
+Somente leitura no GET; ações só por clique do operador. Nada grava `caso.json`, nada entrega relatório e nenhuma IA é acionada.
+
+- `fluxo_execucao.py`: `listar(..., estados)` agrega as execuções ativas da O.S. (estado pela precedência falhou > aguardando_operador > em_execução > na_fila; documentos e pendências de todas, com `execucao_id`); `etapas_paginadas` (histórico completo por cursor opaco); `cancelar_execucao` devolve as etapas canceladas; pendência passou a carregar `etapa_versao`.
+- `rotas/sistema.py`, contrato `cpj-fluxos/1`: `GET /api/fluxos` (limite 1–100, cursor, `estado=` com validação, 400 para parâmetro inválido), `GET /api/fluxos/<id>` (histórico paginado), `POST /api/fluxos/<id>/cancelar` (dono ou perfil com `trabalho`; exige `versao` inteira; 409 se obsoleta; marca como `cancelado` o trabalho de extração que ainda estava na fila, sem apagar nada), `POST /api/fluxos/<id>/etapas/<etapa>/reconciliar` (perfil `trabalho`; motivo 3–300 caracteres; só `na_fila` ou `cancelada`; não dispara nova chamada). 401 sem sessão, 403 sem `X-CPJ`/perfil, 404 para ID inexistente **ou** de O.S. fora da lista autorizada (sem distinguir), 400 para ID malformado. Perfil sem `trabalho` vê estado e tipo da pendência, mas não o texto operacional/diagnóstico e não recebe ações de reconciliação. `Cache-Control: no-store`.
+- `static/js/fila-unificada.js` (módulo UMD, render puro com `esc`; controlador no Início): uma linha por O.S.; barra só se `progresso` for número válido, senão "progresso não informado"; pendências (OCR aguardando/falha) visíveis na linha; "próximas etapas" só nos detalhes; histórico só é pedido quando o operador abre `<details>`, com "Carregar mais"; cancelar (confirmação) e conferir (formulário com motivo). Uma consulta `/api/fluxos` por ciclo de `polling.js` (e uma ao entrar no Início), com guarda de sequência, descarte de resposta atrasada após troca de usuário/aba oculta, aviso de indisponibilidade mantendo os últimos dados e preservação de detalhes abertos, texto digitado e foco ao redesenhar. Filtro "todas / exigem atenção / em andamento" (a lista mostra até 100 O.S. e avisa se houver mais).
+- `polling.js`: usa `typeof FilaUnificada` (o teste AST15 roda o arquivo numa VM sem `window`; a primeira versão com `window.` quebrava 3 testes e foi corrigida).
+
+Testes: API 15 (contrato, duas tentativas em uma linha, perfil delegado, 400/401/403/404/409, paginação com histórico antigo, GET sem mutação, legados `/api/tarefas` e `/api/fila` intactos, `caso.json` inalterado); navegador 5 (HTML não executa, ordem das respostas, resposta tardia após troca de usuário, aba oculta sem consulta, falha de rede e recuperação, foco/aberto/texto preservados, cancelar e reconciliar). Mutações: sem restrição de texto operacional, sem checagem de dono, ações a perfil sem permissão, sem marcação do checkpoint; HTML sem escape, sem guarda de ordem, sem restauração do texto digitado — todas mortas pelos testes correspondentes.
+
+Limites e riscos abertos:
+- O histórico detalhado é o da execução principal da O.S.; a execução `legado-importado` coexistente aparece apenas agregada na linha (pendências/documentos) e nas ações.
+- `reconciliar → na_fila` não reenfileira: a nova solicitação é ação explícita do operador (UN14).
+- A etapa `recebimento` ainda não é registrada por ninguém; uma O.S. com todas as demais etapas concluídas continua exibindo "próximas etapas".
+- Navegador testado só com Edge (Playwright); nenhuma verificação visual por captura (layout apenas por CSS reaproveitado).
+- A abertura do Início faz uma consulta extra de fluxos (além da do ciclo); duas consultas simultâneas são unificadas por `lerAtualizacao`.
+- Teste de navegador não prova comportamento com milhares de O.S.; o limite é 100 por consulta.

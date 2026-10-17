@@ -26,7 +26,7 @@ async function carregarInicio(){const p=await api("/api/pendencias");
 
  if(pode("trabalho")){$("#n-inicio").hidden=!(p.novas.length+p.vencidos.length+p.hoje.length);$("#n-inicio").textContent=p.novas.length+p.vencidos.length+p.hoje.length}
 
- $("#ini-proc").innerHTML=p.processando.length?p.processando.map(c=>`<div class="job"><div class="l1"><b>${esc(c.ordem_servico||c.id)}</b><span class="muted">${c.progresso_proc??0}%</span></div>${barraHTML(c.progresso_proc)}</div>`).join(""):'<div class="vazio">Nada em processamento</div>'}
+ $("#ini-proc").innerHTML=p.processando.length?p.processando.map(c=>`<div class="job"><div class="l1"><b>${esc(c.ordem_servico||c.id)}</b><span class="muted">${c.progresso_proc??0}%</span></div>${barraHTML(c.progresso_proc)}</div>`).join(""):'<div class="vazio">Nada em processamento</div>';window.FilaUnificada?.atualizarPainel().catch(pollingAviso)}
 
 
 

@@ -96,6 +96,7 @@ textarea{resize:vertical}input:focus-visible,select:focus-visible,textarea:focus
 
 .prog.ind>i{width:30%!important;animation:ind 1.2s infinite ease-in-out}@keyframes ind{0%{margin-left:-30%}100%{margin-left:100%}}
 
+.fluxos-barra{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.fluxo details{margin-top:6px}.fluxo-pends{margin:6px 0;padding-left:18px}.fluxo-reconc{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}.fluxo-reconc input{min-width:200px}.fluxo-hist-tab{width:100%}.fluxo-acoes{margin-top:8px}.fluxo-docs{overflow-wrap:anywhere}
 .job{padding:9px 0;border-bottom:1px solid var(--line)}.job:last-child{border:0}.job .l1{display:flex;justify-content:space-between;gap:8px;align-items:center}
 
 .muted{color:var(--muted);font-size:12.5px}
