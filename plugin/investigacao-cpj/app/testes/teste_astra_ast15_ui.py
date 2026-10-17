@@ -83,6 +83,7 @@ class AtualizacaoUI(AstraFixture,unittest.TestCase):
         await page.route('**/api/tarefas/*/cancelar',r=>r.fulfill({json:{ok:false}}));
         page.removeAllListeners('dialog');page.on('dialog',d=>d.accept());
         await page.locator('#ia-painel [data-cancel]').click();
+        await page.waitForFunction(()=>/não.*cancel|cancelamento.*não/i.test((document.querySelector('#toast')||{}).innerText||''),null,{timeout:5000});
         assert.match(await page.locator('#toast').innerText(),/não.*cancel|cancelamento.*não/i);
         ''')
 

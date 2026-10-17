@@ -120,8 +120,8 @@ class Squad(unittest.TestCase):
             limite=time.monotonic()+10
             while len(list(Path(self.ws).glob('start-*')))<3 and th.is_alive() and time.monotonic()<limite: time.sleep(.05)
             self.assertEqual(len(list(Path(self.ws).glob('start-*'))),3,erros)
-            self.pl.cancelar(job['id']); th.join(12)
-            self.assertFalse(th.is_alive()); self.assertTrue(any('Cancelado' in e for e in erros))
+            self.pl.cancelar(job['id']); th.join(40)      # runner Windows do CI é lento para encerrar a árvore de processos
+            self.assertFalse(th.is_alive(), 'o pedido não terminou após o cancelamento'); self.assertTrue(any('Cancelado' in e for e in erros), erros)
             self.assertEqual(list(Path(self.ws).glob('*.fim')),[])
     def test_logs_api_blocos_independentes(self):
         import executores_llm as EL
