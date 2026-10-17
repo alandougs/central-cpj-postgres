@@ -254,6 +254,8 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
 
 ## Registro de mudanças
 
+- **16/10/2026 — UN10:** execução da unificação iniciada na branch `codex/unificacao-cpj`; base Git inventariada e ensaio de recuperação sintético. O restaurador legado sobrescrevia dados posteriores e perdia linha de banco; novo `ferramentas/backup_consistente.py` (snapshot SQLite com WAL, manifesto SHA-256, restauração sem sobrescrever divergentes) com `teste_recuperacao_un10.py`. Sem migração, merge ou instalação. Checkpoint: `revisoes/unificacao-execucao.md`.
+
 - **16/10/2026 — UN02:** aprovação do desenho registrada e plano/prompt para outro agente publicados como referência única; espinha dorsal vinculada ao AGENTS e fila UN10–UN18, sem execução das mudanças de produto.
 
 - **16/10/2026 — UN01:** diagnóstico do código, GitHub, filas, distribuição e testes; especificação de unificação para revisão do operador. Somente documentação e governança nesta entrega; nenhum merge, alteração de dados de casos ou instalação.
