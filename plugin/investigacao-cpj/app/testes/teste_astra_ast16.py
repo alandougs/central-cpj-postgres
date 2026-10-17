@@ -54,7 +54,7 @@ class Modulos(AstraFixture, unittest.TestCase):
             resources = Recursos(response.get_data(as_text=True))
         self.assertGreater(len(resources.scripts), 1, "Frontend ainda esta no bloco monolitico")
         names = [s.get("src", "").rsplit("/", 1)[-1] for s in resources.scripts]
-        self.assertEqual(names, ["fila-progresso.js", "core.js", "sessao.js", "polling.js", "inicio.js", "recebimento.js", "casos.js", "editor.js", "pesquisa.js", "grafo.js", "estatisticas.js", "sistema.js", "ia-config.js", "llm.js", "fluxograma.js", "vinculos.js", "astra.js", "bootstrap.js", "inteligencia-mapa.js?v=ibge5570"])
+        self.assertEqual(names, ["fila-progresso.js", "core.js", "sessao.js", "polling.js", "fila-unificada.js", "inicio.js", "recebimento.js", "casos.js", "editor.js", "pesquisa.js", "grafo.js", "estatisticas.js", "sistema.js", "ia-config.js", "llm.js", "fluxograma.js", "vinculos.js", "astra.js", "bootstrap.js", "inteligencia-mapa.js?v=ibge5570"])
         self.assertEqual(len(resources.styles), 1)
         for attrs in resources.scripts + resources.styles:
             url = attrs.get("src") or attrs["href"]

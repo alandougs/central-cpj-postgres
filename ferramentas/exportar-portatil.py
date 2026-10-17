@@ -3,9 +3,10 @@
 para uso por qualquer agente/IA (Codex, Gemini, modelos locais, chat) quando o Claude não estiver disponível.
 
 Uso: python exportar-portatil.py      (rode após editar o plugin; o atualizar-plugin.ps1 já chama)
+     python exportar-portatil.py --verificar   (não escreve; 0 = confere, 1 = diverge)
 Não edite portatil\\ à mão: edite o plugin e gere de novo.
 """
-import datetime, os, re, textwrap
+import argparse, datetime, os, re, textwrap
 
 WS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PL = os.path.join(WS, "plugin", "investigacao-cpj")
@@ -90,26 +91,76 @@ def peca(rel):
     return f"## {titulo}\n\n{desc}{txt.strip()}\n"
 
 
-os.makedirs(OUT, exist_ok=True)
-agora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-indice = []
-for nome, titulo, partes in PACOTES:
-    corpo = [f"# {titulo}", "",
-             f"*Arquivo portátil gerado em {agora} a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. "
-             "Não edite aqui — edite o plugin e rode `ferramentas\\exportar-portatil.py`.*", "",
-             "## Regras obrigatórias", "", regras().split("\n", 1)[1].strip(), "",
-             "## Como usar fora do Claude Code", "",
-             "- Onde estiver `/comando`, siga o texto daquele comando abaixo. Onde disser \"skill X\" ou \"agente X\", as instruções estão neste arquivo ou em `portatil\\`.",
-             "- Scripts Python ficam em `plugin\\investigacao-cpj\\skills\\<skill>\\scripts\\` (PowerShell, `python`). Sem execução de comandos, peça ao usuário para rodá-los.",
-             "- Sem subagentes: execute as etapas em sequência.", ""]
-    corpo += [peca(p) for p in partes]
-    open(os.path.join(OUT, f"{nome}.md"), "w", encoding="utf-8").write("\n".join(corpo))
-    indice.append(f"| `{nome}.md` | {titulo} |")
+def gerar(agora):
+    """Conteúdo esperado de cada arquivo de portatil\\, sem escrever nada."""
+    saidas, indice = {}, []
+    for nome, titulo, partes in PACOTES:
+        corpo = [f"# {titulo}", "",
+                 f"*Arquivo portátil gerado em {agora} a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. "
+                 "Não edite aqui — edite o plugin e rode `ferramentas\\exportar-portatil.py`.*", "",
+                 "## Regras obrigatórias", "", regras().split("\n", 1)[1].strip(), "",
+                 "## Como usar fora do Claude Code", "",
+                 "- Onde estiver `/comando`, siga o texto daquele comando abaixo. Onde disser \"skill X\" ou \"agente X\", as instruções estão neste arquivo ou em `portatil\\`.",
+                 "- Scripts Python ficam em `plugin\\investigacao-cpj\\skills\\<skill>\\scripts\\` (PowerShell, `python`). Sem execução de comandos, peça ao usuário para rodá-los.",
+                 "- Sem subagentes: execute as etapas em sequência.", ""]
+        corpo += [peca(p) for p in partes]
+        saidas[f"{nome}.md"] = "\n".join(corpo)
+        indice.append(f"| `{nome}.md` | {titulo} |")
+    saidas["README.md"] = "\n".join([
+        "# Procedimentos portáteis (qualquer agente de IA)", "",
+        f"Gerado em {agora}. Um arquivo autocontido por tarefa. Leia também `..\\AGENTS.md`.", "",
+        "| Arquivo | Tarefa |", "|---|---|", *indice, "",
+        "Atualização: edite `plugin\\investigacao-cpj\\` e rode `python ferramentas\\exportar-portatil.py` "
+        "(ou `ferramentas\\atualizar-plugin.ps1`, que já faz isso).", ""])
+    return saidas
 
-open(os.path.join(OUT, "README.md"), "w", encoding="utf-8").write("\n".join([
-    "# Procedimentos portáteis (qualquer agente de IA)", "",
-    f"Gerado em {agora}. Um arquivo autocontido por tarefa. Leia também `..\\AGENTS.md`.", "",
-    "| Arquivo | Tarefa |", "|---|---|", *indice, "",
-    "Atualização: edite `plugin\\investigacao-cpj\\` e rode `python ferramentas\\exportar-portatil.py` "
-    "(ou `ferramentas\\atualizar-plugin.ps1`, que já faz isso).", ""]))
-print(f"{len(PACOTES)} arquivos portáteis -> {OUT}")
+
+DATA_GERACAO = re.compile(r"(?i)\b(gerado em) \d{4}-\d{2}-\d{2} \d{2}:\d{2}")
+
+
+def normalizar(texto):
+    """Único trecho que pode divergir entre gerações: o carimbo de data/hora (e o fim de linha do Windows)."""
+    return DATA_GERACAO.sub(r"\1 <data>", texto.replace("\r\n", "\n"))
+
+
+def divergencias(saidas):
+    """Arquivos de portatil\\ ausentes, desatualizados ou que sobram em relação à fonte atual."""
+    achados = []
+    for nome, esperado in saidas.items():
+        alvo = os.path.join(OUT, nome)
+        if not os.path.isfile(alvo):
+            achados.append(f"ausente: {nome}")
+        elif normalizar(open(alvo, encoding="utf-8", newline="").read()) != normalizar(esperado):
+            achados.append(f"desatualizado: {nome}")
+    if os.path.isdir(OUT):
+        achados += [f"sobra: {n}" for n in sorted(os.listdir(OUT)) if n.endswith(".md") and n not in saidas]
+    return achados
+
+
+def main(argv=None):
+    global WS, PL, OUT, SK
+    ap = argparse.ArgumentParser(description="Gera portatil\\*.md a partir do plugin investigacao-cpj.")
+    ap.add_argument("--verificar", action="store_true",
+                    help="não escreve: sai com 0 se portatil\\ confere com a fonte (ignorando só o carimbo de geração) e 1 se diverge")
+    ap.add_argument("--workspace", help="raiz CPJ alternativa (testes em cópia fictícia)")
+    args = ap.parse_args(argv)
+    if args.workspace:
+        WS = os.path.abspath(args.workspace)
+        PL = os.path.join(WS, "plugin", "investigacao-cpj")
+        OUT, SK = os.path.join(WS, "portatil"), os.path.join(PL, "skills")
+    saidas = gerar(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+    if args.verificar:
+        achados = divergencias(saidas)
+        for a in achados:
+            print(a)
+        print(f"portatil: {'diverge da fonte' if achados else 'confere com a fonte'} ({len(saidas)} arquivos esperados)")
+        return 1 if achados else 0
+    os.makedirs(OUT, exist_ok=True)
+    for nome, texto in saidas.items():
+        open(os.path.join(OUT, nome), "w", encoding="utf-8").write(texto)
+    print(f"{len(PACOTES)} arquivos portáteis -> {OUT}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

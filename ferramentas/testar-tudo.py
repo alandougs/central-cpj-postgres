@@ -46,6 +46,7 @@ def clonar_codigo(destino: Path) -> Path:
     raiz_teste = destino / "codigo"
     (raiz_teste / "plugin").mkdir(parents=True)
     shutil.copytree(PLUGIN, raiz_teste / "plugin" / "investigacao-cpj")
+    shutil.copytree(ROOT / "plugin" / ".claude-plugin", raiz_teste / "plugin" / ".claude-plugin")   # marketplace.json faz parte do pacote
     shutil.copytree(ROOT / "modelos", raiz_teste / "modelos")
     # Um clone não contém o modelo oficial ignorado pelo Git. Gere somente na sandbox.
     spec = importlib.util.spec_from_file_location("fixtures_docx", TESTES / "fixtures_docx.py")

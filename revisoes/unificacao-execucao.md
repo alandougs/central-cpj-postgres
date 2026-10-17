@@ -12,9 +12,10 @@
 | UN13 | concluída (somente banco fictício) | ver `git log` | `teste_fluxo_store_un13.py` 15/15; 11 suítes de Plantão/fila/concorrência/consentimento/orçamento com saída 0 |
 | UN14 | concluída (somente banco/workspace fictício) | ver `git log` | `teste_fluxo_execucao_un14.py` 15/15; mutações 7/7 mortas pelos testes certos; 25 suítes de regressão com saída 0 (esteira e E2E F03 via runner) |
 | UN15 | concluída (API + painel, banco/workspace fictício) | ver `git log` | `teste_fila_unificada_un15.py` 15/15; `teste_fila_unificada_un15_ui.py` 5/5; mutações 7/7 mortas (4 API, 3 tela); regressões AST07–AST15, FP01, RV14, RV20, UN13, UN14, esteira e runner rápido sem queda |
-| UN16–UN18 | pendentes | — | — |
+| UN16 | concluída (pacote, portáteis e adaptadores; nada instalado) | ver `git log` | `teste_distribuicao_un16.py` 18 (1 skip explícito: link simbólico sem privilégio); mutações 5/5 mortas; AST05–AST17, UN13–UN15 e CL06 aprovados; runner rápido 5/5 |
+| UN17–UN18 | pendentes | — | — |
 
-**Próximo comando seguro:** `python ferramentas/fila-tarefas.py assumir UN16 --agente Claude-unificacao` (distribuição/portáteis/`atualizar-plugin.ps1` devem incluir `fluxo_execucao.py`, `fila-unificada.js` e o CSS; mapear as issues #4–#17).
+**Próximo comando seguro:** `python ferramentas/fila-tarefas.py assumir UN17 --agente Claude-unificacao` (CI `.github/workflows/validacao.yml`, `verificar-publicacao.py`, suíte completa em revisão congelada, E2E e desempenho; tratar o brasão ignorado pelo Git no CI limpo e a decisão pendente sobre `teste_identidade_form_codex`).
 **Autorização pendente:** merge em `main`, troca da branch padrão e instalação/migração operacional (liberação final em UN18). Nada disso foi feito.
 **Processos de teste ativos:** nenhum.
 
@@ -164,3 +165,47 @@ Limites e riscos abertos:
 - Navegador testado só com Edge (Playwright); nenhuma verificação visual por captura (layout apenas por CSS reaproveitado).
 - A abertura do Início faz uma consulta extra de fluxos (além da do ciclo); duas consultas simultâneas são unificadas por `lerAtualizacao`.
 - Teste de navegador não prova comportamento com milhares de O.S.; o limite é 100 por consulta.
+
+
+## UN16 — distribuição fiel à fonte e fila de desenvolvimento (17/10/2026)
+
+Nada foi instalado: o atualizador real (`claude plugin install/update`) não foi executado; só a sintaxe do `.ps1` foi verificada (parser do PowerShell).
+
+- Defeito encontrado e corrigido: a lista de extensões do `atualizar-plugin.ps1` (`.py .md .json .html .png`) não incluía `.js` nem `.css`, mas a interface local (`app/static`, 20 `.js` + 1 `.css`) está dentro do plugin — o atualizador teria abortado com "Arquivo fora do pacote generico".
+- `ferramentas/pacote-plugin.py` (novo; fora da lista original de arquivos da UN16, justificado por "preparação de pacote separada de instalação"): `listar`, `manifesto` e `preparar --destino`. Lista fechada de extensões (+`.js`, `.css`, justificadas pelas 20+1 ocorrências referenciadas por `index.html`); exclusão por diretório (`testes`, `__pycache__`, `casos`, `config`, `00-originais`, `modelos`) e por nome sensível (`.env*`, `assinatura|signature|rubrica|credenc`, `.sqlite/.db/.key/.pem/.pfx/.docx/.pdf/.log/.bak/.zip/.gz`); extensão desconhecida ou link simbólico **recusa** o pacote (código 1) e nada é criado. Manifesto determinístico `cpj-pacote/1` (revisão `git`, árvore do plugin limpa?, SHA-256 e tamanho por arquivo, lista de excluídos com a regra). Hoje: 107 arquivos no pacote.
+- `atualizar-plugin.ps1`: prepara o pacote em área temporária com `pacote-plugin.py preparar`, só então copia para `%LOCALAPPDATA%\CPJ\plugin` (mesmas travas de link/arquivo imprevisto e conferência de hash) e grava `%LOCALAPPDATA%\CPJ\manifesto-plugin.json` fora da pasta do plugin; limpa a área temporária.
+- `exportar-portatil.py`: `--verificar` (não escreve; 0 confere, 1 diverge: ausente/desatualizado/sobra; ignora apenas o carimbo "gerado em" e o fim de linha) e `--workspace` (testes em cópia fictícia). A geração agora é função (`gerar`), sem efeito ao importar. `teste_exportar_portatil_cl06.py` continua aprovado (4/4).
+- `portatil/` estava **desatualizado** (gerado em 14/10): faltavam no texto das regras a assinatura do investigador e as referências "(Fls. N)". Regenerado a partir da fonte; `--verificar` = 0. `configurar-codex.py --verificar` = 0 (12 skills; nenhum adaptador mudou).
+- `testar-tudo.py`: a sandbox passou a copiar `plugin/.claude-plugin/` (o `marketplace.json` pertence ao pacote); sem isso o teste de distribuição não encontrava o arquivo na sandbox.
+- `teste_astra_ast16.py`: a lista de scripts esperada ganhou `fila-unificada.js` depois de `polling.js` (requisito novo da UN15). **A UN15 foi publicada sem esse ajuste** porque a rodada daquela tarefa usou um interpretador sem `quickjs` e não incluiu a AST16; a falha foi pega agora, na rodada de regressão da UN16.
+
+Testes (`teste_distribuicao_un16.py`, 18): pacote real sem recusas e com as sete extensões; módulos novos presentes; todo `.py` não teste do app no pacote e nada de teste/dado local; todo recurso `/static/...` referenciado existe no pacote; atualizador sem lista própria, pacote preparado antes de instalar e sintaxe válida; arquivos sensíveis fictícios (`.env`, `config/*.sqlite`, `casos/`, assinatura, `.docx`, `.pem`, `.pfx`, `.zip`, `.log`, testes, `__pycache__`, PDFs de autos) ficam de fora do pacote e do manifesto; extensão desconhecida recusa sem criar destino; manifesto determinístico, hashes conferem e destino preenchido não é sobrescrito; revisão `git` e árvore limpa/suja; portáteis do repositório conferem; só o carimbo/fim de linha é ignorado; divergência real, arquivo ausente e arquivo sobrando são detectados e `--verificar` não escreve; as regras do `AGENTS.md` (inclusive assinatura, fls., O.S. e estilo do relatório) estão presentes em todos os portáteis; adaptadores Codex conferem, entrada pessoal criada em destino temporário (lista os 12 procedimentos, nenhum diretório pessoal real tocado) e arquivo alheio é preservado. Mutações (5): sem `.js`, sem a regra de assinatura, `preparar` sobrescrevendo, `--verificar` sem comparar conteúdo, `testes` fora das exclusões — todas mortas.
+
+### Issues #4–#17 × tarefas locais × marcos
+
+Marcos distintos (a fila só aceita disponível/em andamento/concluída; os marcos ficam aqui, nada foi alterado no script). **Implementado** = tarefa local concluída na fila; **Testado** = suíte da tarefa aprovada nesta branch em 17/10/2026; **Integrado** = commits presentes em `codex/unificacao-cpj` (PR19 `codex/astra-evolucao-20261014` e PR18 `codex/os-markdown-relatorio-20261014` são ancestrais; PRs no GitHub continuam abertos e **sem merge**); **Homologado** = decisão do operador, pendente em todas.
+
+| Issue | Tarefas locais | Testado nesta branch | Integrado | Homologado |
+|---|---|---|---|---|
+| #4 épico | AST18 (integração PR18) | conjunto abaixo | sim | pendente |
+| #5 Contrato manual | AST05 | ast05 7/7 | sim | pendente |
+| #6 Persistência | AST06, AST60 | ast06 5/5; store 27/27 | sim | pendente |
+| #7 Exclusão seletiva | AST07, AST70 | api 13/13; ui 1/1 | sim | pendente |
+| #8 Evidências | AST08, AST80, AST81 | api 19/19; índice 11/11; ui 1/1 | sim | pendente |
+| #9 Jornada | AST09 | ui 6/6 | sim | pendente |
+| #10 Linguagem natural | AST10 | 12/12 | sim | pendente |
+| #11 Inspetor | AST11, AST110 | api 15/15; ui 3/3 | sim | pendente |
+| #12 Rascunhos | AST12 | 5/5 | sim | pendente |
+| #13 Layout | AST13 | 2/2 | sim | pendente |
+| #14 Paginação | AST14, AST140 | api 15/15; ui 4/4 | sim | pendente |
+| #15 Atualização adaptativa | AST15 | polling 7/7; ui 5/5 | sim | pendente |
+| #16 Módulos | AST16 | 4/4 (após ajuste de ordem dos scripts) | sim | pendente |
+| #17 Homologação técnica | AST17, AST170, AST171, AST172 | e2e 1/1 | sim | pendente |
+
+Nenhuma issue deve ser encerrada por causa desta tabela: "testado" aqui é regressão fictícia na integração, não homologação. Os relatórios de entrada continuam em `revisoes/astra-evolucao-2026-10.md`.
+
+Limites e riscos abertos:
+- O brasão `static/brasao-pcsp.png` é ignorado pelo Git (`.gitignore: *.png`) mas é referenciado por `index.html`: o teste de recursos passa aqui (arquivo local presente) e **falhará em clone limpo/CI** — tratar na UN17 (sintético no CI ou decisão de versionar o emblema).
+- O atualizador real (`.ps1`) não foi executado; o fluxo ponta a ponta (validar com `claude plugin validate`, instalar, conferir versão) fica para a liberação operacional.
+- `portatil/` carrega o instantâneo de `calibracao/licoes-aprendidas.md`; qualquer mudança nele volta a divergir até regerar.
+- Há worktrees Codex locais com um commit cada ainda não integrados (`codex/astra-editor-20261014`, `codex/docx-fls-assinatura-20261014`, `codex/fila-progresso-20261014`); este item segue como registrado na UN11 e não foi tocado na UN16.
