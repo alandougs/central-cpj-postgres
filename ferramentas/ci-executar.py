@@ -12,15 +12,21 @@ import subprocess
 import sys
 
 LINHAS = 40
-LIMITE = 6000
+LIMITE = 8000
 
 
 def escapar(texto):
     return texto.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
 
 
+MARCADORES = ("FALHA", "FAIL:", "ERROR:", "Error", "Traceback", "COBERTURA", "suítes aprovadas", "Testes não executados")
+
+
 def anotacao(rotulo, saida):
-    final = "\n".join(saida.splitlines()[-LINHAS:])[-LIMITE:]
+    """Resumo curto: linhas-chave (falhas, cobertura ignorada, totais) + final da saída, cada linha limitada."""
+    linhas = [l[:200] for l in saida.splitlines()]
+    chaves = [l for l in linhas if any(m in l for m in MARCADORES)][:20]
+    final = "\n".join(chaves + ["--- final da saída ---"] + linhas[-LINHAS:])[:LIMITE]
     return f"::error title={escapar(rotulo).replace(',', '%2C').replace(':', '%3A')}::{escapar(final)}"
 
 
