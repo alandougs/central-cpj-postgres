@@ -274,13 +274,15 @@
       <div class="card" style="margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
           <div>
-            <h3 style="margin:0">Mapa de Referência Offline (Etapa 1)</h3>
-            <p class="muted" style="margin:2px 0 0">Localização municipal aproximada (base IBGE offline) ou coordenada documentada nos autos. Zero requisições externas.</p>
+            <h3 style="margin:0">Mapa Tático de Referência — Malha Oficial IBGE (5.570 Municípios)</h3>
+            <p class="muted" style="margin:2px 0 0">Cartografia vetorial oficial das 27 UFs e sedes municipais do IBGE (100% local, zero requisições externas).</p>
           </div>
-          <div class="acoes" style="margin:0">
-            <button type="button" class="btn sm" id="b-mapa-voltar-radar">Ver Radar de Correlações</button>
-            <button type="button" class="btn sm" id="b-mapa-reset-zoom">Enquadrar Brasil</button>
-            <button type="button" class="btn sm" id="b-mapa-foco-sp">Focar SP / DEINTER 8</button>
+          <div class="acoes" style="margin:0;flex-wrap:wrap">
+            <button type="button" class="btn sm pri" id="b-mapa-fit-pontos" title="Enquadrar automaticamente todos os pontos visíveis">Enquadrar Pontos</button>
+            <button type="button" class="btn sm" id="b-mapa-foco-deinter8" title="Focar na região de Presidente Prudente / DEINTER 8">DEINTER 8</button>
+            <button type="button" class="btn sm" id="b-mapa-foco-sp" title="Focar no Estado de São Paulo">Estado de SP</button>
+            <button type="button" class="btn sm" id="b-mapa-reset-zoom" title="Visão geral do Brasil">Brasil Inteiro</button>
+            <button type="button" class="btn sm" id="b-mapa-voltar-radar">Radar de Correlações</button>
           </div>
         </div>
         <div id="mapa-aviso-desatualizado" hidden class="aviso alerta" style="margin-bottom:8px"></div>
@@ -318,25 +320,39 @@
         </form>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 370px;gap:12px;min-height:540px">
-        <div class="card" style="padding:0;position:relative;overflow:hidden;background:#07101e;border-color:#1e3250;display:flex;flex-direction:column">
-          <svg id="svg-mapa-offline" viewBox="0 0 800 600" role="img" aria-label="Mapa de referência offline do Brasil" style="width:100%;height:500px;display:block;cursor:grab;user-select:none"></svg>
-          <div id="mapa-fanout-box" hidden style="position:absolute;top:12px;left:12px;max-width:340px;max-height:360px;overflow-y:auto;background:rgba(10,18,32,0.96);border:1px solid #38BDF8;border-radius:8px;padding:10px;z-index:5"></div>
-          <div style="padding:8px 12px;border-top:1px solid #1e3250;background:rgba(9,17,30,0.92);font-size:11.5px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
-            <span>
-              <span style="color:#38BDF8;font-weight:700">● PF</span> ·
-              <span style="color:#34D399;font-weight:700">■ PJ</span> ·
-              <span style="border:1px dashed #94A3B8;padding:1px 5px;border-radius:4px">Tracejado = Município aproximado</span> ·
-              <span style="border:1px solid #FBBF24;padding:1px 5px;border-radius:4px;color:#FBBF24">Sólido = Coordenada documentada</span>
+      <div style="display:grid;grid-template-columns:1fr 380px;gap:12px;min-height:580px">
+        <div class="card" style="padding:0;position:relative;overflow:hidden;background:radial-gradient(circle at 55% 55%, #0c1c36 0%, #060d18 85%);border:1px solid #1e3a5f;display:flex;flex-direction:column;box-shadow:inset 0 0 40px rgba(0,0,0,0.65)">
+          <svg id="svg-mapa-offline" viewBox="0 0 800 560" role="img" aria-label="Mapa tático offline do Brasil — Malha IBGE" style="width:100%;height:530px;display:block;cursor:grab;user-select:none"></svg>
+
+          <!-- Controles flutuantes de zoom e indicador de escala -->
+          <div style="position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:4px;z-index:4">
+            <button type="button" class="btn sm" id="b-mapa-zoom-in" title="Aproximar (+)" style="width:32px;height:32px;padding:0;font-weight:700;font-size:16px;background:rgba(10,20,38,0.9);border-color:#284b7a;color:#e2e8f0">+</button>
+            <button type="button" class="btn sm" id="b-mapa-zoom-out" title="Afastar (−)" style="width:32px;height:32px;padding:0;font-weight:700;font-size:16px;background:rgba(10,20,38,0.9);border-color:#284b7a;color:#e2e8f0">−</button>
+            <div id="mapa-zoom-label" style="text-align:center;font-size:10px;color:#94a3b8;background:rgba(6,13,24,0.85);padding:2px 4px;border-radius:4px;border:1px solid #1e3250">1.0×</div>
+          </div>
+
+          <!-- Tooltip tático flutuante -->
+          <div id="mapa-tooltip-hud" hidden style="position:absolute;pointer-events:none;max-width:290px;background:rgba(7,15,28,0.95);border:1px solid #38bdf8;border-radius:7px;padding:8px 10px;z-index:6;box-shadow:0 8px 24px rgba(0,0,0,0.6);font-size:11.5px;color:#f1f5f9"></div>
+
+          <!-- Caixa lateral de detalhamento do agrupamento (leque) -->
+          <div id="mapa-fanout-box" hidden style="position:absolute;top:12px;left:12px;width:310px;max-height:390px;overflow-y:auto;background:rgba(8,16,30,0.95);border:1px solid #38BDF8;border-radius:8px;padding:10px;z-index:5;box-shadow:0 10px 28px rgba(0,0,0,0.65)"></div>
+
+          <div style="padding:8px 12px;border-top:1px solid #1e3250;background:rgba(7,14,26,0.95);font-size:11.5px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;color:#cbd5e1">
+            <span style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span><span style="color:#0ea5e9;font-weight:700">●</span> Pessoa Física (PF)</span>
+              <span><span style="color:#10b981;font-weight:700">◆</span> Pessoa Jurídica (PJ)</span>
+              <span><span style="color:#38bdf8;font-weight:700">◉</span> Agrupamento Municipal (clique para abrir em leque)</span>
+              <span style="border:1px dashed #94A3B8;padding:1px 6px;border-radius:4px;font-size:11px">Município aproximado (IBGE)</span>
+              <span style="border:1px solid #FBBF24;padding:1px 6px;border-radius:4px;color:#FBBF24;font-size:11px">Coordenada documentada</span>
             </span>
-            <span class="muted" id="mapa-meta-licenca">Base IBGE Offline</span>
+            <span class="muted" id="mapa-meta-licenca" style="font-size:11px">Malha Oficial IBGE · 5.570 Municípios</span>
           </div>
         </div>
 
         <div style="display:flex;flex-direction:column;gap:12px">
           <div class="card" id="mapa-inspetor" style="flex:1;overflow-y:auto">
             <h4 style="margin:0 0 6px">Inspetor Geográfico</h4>
-            <p class="muted" id="mapa-inspetor-vazio">Clique em um ponto ou grupo no mapa, ou em um item da lista abaixo, para inspecionar qualificações, precisão, fontes e atalhos.</p>
+            <p class="muted" id="mapa-inspetor-vazio">Clique em qualquer pino, cidade ou item do leque no mapa (ou num registro sem localização abaixo) para abrir a qualificação, precisão, fontes nos autos e os 4 atalhos diretos.</p>
             <div id="mapa-inspetor-conteudo"></div>
           </div>
 
@@ -382,6 +398,7 @@
       estadoMapa.filtros.papel = document.getElementById("mapa-f-papel").value.trim();
       estadoMapa.filtros.uf = document.getElementById("mapa-f-uf").value.trim().toUpperCase();
       estadoMapa.filtros.municipio = document.getElementById("mapa-f-municipio").value.trim();
+      estadoMapa.enquadrarAoCarregar = true;
       carregarMapa();
     });
 
@@ -390,10 +407,12 @@
       estadoMapa.filtros = { caso: "", tipo_pessoa: "", papel: "", uf: "", municipio: "", correlacao_id: "" };
       estadoMapa.selecionado = null;
       estadoMapa.grupoAberto = null;
+      estadoMapa.enquadrarAoCarregar = true;
       carregarMapa();
     });
 
     document.getElementById("b-mapa-voltar-radar").addEventListener("click", () => ativarModoPesquisa("correlacoes"));
+    document.getElementById("b-mapa-fit-pontos").addEventListener("click", () => enquadrarPontosMapa());
     document.getElementById("b-mapa-reset-zoom").addEventListener("click", () => {
       estadoMapa.zoom = 1;
       estadoMapa.panX = 0;
@@ -401,12 +420,13 @@
       desenharSvgMapa();
     });
     document.getElementById("b-mapa-foco-sp").addEventListener("click", () => {
-      // Enquadramento aproximado sobre o Estado de São Paulo / DEINTER 8
-      estadoMapa.zoom = 2.8;
-      estadoMapa.panX = -820;
-      estadoMapa.panY = -740;
-      desenharSvgMapa();
+      enquadrarCaixaLatLon(-25.4, -53.2, -19.7, -44.1);
     });
+    document.getElementById("b-mapa-foco-deinter8").addEventListener("click", () => {
+      enquadrarCaixaLatLon(-23.1, -53.2, -21.1, -49.8);
+    });
+    document.getElementById("b-mapa-zoom-in").addEventListener("click", () => aplicarZoomCentro(1.45));
+    document.getElementById("b-mapa-zoom-out").addEventListener("click", () => aplicarZoomCentro(1 / 1.45));
 
     configurarInteracaoSvgMapa();
   }
@@ -633,7 +653,7 @@
     }
   }
 
-  // ---------------------------------------------------------------- Mapa Offline: Carregamento e Renderização Vetorial
+  // ---------------------------------------------------------------- Mapa Offline: Carregamento e Renderização Vetorial IBGE
 
   async function carregarMapa() {
     const f = estadoMapa.filtros;
@@ -647,22 +667,85 @@
 
     try {
       const res = await chamarApi(`/api/inteligencia/mapa?${qs.toString()}`);
+      const primeiraCarga = !estadoMapa.jaCarregou;
       Object.assign(estadoMapa, res);
+      estadoMapa.jaCarregou = true;
       renderizarPainelMapa();
-      desenharSvgMapa();
+      if (primeiraCarga || estadoMapa.enquadrarAoCarregar || f.correlacao_id) {
+        estadoMapa.enquadrarAoCarregar = false;
+        enquadrarPontosMapa(true);
+      } else {
+        desenharSvgMapa();
+      }
     } catch (e) {
       const insp = document.getElementById("mapa-inspetor-conteudo");
       if (insp) insp.innerHTML = `<div class="aviso alerta">Erro ao carregar mapa offline: ${escHtml(e.message)}</div>`;
     }
   }
 
-  // Projeção Equiretangular calibrada para o território brasileiro (lon: -75 a -33, lat: 6 a -35)
+  // Projeção Equiretangular com correção de cosseno médio para o Brasil (lon: -74.5 a -34.0, lat: 5.8 a -34.2)
   function projetarLatLon(lat, lon) {
-    const lonMin = -75.0, lonMax = -33.0;
-    const latMax = 6.5, latMin = -34.5;
-    const x = ((Number(lon) - lonMin) / (lonMax - lonMin)) * 720 + 40;
-    const y = ((latMax - Number(lat)) / (latMax - latMin)) * 540 + 30;
-    return [ Number(x.toFixed(2)), Number(y.toFixed(2)) ];
+    const lonMin = -74.5, lonMax = -34.0;
+    const latMax = 5.8, latMin = -34.2;
+    const x = ((Number(lon) - lonMin) / (lonMax - lonMin)) * 680 + 60;
+    const y = ((latMax - Number(lat)) / (latMax - latMin)) * 500 + 30;
+    return [Number(x.toFixed(2)), Number(y.toFixed(2))];
+  }
+
+  function enquadrarCaixaLatLon(latMin, lonMin, latMax, lonMax, silencioso) {
+    const [x1, y2] = projetarLatLon(latMin, lonMin);
+    const [x2, y1] = projetarLatLon(latMax, lonMax);
+    const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+    const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+    const w = Math.max(8, maxX - minX);
+    const h = Math.max(8, maxY - minY);
+    const pad = 75;
+    const zx = (800 - pad * 2) / w;
+    const zy = (560 - pad * 2) / h;
+    const z = Math.max(1.0, Math.min(28.0, Math.min(zx, zy)));
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    estadoMapa.zoom = Number(z.toFixed(3));
+    estadoMapa.panX = Number((400 - cx * estadoMapa.zoom).toFixed(2));
+    estadoMapa.panY = Number((280 - cy * estadoMapa.zoom).toFixed(2));
+    if (!silencioso) desenharSvgMapa();
+  }
+
+  function enquadrarPontosMapa() {
+    const grupos = estadoMapa.grupos || [];
+    if (!grupos.length) {
+      estadoMapa.zoom = 1;
+      estadoMapa.panX = 0;
+      estadoMapa.panY = 0;
+      desenharSvgMapa();
+      return;
+    }
+    if (grupos.length === 1) {
+      const g = grupos[0];
+      enquadrarCaixaLatLon(g.lat - 0.8, g.lon - 0.8, g.lat + 0.8, g.lon + 0.8, false);
+      return;
+    }
+    let latMin = Infinity, latMax = -Infinity, lonMin = Infinity, lonMax = -Infinity;
+    grupos.forEach((g) => {
+      if (g.lat < latMin) latMin = g.lat;
+      if (g.lat > latMax) latMax = g.lat;
+      if (g.lon < lonMin) lonMin = g.lon;
+      if (g.lon > lonMax) lonMax = g.lon;
+    });
+    const dLat = Math.max(0.6, (latMax - latMin) * 0.18);
+    const dLon = Math.max(0.6, (lonMax - lonMin) * 0.18);
+    enquadrarCaixaLatLon(latMin - dLat, lonMin - dLon, latMax + dLat, lonMax + dLon, false);
+  }
+
+  function aplicarZoomCentro(fator, refX, refY) {
+    const cx = refX !== undefined ? refX : 400;
+    const cy = refY !== undefined ? refY : 280;
+    const zAnt = estadoMapa.zoom || 1;
+    const zNovo = Math.max(0.85, Math.min(35.0, zAnt * fator));
+    estadoMapa.panX = Number((cx - (cx - estadoMapa.panX) * (zNovo / zAnt)).toFixed(2));
+    estadoMapa.panY = Number((cy - (cy - estadoMapa.panY) * (zNovo / zAnt)).toFixed(2));
+    estadoMapa.zoom = Number(zNovo.toFixed(3));
+    desenharSvgMapa();
   }
 
   function renderizarPainelMapa() {
@@ -692,6 +775,7 @@
         if (bLimparCorr) {
           bLimparCorr.onclick = () => {
             estadoMapa.filtros.correlacao_id = "";
+            estadoMapa.enquadrarAoCarregar = true;
             carregarMapa();
           };
         }
@@ -716,10 +800,10 @@
     const metaLic = document.getElementById("mapa-meta-licenca");
     if (metaLic && estadoMapa.cartografia && estadoMapa.cartografia.metadata) {
       const m = estadoMapa.cartografia.metadata;
-      metaLic.textContent = `${m.fonte || "IBGE"} (${m.versao || "local"}) · ${m.licenca || ""}`;
+      const totM = estadoMapa.cartografia.total_municipios_base || 5570;
+      metaLic.textContent = `Malha Oficial IBGE (${totM} municípios) · ${m.licenca || "Domínio Público"}`;
     }
 
-    // Lista de registros sem localização resolvida
     const badgeSemLoc = document.getElementById("mapa-badge-semloc");
     const listaSemLoc = document.getElementById("mapa-lista-semloc");
     const semLoc = estadoMapa.sem_localizacao || [];
@@ -756,43 +840,138 @@
     }
   }
 
+  function mostrarTooltipMapa(ev, html) {
+    const tip = document.getElementById("mapa-tooltip-hud");
+    const svg = document.getElementById("svg-mapa-offline");
+    if (!tip || !svg) return;
+    const rect = svg.getBoundingClientRect();
+    let left = ev.clientX - rect.left + 14;
+    let top = ev.clientY - rect.top + 14;
+    if (left > rect.width - 260) left = Math.max(10, ev.clientX - rect.left - 250);
+    if (top > rect.height - 110) top = Math.max(10, ev.clientY - rect.top - 95);
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
+    tip.innerHTML = html;
+    tip.hidden = false;
+  }
+
+  function ocultarTooltipMapa() {
+    const tip = document.getElementById("mapa-tooltip-hud");
+    if (tip) tip.hidden = true;
+  }
+
   function desenharSvgMapa() {
     const svg = document.getElementById("svg-mapa-offline");
     if (!svg) return;
+    const z = Math.max(0.85, Number(estadoMapa.zoom) || 1);
+    const invZ = Number((1 / z).toFixed(4));
+    const strokeUf = Number((1.1 / Math.pow(z, 0.75)).toFixed(3));
+    const lblZoom = document.getElementById("mapa-zoom-label");
+    if (lblZoom) lblZoom.textContent = `${z.toFixed(1)}×`;
+
     const ufs = (estadoMapa.cartografia && estadoMapa.cartografia.ufs) || {};
     const grupos = estadoMapa.grupos || [];
     const pontosPorId = Object.fromEntries((estadoMapa.pontos || []).map((p) => [p.id, p]));
 
+    // Contabilizar registros localizados por UF para destacar estados ativos
+    const contagemPorUf = {};
+    grupos.forEach((g) => {
+      if (g.uf) contagemPorUf[g.uf] = (contagemPorUf[g.uf] || 0) + (g.total || 0);
+    });
+
+    // 1) Grade cartográfica sutil (paralelos e meridianos do Brasil)
+    let gradeSvg = "";
+    [-70, -60, -50, -40].forEach((lon) => {
+      const [x] = projetarLatLon(0, lon);
+      gradeSvg += `<line x1="${x}" y1="0" x2="${x}" y2="560" stroke="#132642" stroke-width="${(0.6 / z).toFixed(3)}" stroke-dasharray="${(3 / z).toFixed(2)},${(3 / z).toFixed(2)}" />`;
+    });
+    [0, -10, -20, -30].forEach((lat) => {
+      const [, y] = projetarLatLon(lat, -55);
+      gradeSvg += `<line x1="0" y1="${y}" x2="800" y2="${y}" stroke="#132642" stroke-width="${(0.6 / z).toFixed(3)}" stroke-dasharray="${(3 / z).toFixed(2)},${(3 / z).toFixed(2)}" />`;
+    });
+
+    // 2) Malha vetorial oficial das 27 UFs (IBGE MultiPolygon)
     let ufsSvg = "";
+    let siglasUfSvg = "";
     Object.entries(ufs).forEach(([sigla, info]) => {
-      const poly = info.poligono || [];
-      if (!poly.length) return;
-      const pts = poly.map(([lon, lat]) => projetarLatLon(lat, lon).join(",")).join(" ");
+      const listaPolys = info.poligonos && info.poligonos.length ? info.poligonos : (info.poligono ? [info.poligono] : []);
+      if (!listaPolys.length) return;
+      const qtdUf = contagemPorUf[sigla] || 0;
+      const fillUf = sigla === "SP" ? (qtdUf ? "#16345b" : "#122949") : (qtdUf ? "#132d4e" : "#0b1a2e");
+      const strokeCor = qtdUf ? "#325f96" : "#1f3c63";
+
+      const polysHtml = listaPolys
+        .map((anel) => {
+          const pts = anel.map(([lon, lat]) => projetarLatLon(lat, lon).join(",")).join(" ");
+          return `<polygon points="${pts}" fill="${fillUf}" stroke="${strokeCor}" stroke-width="${strokeUf}" stroke-linejoin="round" />`;
+        })
+        .join("");
+
+      ufsSvg += `<g class="uf-layer" data-uf="${escHtml(sigla)}" data-nome="${escHtml(info.nome || sigla)}" data-qtd="${qtdUf}" style="cursor:pointer;transition:opacity .15s">${polysHtml}</g>`;
+
       const [cx, cy] = projetarLatLon(info.lat, info.lon);
-      ufsSvg += `
-        <g class="uf-layer" data-uf="${escHtml(sigla)}">
-          <polygon points="${pts}" fill="#0f2138" stroke="#234268" stroke-width="1.2" />
-          <text x="${cx}" y="${cy}" fill="#5b7a9d" font-size="9" font-weight="600" text-anchor="middle" dominant-baseline="middle" pointer-events="none">${escHtml(sigla)}</text>
+      const opacidadeSigla = z > 7 ? 0.35 : 0.85;
+      siglasUfSvg += `
+        <g transform="translate(${cx},${cy}) scale(${invZ})" pointer-events="none" opacity="${opacidadeSigla}">
+          <text y="${qtdUf && z < 3.2 ? -3 : 0}" fill="${qtdUf ? "#93c5fd" : "#4b6a8e"}" font-size="9.5" font-weight="700" text-anchor="middle" dominant-baseline="middle" style="text-shadow:0 1px 3px #040911">${escHtml(sigla)}</text>
+          ${qtdUf && z < 3.2 ? `<text y="8" fill="#38bdf8" font-size="8" font-weight="600" text-anchor="middle" dominant-baseline="middle">(${qtdUf})</text>` : ""}
         </g>
       `;
     });
 
+    // 3) Arcos táticos conectando cidades quando há correlação destacada ou caso filtrado em múltiplas cidades
+    let arcosSvg = "";
+    const gruposConexao = grupos.filter((g) => g.destacado_correlacao || estadoMapa.filtros.correlacao_id || estadoMapa.filtros.caso);
+    if (gruposConexao.length >= 2 && gruposConexao.length <= 25) {
+      // Conectar em estrela a partir do grupo de maior concentração para clareza visual
+      const ordenados = gruposConexao.slice().sort((a, b) => b.total - a.total);
+      const origem = ordenados[0];
+      const [x1, y1] = projetarLatLon(origem.lat, origem.lon);
+      for (let i = 1; i < ordenados.length; i++) {
+        const dest = ordenados[i];
+        const [x2, y2] = projetarLatLon(dest.lat, dest.lon);
+        const mx = (x1 + x2) / 2;
+        const my = (y1 + y2) / 2;
+        const dist = Math.hypot(x2 - x1, y2 - y1);
+        const curv = Math.min(45, dist * 0.22);
+        const cxArc = mx;
+        const cyArc = my - curv;
+        arcosSvg += `
+          <path d="M ${x1},${y1} Q ${cxArc},${cyArc} ${x2},${y2}"
+                fill="none" stroke="#fbbf24" stroke-width="${(1.8 * invZ).toFixed(3)}"
+                stroke-dasharray="${(5 * invZ).toFixed(2)},${(4 * invZ).toFixed(2)}"
+                opacity="0.78" pointer-events="none" />
+        `;
+      }
+    }
+
+    // 4) Marcadores de pontos e agrupamentos com escala constante na tela (scale(invZ))
     let gruposSvg = "";
     grupos.forEach((g) => {
       const [x, y] = projetarLatLon(g.lat, g.lon);
       const isCluster = g.total > 1;
       const soCoordDoc = (g.precisoes || []).includes("coordenada_documentada") && !(g.precisoes || []).includes("municipio_aproximado");
       const dash = soCoordDoc ? "" : 'stroke-dasharray="3,2"';
-      const corBorda = g.destacado_correlacao ? "#FBBF24" : soCoordDoc ? "#FBBF24" : "#E2E8F0";
+      const corBorda = g.destacado_correlacao ? "#FBBF24" : soCoordDoc ? "#FBBF24" : "#bae6fd";
 
       if (isCluster) {
-        const raio = Math.min(22, 12 + Math.ceil(Math.log2(g.total + 1) * 3));
+        const raio = Math.min(20, 11 + Math.ceil(Math.log2(g.total + 1) * 2.4));
+        const mostrarCidade = z >= 1.8 || g.total >= 4 || g.destacado_correlacao;
+        const corCluster = g.destacado_correlacao ? "#b45309" : "#0369a1";
+        const corAnel = g.destacado_correlacao ? "#fbbf24" : "#38bdf8";
         gruposSvg += `
-          <g class="mapa-grupo" data-grupo-id="${escHtml(g.id)}" transform="translate(${x},${y})" style="cursor:pointer">
-            <circle r="${raio + 3}" fill="none" stroke="${corBorda}" stroke-width="1.5" ${dash} />
-            <circle r="${raio}" fill="#1E3A8A" stroke="#38BDF8" stroke-width="2" />
-            <text y="1" fill="#FFFFFF" font-size="10.5" font-weight="700" text-anchor="middle" dominant-baseline="middle">${g.total}</text>
-            <title>${escHtml(g.municipio || "")}/${escHtml(g.uf || "")} — ${g.total} registros (${g.pf} PF, ${g.pj} PJ)</title>
+          <g class="mapa-grupo" data-grupo-id="${escHtml(g.id)}" transform="translate(${x},${y}) scale(${invZ})" style="cursor:pointer">
+            <circle r="${raio + 5}" fill="${corAnel}" fill-opacity="0.18" stroke="${corBorda}" stroke-width="1.3" ${dash} />
+            <circle r="${raio}" fill="${corCluster}" stroke="#e0f2fe" stroke-width="1.8" />
+            <text y="0.5" fill="#FFFFFF" font-size="10.5" font-weight="700" text-anchor="middle" dominant-baseline="middle">${g.total}</text>
+            ${
+              mostrarCidade
+                ? `<g transform="translate(0, ${-(raio + 11)})" pointer-events="none">
+                     <rect x="${-Math.min(78, (g.municipio || "").length * 3.3 + 8)}" y="-8" width="${Math.min(156, (g.municipio || "").length * 6.6 + 16)}" height="15" rx="4" fill="rgba(6,13,24,0.88)" stroke="#1e3a5f" stroke-width="0.8" />
+                     <text y="0.5" fill="#e2e8f0" font-size="9.5" font-weight="600" text-anchor="middle" dominant-baseline="middle">${escHtml((g.municipio || "").slice(0, 22))}</text>
+                   </g>`
+                : ""
+            }
           </g>
         `;
       } else {
@@ -800,39 +979,130 @@
         const p = pontosPorId[regId];
         if (!p) return;
         const isPj = p.tipo_pessoa === "PJ";
-        const corPreench = isPj ? "#10B981" : "#0284C7";
+        const corPreench = g.destacado_correlacao ? "#f59e0b" : (isPj ? "#10b981" : "#0ea5e9");
+        const rotuloCurto = z >= 2.2 ? (p.nome || "").slice(0, 20) : (g.municipio || p.nome || "").slice(0, 18);
         gruposSvg += `
-          <g class="mapa-ponto" data-ponto-id="${escHtml(p.id)}" transform="translate(${x},${y})" style="cursor:pointer">
-            <circle r="11" fill="none" stroke="${corBorda}" stroke-width="1.5" ${dash} />
+          <g class="mapa-ponto" data-ponto-id="${escHtml(p.id)}" transform="translate(${x},${y}) scale(${invZ})" style="cursor:pointer">
+            <circle r="11.5" fill="${corPreench}" fill-opacity="0.18" stroke="${corBorda}" stroke-width="1.3" ${dash} />
             ${
               isPj
-                ? `<rect x="-6.5" y="-6.5" width="13" height="13" rx="2" fill="${corPreench}" stroke="#fff" stroke-width="1.2" />`
-                : `<circle r="7" fill="${corPreench}" stroke="#fff" stroke-width="1.2" />`
+                ? `<rect x="-6" y="-6" width="12" height="12" rx="2.5" transform="rotate(45)" fill="${corPreench}" stroke="#ffffff" stroke-width="1.4" />`
+                : `<circle r="6.8" fill="${corPreench}" stroke="#ffffff" stroke-width="1.4" />`
             }
-            <text y="-14" fill="#E2E8F0" font-size="9.5" font-weight="600" text-anchor="middle" pointer-events="none">${escHtml((p.nome || "").slice(0, 18))}</text>
-            <title>${escHtml(p.nome)} (${escHtml(p.tipo_pessoa)}) — ${escHtml(p.municipio || "")}/${escHtml(p.uf || "")}</title>
+            <g transform="translate(0, -17)" pointer-events="none">
+              <rect x="${-Math.min(72, rotuloCurto.length * 3.1 + 7)}" y="-7.5" width="${Math.min(144, rotuloCurto.length * 6.2 + 14)}" height="14" rx="3.5" fill="rgba(6,13,24,0.86)" stroke="#1e3a5f" stroke-width="0.7" />
+              <text y="0.5" fill="#f1f5f9" font-size="9" font-weight="600" text-anchor="middle" dominant-baseline="middle">${escHtml(rotuloCurto)}</text>
+            </g>
           </g>
         `;
       }
     });
 
+    // 5) Leque visual radial no próprio mapa (Spiderfy) quando um agrupamento está aberto
+    let spiderSvg = "";
+    if (estadoMapa.grupoAberto) {
+      const grp = estadoMapa.grupoAberto;
+      const [gx, gy] = projetarLatLon(grp.lat, grp.lon);
+      const membros = (grp.registros_ids || []).map((id) => pontosPorId[id]).filter(Boolean);
+      const visiveisNoLeque = membros.slice(0, 14);
+      const nSat = visiveisNoLeque.length;
+      const raioLequePx = Math.max(54, Math.min(96, 38 + nSat * 4.2));
+
+      visiveisNoLeque.forEach((m, idx) => {
+        const ang = (idx / nSat) * Math.PI * 2 - Math.PI / 2;
+        const sx = Number((Math.cos(ang) * raioLequePx).toFixed(1));
+        const sy = Number((Math.sin(ang) * raioLequePx).toFixed(1));
+        const isPj = m.tipo_pessoa === "PJ";
+        const corSat = isPj ? "#10b981" : "#38bdf8";
+        const sel = estadoMapa.selecionado && estadoMapa.selecionado.id === m.id;
+        spiderSvg += `
+          <g class="mapa-satelite" data-ponto-id="${escHtml(m.id)}" transform="translate(${gx},${gy}) scale(${invZ})" style="cursor:pointer">
+            <line x1="0" y1="0" x2="${sx}" y2="${sy}" stroke="#38bdf8" stroke-width="1.3" stroke-dasharray="3,2" opacity="0.85" />
+            <g transform="translate(${sx},${sy})">
+              <circle r="${sel ? 11 : 8.5}" fill="${corSat}" stroke="${sel ? "#fbbf24" : "#ffffff"}" stroke-width="${sel ? 2.2 : 1.4}" />
+              <text y="14" fill="#f8fafc" font-size="8.5" font-weight="600" text-anchor="middle" style="text-shadow:0 1px 3px #000">${escHtml((m.nome || "").slice(0, 14))}</text>
+            </g>
+          </g>
+        `;
+      });
+    }
+
     svg.innerHTML = `
-      <g id="svg-mapa-viewport" transform="translate(${estadoMapa.panX},${estadoMapa.panY}) scale(${estadoMapa.zoom})">
+      <g id="svg-mapa-viewport" transform="translate(${estadoMapa.panX},${estadoMapa.panY}) scale(${z})">
+        ${gradeSvg}
         ${ufsSvg}
+        ${siglasUfSvg}
+        ${arcosSvg}
         ${gruposSvg}
+        ${spiderSvg}
       </g>
     `;
 
-    svg.querySelectorAll(".mapa-ponto").forEach((el) => {
-      el.addEventListener("click", (ev) => {
+    // Eventos das UFs (hover + clique para enquadrar estado)
+    svg.querySelectorAll(".uf-layer").forEach((el) => {
+      el.addEventListener("mouseenter", (ev) => {
+        const sigla = el.dataset.uf;
+        const nome = el.dataset.nome;
+        const qtd = Number(el.dataset.qtd || 0);
+        mostrarTooltipMapa(
+          ev,
+          `<div><b>${escHtml(nome)} (${escHtml(sigla)})</b></div>
+           <div class="muted">${qtd ? `${qtd} registro(s) localizado(s) neste estado` : "Sem registros filtrados neste estado"} · Duplo clique para focar</div>`
+        );
+      });
+      el.addEventListener("mousemove", (ev) => {
+        const tip = document.getElementById("mapa-tooltip-hud");
+        if (tip && !tip.hidden) mostrarTooltipMapa(ev, tip.innerHTML);
+      });
+      el.addEventListener("mouseleave", ocultarTooltipMapa);
+      el.addEventListener("dblclick", (ev) => {
         ev.stopPropagation();
-        fecharFanoutGrupo();
-        const p = pontosPorId[el.dataset.pontoId];
-        if (p) inspecionarRegistroMapa(p);
+        const sigla = el.dataset.uf;
+        const info = ufs[sigla];
+        if (info && Array.isArray(info.bbox) && info.bbox.length === 4) {
+          enquadrarCaixaLatLon(info.bbox[0], info.bbox[1], info.bbox[2], info.bbox[3], false);
+        }
       });
     });
 
+    // Eventos dos pontos individuais e satélites do leque
+    svg.querySelectorAll(".mapa-ponto, .mapa-satelite").forEach((el) => {
+      el.addEventListener("mouseenter", (ev) => {
+        const p = pontosPorId[el.dataset.pontoId];
+        if (!p) return;
+        mostrarTooltipMapa(
+          ev,
+          `<div><span class="badge">${escHtml(p.tipo_pessoa)}</span> <b>${escHtml(p.nome)}</b></div>
+           <div style="color:#93c5fd;margin-top:2px">${escHtml(p.municipio || "")}/${escHtml(p.uf || "")} · <b>${escHtml(p.caso)}</b></div>
+           <div class="muted" style="margin-top:2px">Condição: ${escHtml(p.papel || "—")} · Clique para inspecionar</div>`
+        );
+      });
+      el.addEventListener("mouseleave", ocultarTooltipMapa);
+      el.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        if (!el.classList.contains("mapa-satelite")) fecharFanoutGrupo();
+        const p = pontosPorId[el.dataset.pontoId];
+        if (p) {
+          inspecionarRegistroMapa(p);
+          desenharSvgMapa();
+        }
+      });
+    });
+
+    // Eventos dos agrupamentos municipais (clusters)
     svg.querySelectorAll(".mapa-grupo").forEach((el) => {
+      el.addEventListener("mouseenter", (ev) => {
+        const grp = grupos.find((x) => x.id === el.dataset.grupoId);
+        if (!grp) return;
+        mostrarTooltipMapa(
+          ev,
+          `<div><b>${escHtml(grp.municipio || "Agrupamento")}/${escHtml(grp.uf || "")}</b></div>
+           <div style="color:#38bdf8;margin-top:2px"><b>${grp.total} registros</b> (${grp.pf} PF · ${grp.pj} PJ)</div>
+           <div class="muted" style="margin-top:2px">O.S.: ${escHtml((grp.casos || []).slice(0, 5).join(", "))}${(grp.casos || []).length > 5 ? "…" : ""}</div>
+           <div style="color:#fbbf24;font-size:10.5px;margin-top:3px">Clique para abrir o leque de envolvidos</div>`
+        );
+      });
+      el.addEventListener("mouseleave", ocultarTooltipMapa);
       el.addEventListener("click", (ev) => {
         ev.stopPropagation();
         const grp = grupos.find((x) => x.id === el.dataset.grupoId);
@@ -848,17 +1118,25 @@
     let iniX = 0, iniY = 0;
 
     svg.addEventListener("mousedown", (e) => {
-      if (e.target.closest(".mapa-ponto, .mapa-grupo")) return;
+      if (e.target.closest(".mapa-ponto, .mapa-grupo, .mapa-satelite")) return;
       arrastando = true;
-      iniX = e.clientX - estadoMapa.panX;
-      iniY = e.clientY - estadoMapa.panY;
+      iniX = e.clientX;
+      iniY = e.clientY;
       svg.style.cursor = "grabbing";
+      ocultarTooltipMapa();
     });
 
     window.addEventListener("mousemove", (e) => {
       if (!arrastando) return;
-      estadoMapa.panX = e.clientX - iniX;
-      estadoMapa.panY = e.clientY - iniY;
+      const rect = svg.getBoundingClientRect();
+      const escX = 800 / (rect.width || 800);
+      const escY = 560 / (rect.height || 560);
+      const dx = (e.clientX - iniX) * escX;
+      const dy = (e.clientY - iniY) * escY;
+      iniX = e.clientX;
+      iniY = e.clientY;
+      estadoMapa.panX = Number((estadoMapa.panX + dx).toFixed(2));
+      estadoMapa.panY = Number((estadoMapa.panY + dy).toFixed(2));
       const vp = document.getElementById("svg-mapa-viewport");
       if (vp) vp.setAttribute("transform", `translate(${estadoMapa.panX},${estadoMapa.panY}) scale(${estadoMapa.zoom})`);
     });
@@ -871,11 +1149,12 @@
 
     svg.addEventListener("wheel", (e) => {
       e.preventDefault();
-      const fator = e.deltaY < 0 ? 1.18 : 0.85;
-      const novoZoom = Math.max(0.7, Math.min(8, estadoMapa.zoom * fator));
-      estadoMapa.zoom = Number(novoZoom.toFixed(3));
-      const vp = document.getElementById("svg-mapa-viewport");
-      if (vp) vp.setAttribute("transform", `translate(${estadoMapa.panX},${estadoMapa.panY}) scale(${estadoMapa.zoom})`);
+      ocultarTooltipMapa();
+      const rect = svg.getBoundingClientRect();
+      const vx = ((e.clientX - rect.left) / (rect.width || 800)) * 800;
+      const vy = ((e.clientY - rect.top) / (rect.height || 560)) * 560;
+      const fator = e.deltaY < 0 ? 1.24 : 0.81;
+      aplicarZoomCentro(fator, vx, vy);
     }, { passive: false });
   }
 
@@ -885,7 +1164,10 @@
       box.hidden = true;
       box.innerHTML = "";
     }
-    estadoMapa.grupoAberto = null;
+    if (estadoMapa.grupoAberto) {
+      estadoMapa.grupoAberto = null;
+      desenharSvgMapa();
+    }
   }
 
   function abrirFanoutGrupo(grupo, pontosPorId) {
@@ -899,7 +1181,7 @@
         <b>${escHtml(grupo.municipio || "Coordenada")}/${escHtml(grupo.uf || "")} (${membros.length})</b>
         <button type="button" class="btn sm" id="b-fecha-fanout">fechar</button>
       </div>
-      <div class="muted" style="font-size:11px;margin-bottom:6px">Agrupamento visual na mesma coordenada (sem deslocamento artificial). Escolha um registro para inspecionar:</div>
+      <div class="muted" style="font-size:11px;margin-bottom:6px">Leque aberto no mapa (${membros.length} registros nesta coordenada municipal). Clique para inspecionar:</div>
       ${membros
         .map(
           (m) => `
@@ -921,11 +1203,15 @@
     box.querySelectorAll("[data-fanout-membro]").forEach((el) => {
       el.addEventListener("click", () => {
         const p = pontosPorId[el.dataset.fanoutMembro];
-        if (p) inspecionarRegistroMapa(p);
+        if (p) {
+          inspecionarRegistroMapa(p);
+          desenharSvgMapa();
+        }
       });
     });
 
     if (membros[0]) inspecionarRegistroMapa(membros[0]);
+    desenharSvgMapa();
   }
 
   function inspecionarRegistroMapa(item) {

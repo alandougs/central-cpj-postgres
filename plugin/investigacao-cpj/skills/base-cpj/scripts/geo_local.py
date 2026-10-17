@@ -19,6 +19,7 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 ARQ_MUNICIPIOS = os.path.join(AQUI, "municipios_br.json")
 
 _CACHE_BASE = None
+_CACHE_MTIME = None
 
 UFS_VALIDAS = {
     "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT",
@@ -70,15 +71,50 @@ def norm_texto(s):
     return re.sub(r"\s+", " ", s.lower()).strip()
 
 
+ABREVIACOES_MUNICIPIO = {
+    "pres prudente": "presidente prudente",
+    "p prudente": "presidente prudente",
+    "pres venceslau": "presidente venceslau",
+    "pres epitacio": "presidente epitacio",
+    "pres bernardes": "presidente bernardes",
+    "s paulo": "sao paulo",
+    "sp capital": "sao paulo",
+    "s b do campo": "sao bernardo do campo",
+    "s bernardo do campo": "sao bernardo do campo",
+    "s caetano do sul": "sao caetano do sul",
+    "s j do rio preto": "sao jose do rio preto",
+    "s jose do rio preto": "sao jose do rio preto",
+    "s j dos campos": "sao jose dos campos",
+    "s jose dos campos": "sao jose dos campos",
+    "b horizonte": "belo horizonte",
+    "r de janeiro": "rio de janeiro",
+}
+
+NOMES_ESTADOS_UF = {
+    "acre": "AC", "alagoas": "AL", "amapa": "AP", "amazonas": "AM", "bahia": "BA",
+    "ceara": "CE", "distrito federal": "DF", "espirito santo": "ES", "goias": "GO",
+    "maranhao": "MA", "mato grosso": "MT", "mato grosso do sul": "MS", "minas gerais": "MG",
+    "para": "PA", "paraiba": "PB", "parana": "PR", "pernambuco": "PE", "piaui": "PI",
+    "rio de janeiro": "RJ", "rio grande do norte": "RN", "rio grande do sul": "RS",
+    "rondonia": "RO", "roraima": "RR", "santa catarina": "SC", "sao paulo": "SP",
+    "sergipe": "SE", "tocantins": "TO",
+}
+
+
 def norm_municipio(s):
     s = norm_texto(s)
     s = re.sub(r"[^a-z0-9\s]", " ", s)
-    return re.sub(r"\s+", " ", s).strip()
+    s = re.sub(r"\s+", " ", s).strip()
+    return ABREVIACOES_MUNICIPIO.get(s, s)
 
 
 def carregar_base_geo():
-    global _CACHE_BASE
-    if _CACHE_BASE is not None:
+    global _CACHE_BASE, _CACHE_MTIME
+    try:
+        mtime = os.path.getmtime(ARQ_MUNICIPIOS)
+    except OSError:
+        mtime = None
+    if _CACHE_BASE is not None and mtime == _CACHE_MTIME:
         return _CACHE_BASE
     with open(ARQ_MUNICIPIOS, encoding="utf-8") as f:
         bruto = json.load(f)
@@ -107,6 +143,7 @@ def carregar_base_geo():
         "por_nome": por_nome,
         "por_ibge": por_ibge,
     }
+    _CACHE_MTIME = mtime
     return _CACHE_BASE
 
 
@@ -149,6 +186,7 @@ def _tentar_extrair_municipio_uf(trecho, base=None):
     limpo = re.sub(r"\[[^\]]*\]", " ", limpo)
     limpo = re.sub(r"\bCEP\s*[:.]?\s*\d{2}\.?\d{3}-?\d{3}\b", " ", limpo, flags=re.IGNORECASE)
     limpo = re.sub(r"\b\d{5}-?\d{3}\b", " ", limpo)
+    limpo = limpo.strip(" ,;:-.")
 
     # 1) Padrão explícito: "Município: X / UF: Y" ou "Cidade: X - Y"
     m_exp = re.search(
@@ -166,7 +204,7 @@ def _tentar_extrair_municipio_uf(trecho, base=None):
     # 2) Padrão clássico final ou intermediário: "<Cidade>/<UF>" ou "<Cidade> - <UF>" ou "<Cidade>, <UF>"
     padroes_uf = [
         re.compile(r"([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'`.-]{1,45}?)\s*[/\-]\s*([A-Za-z]{2})(?:\b|$)"),
-        re.compile(r"(?:,\s*)([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'`.-]{2,45}?)\s+([A-Za-z]{2})\s*$"),
+        re.compile(r"(?:,\s*)([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'`.-]{2,45}?)\s+([A-Za-z]{2})\s*(?:[,;.\-]|$)"),
     ]
     for rx in padroes_uf:
         for m in reversed(list(rx.finditer(limpo))):
@@ -174,17 +212,24 @@ def _tentar_extrair_municipio_uf(trecho, base=None):
             if uf not in UFS_VALIDAS:
                 continue
             bruto_cid = m.group(1).strip(" ,;:-.")
-            # Se houver vírgula antes, pegar o último segmento após vírgula/ponto-e-vírgula
             partes_cid = [p.strip(" -.") for p in re.split(r"[,;]", bruto_cid) if p.strip(" -.")]
             if not partes_cid:
                 continue
             cid = partes_cid[-1]
-            # Remover prefixos de bairro se vierem colados como "Centro - Presidente Prudente"
             if " - " in cid:
                 cid = cid.split(" - ")[-1].strip()
             nm = norm_municipio(cid)
-            if nm and not any( nm.startswith(p) for p in ("rua ", "av ", "avenida ", "travessa ", "alameda ", "rodovia ", "estrada ", "cep ") ):
+            if nm and not any(nm.startswith(p) for p in ("rua ", "av ", "avenida ", "travessa ", "alameda ", "rodovia ", "estrada ", "cep ")):
                 return cid, uf
+
+    # 2b) Padrão "<Cidade>-<Nome do Estado por extenso>" (ex.: "AUGUSTO CORRÊA-PARÁ")
+    m_est = re.search(r"([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'`.-]{2,40}?)\s*[/\-]\s*([A-Za-zÀ-ÿ\s]{4,22})$", limpo)
+    if m_est:
+        uf_ext = NOMES_ESTADOS_UF.get(norm_texto(m_est.group(2)))
+        if uf_ext:
+            partes_cid = [p.strip(" -.") for p in re.split(r"[,;]", m_est.group(1)) if p.strip(" -.")]
+            if partes_cid:
+                return partes_cid[-1], uf_ext
 
     # 3) Procurar menção sem UF nos segmentos separados por vírgula
     segmentos = [p.strip(" .;-") for p in re.split(r"[,;/]", limpo) if p.strip(" .;-")]
