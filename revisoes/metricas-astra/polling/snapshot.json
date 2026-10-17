@@ -1,0 +1,29 @@
+{
+  "created_utc": "2026-10-14T19:26:51.196847+00:00",
+  "source": "C:\\Users\\alan_\\.codex\\worktrees\\astra-evolucao\\CPJ - TRABALHO\\plugin\\investigacao-cpj\\app",
+  "method": "Static code/assets and benchmark utilities only; five-module before override gzip; no operational files",
+  "files": {
+    "app/static/index.html": "d3e31ea63b8b0f8d6eff911136df7778de159bdcacdb5738e3392b5c5890dc22",
+    "app/static/css/central.css": "84b1e2ff309d4a0a0b3558583370b4e79ec8e829bf92d2a21b4e87df28b6aae0",
+    "app/static/js/astra.js": "bf16bb6df4adcd64365673d157e78abcad3080994ccb1c16111c721fc795e305",
+    "app/static/js/bootstrap.js": "aa15594246cb87f49aae1f7500343e21485434ce87d3cab93cb488d75898f7f3",
+    "app/static/js/casos.js": "e83ed66e93ad456312328467869a0a9f40af8ce0da51bc6d4b848716893916e4",
+    "app/static/js/core.js": "d2cbd6586d7e6b9a369d901b50d2a689131771fdb693dd32d2b483421a52f33a",
+    "app/static/js/editor.js": "3d7a84770e3154eb68fb6e54e4e9fb30e4fcd8b49f9a3207c7fe29cc9be14d49",
+    "app/static/js/estatisticas.js": "bcde28125f7f96faa04b5b0721f1f750f4e1361dbe497a5e38b55fe570543c35",
+    "app/static/js/fluxograma.js": "02c18d2a2015b351ed0c58cc9926d385a57106466460295745a960b5dadd11e3",
+    "app/static/js/grafo.js": "5c25b2b71ea0d0ff5a1859fc157fc66d2a4421082ff1afb04b811b92679fae5f",
+    "app/static/js/ia-config.js": "2fb057cf05303bd5464ff9c8f666544c1019e4e580c475c1c9a19416b046e271",
+    "app/static/js/inicio.js": "1d6b03b847859add76b9371dbe189c3be32ace86f04838214a31d16efb259d2d",
+    "app/static/js/llm.js": "5a639518a72afc627cde16b63fbf472632061cdcb0bf515bdfb29f35cc20d252",
+    "app/static/js/pesquisa.js": "f4d6f49b18728108dbb3c51c923e13ea716d3bc644194c05715025afd76adaaf",
+    "app/static/js/polling.js": "5343be45a86dfaf25cc95e49538979713cef6d9f7e7a7d7fdee6585802329294",
+    "app/static/js/recebimento.js": "847d295f827cc101cebfc265ac81c92d33fc4f59873b98e9a3913aaed6d56cf3",
+    "app/static/js/sessao.js": "212078385ae76a5cb9b353b7304c3d452dd75780a63593c66a88f632e53d02c9",
+    "app/static/js/sistema.js": "6bfdc8672cc6ccadad260d5f13e5edd678cb56a0730a1641d8dec5d54a53735d",
+    "app/static/js/vinculos.js": "72fd6c9c632d3169f44f28fc7859881b41e83b1192817ee1d98a95fc9d096c92",
+    "app/testes/astra_polling/antes-fontes.json.gz": "75b5715640469d43bc80ec283b5f481974520c84c4a63c4ce8616018d0bb8d0d",
+    "app/testes/astra_polling/measure.cjs": "b1629071f74c6f00c7b4f141759ea4748d4ed952bd0f089a096a22d4221daa0e",
+    "app/testes/astra_polling/scheduler.cjs": "6838c9b9f313817d6edb3fcde7e89e02d6f4ad2dae21d048ec4c48955c350eee"
+  }
+}

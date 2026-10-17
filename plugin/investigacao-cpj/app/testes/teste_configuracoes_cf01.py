@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """CF01: configurações de IA (modo agente x API), agente padrão e system prompt da via API. Só dados fictícios."""
+from fonte_interface import ler_interface
 import json
 import os
 import py_compile
@@ -59,7 +60,7 @@ for arq in ("rotas/sistema.py", "tarefas.py", "executores_llm.py"):
     except py_compile.PyCompileError as e:
         ok(False, f"{arq} não compila: {e}")
 
-html = open(os.path.join(APP, "static", "index.html"), encoding="utf-8").read()
+html = ler_interface(os.path.join(APP, "static", "index.html"))
 ok(all(x in html for x in ("cfgia-modo", "cfgia-prov", "cfgia-prompt", "b-cfgia", "carregarConfigIA();")), "interface CONFIGURAÇÕES presente")
 rotas = open(os.path.join(APP, "rotas", "sistema.py"), encoding="utf-8").read()
 ok('"/api/sistema/ia-config"' in rotas and rotas.count("ia-config") >= 2, "rotas GET/POST ia-config registradas")

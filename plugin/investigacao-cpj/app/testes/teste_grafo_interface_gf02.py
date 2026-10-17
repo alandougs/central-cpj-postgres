@@ -1,4 +1,5 @@
 """GF02: carga, seletor e renderização reais com API/DOM inteiramente fictícios."""
+from fonte_interface import ler_interface, javascript
 import json
 import re
 import unittest
@@ -12,24 +13,26 @@ HTML = Path(__file__).resolve().parents[1] / "static" / "index.html"
 
 class GrafoInterface(unittest.TestCase):
     def setUp(self):
-        self.html = HTML.read_text(encoding="utf-8")
+        self.html = ler_interface(HTML)
         self.ctx = quickjs.Context()
         self.ctx.eval("""
             const elementos={},desenhos=[];
             const pincel=new Proxy({}, {get(o,k){return o[k]||((...args)=>desenhos.push([k,...args]))}});
             function $(id){return elementos[id]||(elementos[id]={value:'',checked:true,hidden:true,
                 style:{},innerHTML:'',textContent:'',width:800,height:560,
-                addEventListener(){},getBoundingClientRect(){return {width:800,height:560,left:0,top:0}},
+                addEventListener(){},querySelectorAll(){return []},getBoundingClientRect(){return {width:800,height:560,left:0,top:0}},
                 getContext(){return pincel}})}
             const enc=encodeURIComponent,esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
             const window={devicePixelRatio:1,addEventListener(){}};
+            const pode=()=>false;
             const requestAnimationFrame=()=>1,cancelAnimationFrame=()=>{};
             let resposta={nos:[],arestas:[],casos:[]},falha='',urls=[];
             async function api(url){urls.push(url);if(falha)throw new Error(falha);return resposta}
         """)
-        comparator = self.html.split("function compararNumeroOS", 1)[1].split("let tq;", 1)[0]
+        programa = javascript(self.html)
+        comparator = programa.split("function compararNumeroOS", 1)[1].split("let tq;", 1)[0]
         self.ctx.eval("function compararNumeroOS" + comparator)
-        graph = self.html.split("// ---------------- grafo relacional", 1)[1].split("// ---------------- estatísticas", 1)[0]
+        graph = programa.split("// ---------------- grafo relacional", 1)[1].split("// ---------------- estatísticas", 1)[0]
         self.ctx.eval(graph)
 
     def run_js(self, source):
@@ -129,8 +132,7 @@ class GrafoInterface(unittest.TestCase):
         self.assertNotIn("OS-999-2099", self.value("$('#gr-caso').innerHTML"))
 
     def test_sintaxe_completa(self):
-        for script in re.findall(r"<script(?:[^>]*)>(.*?)</script>", self.html, re.S):
-            self.ctx.eval("new Function(" + json.dumps(script) + ")")
+        self.ctx.eval("new Function(" + json.dumps(javascript(self.html)) + ")")
 
 
 if __name__ == "__main__":

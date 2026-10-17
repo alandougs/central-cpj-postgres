@@ -1,0 +1,3459 @@
+{
+  "schema": "astra-windows-working-set/1",
+  "started": "2026-10-14T19:49:31.069Z",
+  "host": {
+    "platform": "win32",
+    "release": "10.0.26200",
+    "arch": "x64",
+    "node": "v24.19.0"
+  },
+  "method": {
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "dpr": 1,
+    "nodes": [
+      50,
+      100,
+      500,
+      1000
+    ],
+    "density": 10,
+    "repetitions": 3,
+    "pairOrder": "repeat 1 and 3 before/after; repeat 2 after/before, per node count",
+    "freshBrowserPerSample": true,
+    "networkIdleBeforeMount": true,
+    "physicsIterations": 23,
+    "fixedWaitAfterMountMs": 1000,
+    "rafSuppressed": true,
+    "gcForced": false,
+    "maxFreshAttemptsPerSample": 3
+  },
+  "sources": {
+    "before": {
+      "sha256": "5763aa11d30773986793694394bef1c66af7c895e2e9bf24e942e4131188933f",
+      "gzipSha256": "2b96b9e434e57cfeeb7a3d67f691ef92ef5b7fa43b15bca7346ae6560b147cff",
+      "adaptedSha256": "0f0ee9a2c5175c2e0a86cd1f07d2bb91856b00c8506fb48e6fd9bdb2ea020520",
+      "assets": {
+        "source": "C:\\Users\\alan_\\AppData\\Local\\Temp\\cpj-astra-baseline-5f2d3d0885\\index-before.html",
+        "assets": {
+          "C:\\Users\\alan_\\AppData\\Local\\Temp\\cpj-astra-baseline-5f2d3d0885\\index-before.html": "5763aa11d30773986793694394bef1c66af7c895e2e9bf24e942e4131188933f"
+        },
+        "expanded_sha256": "66eca109574c202e3e2b0d81fd55aa3dc10d5e20f9480383480be91b3a4d3443"
+      }
+    },
+    "after": {
+      "sha256": "7839418c48885281d5c18ac5f08d9efb1c1cfe5dacdb2e60ea0cbc9be9d629fd",
+      "gzipSha256": "9633ebd0899ffa6c89baef5a2d0a6e83f91dc01f901a7f8cba01b2cbaa088fe9",
+      "adaptedSha256": "cf7be2c89522490ddf7f3892054ae79b6e9f0dad3ea0ef72776c015c21d56988",
+      "assets": {
+        "source": "C:\\Users\\alan_\\.codex\\worktrees\\astra-evolucao\\CPJ - TRABALHO\\plugin\\investigacao-cpj\\app\\static",
+        "assets": {
+          "C:\\Users\\alan_\\.codex\\worktrees\\astra-evolucao\\CPJ - TRABALHO\\plugin\\investigacao-cpj\\app\\static\\index.html": "d3e31ea63b8b0f8d6eff911136df7778de159bdcacdb5738e3392b5c5890dc22",
+          "/static/js/core.js": "d2cbd6586d7e6b9a369d901b50d2a689131771fdb693dd32d2b483421a52f33a",
+          "/static/js/sessao.js": "3349385e1032af55e44147eaa9d250feba7bb769809347a528bc446f9f433f5b",
+          "/static/js/polling.js": "dfd914a37a3aa9a340843c03c06e3a15d1633ce11df69e1a787d931b66e36aa8",
+          "/static/js/inicio.js": "1d6b03b847859add76b9371dbe189c3be32ace86f04838214a31d16efb259d2d",
+          "/static/js/recebimento.js": "efb19103cf562237ffcb62bf26b45b72e219568c624554511958ef9a9517d2f6",
+          "/static/js/casos.js": "07a0a6761b9a953225f02dc80d530219873abb40ffabbdc0f657aa3c9ac600cd",
+          "/static/js/editor.js": "3d7a84770e3154eb68fb6e54e4e9fb30e4fcd8b49f9a3207c7fe29cc9be14d49",
+          "/static/js/pesquisa.js": "f4d6f49b18728108dbb3c51c923e13ea716d3bc644194c05715025afd76adaaf",
+          "/static/js/grafo.js": "11cabe61d640a6e3697cd2b701620605733a0d914f08ed0b6d8fb1e5f6a3b882",
+          "/static/js/estatisticas.js": "bcde28125f7f96faa04b5b0721f1f750f4e1361dbe497a5e38b55fe570543c35",
+          "/static/js/sistema.js": "8e3c61bc4446cd1f07369a6d2ab8491d129a9faa54279fb49dcda046793630ef",
+          "/static/js/ia-config.js": "2fb057cf05303bd5464ff9c8f666544c1019e4e580c475c1c9a19416b046e271",
+          "/static/js/llm.js": "5a639518a72afc627cde16b63fbf472632061cdcb0bf515bdfb29f35cc20d252",
+          "/static/js/fluxograma.js": "02c18d2a2015b351ed0c58cc9926d385a57106466460295745a960b5dadd11e3",
+          "/static/js/vinculos.js": "72fd6c9c632d3169f44f28fc7859881b41e83b1192817ee1d98a95fc9d096c92",
+          "/static/js/astra.js": "7e2232ebfc40976d41f6c5010e3e549c9c1e14cf37632533a2983a0224cc8009",
+          "/static/js/bootstrap.js": "aa15594246cb87f49aae1f7500343e21485434ce87d3cab93cb488d75898f7f3",
+          "/static/css/central.css": "84b1e2ff309d4a0a0b3558583370b4e79ec8e829bf92d2a21b4e87df28b6aae0"
+        },
+        "expanded_sha256": "46a11ddf18158fa1eedd40083d1ce00b66ccd9f52b953eb11e2ba3d624908f1a"
+      }
+    }
+  },
+  "samples": [
+    {
+      "side": "before",
+      "nodes": 50,
+      "density": 10,
+      "repeat": 1,
+      "order": 1,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 50,
+        "edgeCount": 500,
+        "visibleNodeCount": 50,
+        "visibleEdgeCount": 500,
+        "projectedNodeCount": 50,
+        "projectedEdgeCount": 500,
+        "zoom": 1.2999864454795949,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:49:33.857Z",
+      "readStarted": "2026-10-14T19:49:33.858Z",
+      "readFinished": "2026-10-14T19:49:34.531Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 23184,
+          "cpuTime": 1.962489,
+          "pid": 23184,
+          "workingSetBytes": 165855232,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 4560,
+          "cpuTime": 0.105365,
+          "pid": 4560,
+          "workingSetBytes": 35880960,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 19536,
+          "cpuTime": 0.379042,
+          "pid": 19536,
+          "workingSetBytes": 95186944,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 6388,
+          "cpuTime": 0.564697,
+          "pid": 6388,
+          "workingSetBytes": 70885376,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 20964,
+          "cpuTime": 0.284452,
+          "pid": 20964,
+          "workingSetBytes": 43696128,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 16520,
+          "cpuTime": 0.07412,
+          "pid": 16520,
+          "workingSetBytes": 22409216,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 21664,
+          "cpuTime": 0.036887,
+          "pid": 21664,
+          "workingSetBytes": 20639744,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 21088,
+          "cpuTime": 0.119155,
+          "pid": 21088,
+          "workingSetBytes": 30932992,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 22068,
+          "cpuTime": 0.036147,
+          "pid": 22068,
+          "workingSetBytes": 20447232,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 505933824,
+      "workingSetBytesByType": {
+        "browser": 165855232,
+        "renderer": 131067904,
+        "GPU": 70885376,
+        "network.mojom.NetworkService": 43696128,
+        "storage.mojom.StorageService": 22409216,
+        "entity_extraction_service.mojom.Extractor": 20639744,
+        "winrt_app_id.mojom.WinrtAppIdService": 30932992,
+        "edge_collections.mojom.CollectionsDataManager": 20447232
+      },
+      "heap": {
+        "jsHeapUsedBytes": 3222712,
+        "jsHeapTotalBytes": 5664768
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 50,
+      "density": 10,
+      "repeat": 1,
+      "order": 2,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 50,
+        "edgeCount": 500,
+        "visibleNodeCount": 50,
+        "visibleEdgeCount": 500,
+        "projectedNodeCount": 50,
+        "projectedEdgeCount": 500,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:49:37.374Z",
+      "readStarted": "2026-10-14T19:49:37.375Z",
+      "readFinished": "2026-10-14T19:49:38.198Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 15756,
+          "cpuTime": 1.926097,
+          "pid": 15756,
+          "workingSetBytes": 163962880,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 15664,
+          "cpuTime": 0.109346,
+          "pid": 15664,
+          "workingSetBytes": 38690816,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 21968,
+          "cpuTime": 0.387037,
+          "pid": 21968,
+          "workingSetBytes": 98197504,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 11240,
+          "cpuTime": 0.492575,
+          "pid": 11240,
+          "workingSetBytes": 66523136,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 21168,
+          "cpuTime": 0.281939,
+          "pid": 21168,
+          "workingSetBytes": 43724800,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 18796,
+          "cpuTime": 0.078517,
+          "pid": 18796,
+          "workingSetBytes": 22376448,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 23364,
+          "cpuTime": 0.040165,
+          "pid": 23364,
+          "workingSetBytes": 20606976,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 21304,
+          "cpuTime": 0.120875,
+          "pid": 21304,
+          "workingSetBytes": 31068160,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 9776,
+          "cpuTime": 0.042084,
+          "pid": 9776,
+          "workingSetBytes": 20451328,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 505602048,
+      "workingSetBytesByType": {
+        "browser": 163962880,
+        "renderer": 136888320,
+        "GPU": 66523136,
+        "network.mojom.NetworkService": 43724800,
+        "storage.mojom.StorageService": 22376448,
+        "entity_extraction_service.mojom.Extractor": 20606976,
+        "winrt_app_id.mojom.WinrtAppIdService": 31068160,
+        "edge_collections.mojom.CollectionsDataManager": 20451328
+      },
+      "heap": {
+        "jsHeapUsedBytes": 3104912,
+        "jsHeapTotalBytes": 6451200
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 50,
+      "density": 10,
+      "repeat": 2,
+      "order": 3,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 50,
+        "edgeCount": 500,
+        "visibleNodeCount": 50,
+        "visibleEdgeCount": 500,
+        "projectedNodeCount": 50,
+        "projectedEdgeCount": 500,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:49:41.824Z",
+      "readStarted": "2026-10-14T19:49:41.825Z",
+      "readFinished": "2026-10-14T19:49:42.638Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 22116,
+          "cpuTime": 1.999206,
+          "pid": 22116,
+          "workingSetBytes": 164372480,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 19896,
+          "cpuTime": 0.107542,
+          "pid": 19896,
+          "workingSetBytes": 35840000,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 2564,
+          "cpuTime": 0.38158,
+          "pid": 2564,
+          "workingSetBytes": 91168768,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 15368,
+          "cpuTime": 0.563927,
+          "pid": 15368,
+          "workingSetBytes": 66363392,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 22384,
+          "cpuTime": 0.291554,
+          "pid": 22384,
+          "workingSetBytes": 43782144,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 8280,
+          "cpuTime": 0.078664,
+          "pid": 8280,
+          "workingSetBytes": 22413312,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 22692,
+          "cpuTime": 0.038196,
+          "pid": 22692,
+          "workingSetBytes": 20639744,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 2944,
+          "cpuTime": 0.13005,
+          "pid": 2944,
+          "workingSetBytes": 31068160,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 23296,
+          "cpuTime": 0.037559,
+          "pid": 23296,
+          "workingSetBytes": 20443136,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 496091136,
+      "workingSetBytesByType": {
+        "browser": 164372480,
+        "renderer": 127008768,
+        "GPU": 66363392,
+        "network.mojom.NetworkService": 43782144,
+        "storage.mojom.StorageService": 22413312,
+        "entity_extraction_service.mojom.Extractor": 20639744,
+        "winrt_app_id.mojom.WinrtAppIdService": 31068160,
+        "edge_collections.mojom.CollectionsDataManager": 20443136
+      },
+      "heap": {
+        "jsHeapUsedBytes": 3157292,
+        "jsHeapTotalBytes": 5926912
+      }
+    },
+    {
+      "side": "before",
+      "nodes": 50,
+      "density": 10,
+      "repeat": 2,
+      "order": 4,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 50,
+        "edgeCount": 500,
+        "visibleNodeCount": 50,
+        "visibleEdgeCount": 500,
+        "projectedNodeCount": 50,
+        "projectedEdgeCount": 500,
+        "zoom": 1.1824315167947772,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:49:45.583Z",
+      "readStarted": "2026-10-14T19:49:45.584Z",
+      "readFinished": "2026-10-14T19:49:46.934Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 16336,
+          "cpuTime": 1.955244,
+          "pid": 16336,
+          "workingSetBytes": 166281216,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 19656,
+          "cpuTime": 0.106997,
+          "pid": 19656,
+          "workingSetBytes": 38711296,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 18448,
+          "cpuTime": 0.375484,
+          "pid": 18448,
+          "workingSetBytes": 95264768,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 1176,
+          "cpuTime": 0.547617,
+          "pid": 1176,
+          "workingSetBytes": 69746688,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 20664,
+          "cpuTime": 0.289288,
+          "pid": 20664,
+          "workingSetBytes": 43810816,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 23144,
+          "cpuTime": 0.081092,
+          "pid": 23144,
+          "workingSetBytes": 22413312,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 22996,
+          "cpuTime": 0.040828,
+          "pid": 22996,
+          "workingSetBytes": 20627456,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 21496,
+          "cpuTime": 0.127455,
+          "pid": 21496,
+          "workingSetBytes": 31031296,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 22220,
+          "cpuTime": 0.037053,
+          "pid": 22220,
+          "workingSetBytes": 20422656,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 508309504,
+      "workingSetBytesByType": {
+        "browser": 166281216,
+        "renderer": 133976064,
+        "GPU": 69746688,
+        "network.mojom.NetworkService": 43810816,
+        "storage.mojom.StorageService": 22413312,
+        "entity_extraction_service.mojom.Extractor": 20627456,
+        "winrt_app_id.mojom.WinrtAppIdService": 31031296,
+        "edge_collections.mojom.CollectionsDataManager": 20422656
+      },
+      "heap": {
+        "jsHeapUsedBytes": 3205924,
+        "jsHeapTotalBytes": 5664768
+      }
+    },
+    {
+      "side": "before",
+      "nodes": 50,
+      "density": 10,
+      "repeat": 3,
+      "order": 5,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 50,
+        "edgeCount": 500,
+        "visibleNodeCount": 50,
+        "visibleEdgeCount": 500,
+        "projectedNodeCount": 50,
+        "projectedEdgeCount": 500,
+        "zoom": 1.2614328637822472,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:49:49.916Z",
+      "readStarted": "2026-10-14T19:49:49.917Z",
+      "readFinished": "2026-10-14T19:49:50.687Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 21380,
+          "cpuTime": 1.963091,
+          "pid": 21380,
+          "workingSetBytes": 166588416,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 7184,
+          "cpuTime": 0.110236,
+          "pid": 7184,
+          "workingSetBytes": 38694912,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 13604,
+          "cpuTime": 0.390708,
+          "pid": 13604,
+          "workingSetBytes": 97910784,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 23904,
+          "cpuTime": 0.547669,
+          "pid": 23904,
+          "workingSetBytes": 70066176,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 16544,
+          "cpuTime": 0.28905,
+          "pid": 16544,
+          "workingSetBytes": 43663360,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 5364,
+          "cpuTime": 0.077597,
+          "pid": 5364,
+          "workingSetBytes": 22441984,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 21836,
+          "cpuTime": 0.038676,
+          "pid": 21836,
+          "workingSetBytes": 20602880,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 20748,
+          "cpuTime": 0.126509,
+          "pid": 20748,
+          "workingSetBytes": 31002624,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 9580,
+          "cpuTime": 0.04058,
+          "pid": 9580,
+          "workingSetBytes": 20459520,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 511430656,
+      "workingSetBytesByType": {
+        "browser": 166588416,
+        "renderer": 136605696,
+        "GPU": 70066176,
+        "network.mojom.NetworkService": 43663360,
+        "storage.mojom.StorageService": 22441984,
+        "entity_extraction_service.mojom.Extractor": 20602880,
+        "winrt_app_id.mojom.WinrtAppIdService": 31002624,
+        "edge_collections.mojom.CollectionsDataManager": 20459520
+      },
+      "heap": {
+        "jsHeapUsedBytes": 3360632,
+        "jsHeapTotalBytes": 5664768
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 50,
+      "density": 10,
+      "repeat": 3,
+      "order": 6,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 50,
+        "edgeCount": 500,
+        "visibleNodeCount": 50,
+        "visibleEdgeCount": 500,
+        "projectedNodeCount": 50,
+        "projectedEdgeCount": 500,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:49:53.848Z",
+      "readStarted": "2026-10-14T19:49:53.849Z",
+      "readFinished": "2026-10-14T19:49:54.958Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 17244,
+          "cpuTime": 1.802736,
+          "pid": 17244,
+          "workingSetBytes": 165351424,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 21404,
+          "cpuTime": 0.104115,
+          "pid": 21404,
+          "workingSetBytes": 38723584,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 3760,
+          "cpuTime": 0.379325,
+          "pid": 3760,
+          "workingSetBytes": 94359552,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 2384,
+          "cpuTime": 0.510304,
+          "pid": 2384,
+          "workingSetBytes": 63516672,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 16784,
+          "cpuTime": 0.272436,
+          "pid": 16784,
+          "workingSetBytes": 43749376,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 12672,
+          "cpuTime": 0.078723,
+          "pid": 12672,
+          "workingSetBytes": 22401024,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 18600,
+          "cpuTime": 0.038705,
+          "pid": 18600,
+          "workingSetBytes": 20647936,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 24048,
+          "cpuTime": 0.076929,
+          "pid": 24048,
+          "workingSetBytes": 31113216,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 23504,
+          "cpuTime": 0.038037,
+          "pid": 23504,
+          "workingSetBytes": 20463616,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "PooledProcess2",
+          "id": 17548,
+          "cpuTime": 0.040719,
+          "pid": 17548,
+          "workingSetBytes": null,
+          "processName": null,
+          "error": "Não é possível localizar um processo com o identificador de processo 17548."
+        }
+      ],
+      "complete": false,
+      "missingPids": [
+        17548
+      ],
+      "sumWorkingSetBytes": 500326400,
+      "workingSetBytesByType": {
+        "browser": 165351424,
+        "renderer": 133083136,
+        "GPU": 63516672,
+        "network.mojom.NetworkService": 43749376,
+        "storage.mojom.StorageService": 22401024,
+        "entity_extraction_service.mojom.Extractor": 20647936,
+        "winrt_app_id.mojom.WinrtAppIdService": 31113216,
+        "edge_collections.mojom.CollectionsDataManager": 20463616
+      },
+      "heap": {
+        "jsHeapUsedBytes": 3663880,
+        "jsHeapTotalBytes": 6713344
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 50,
+      "density": 10,
+      "repeat": 3,
+      "order": 7,
+      "attempt": 2,
+      "mounted": {
+        "nodeCount": 50,
+        "edgeCount": 500,
+        "visibleNodeCount": 50,
+        "visibleEdgeCount": 500,
+        "projectedNodeCount": 50,
+        "projectedEdgeCount": 500,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:49:58.084Z",
+      "readStarted": "2026-10-14T19:49:58.085Z",
+      "readFinished": "2026-10-14T19:49:58.846Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 19748,
+          "cpuTime": 1.868547,
+          "pid": 19748,
+          "workingSetBytes": 164315136,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 8336,
+          "cpuTime": 0.105982,
+          "pid": 8336,
+          "workingSetBytes": 35885056,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 1704,
+          "cpuTime": 0.408434,
+          "pid": 1704,
+          "workingSetBytes": 98439168,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 21372,
+          "cpuTime": 0.544719,
+          "pid": 21372,
+          "workingSetBytes": 68022272,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 24108,
+          "cpuTime": 0.280111,
+          "pid": 24108,
+          "workingSetBytes": 43814912,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 16440,
+          "cpuTime": 0.078724,
+          "pid": 16440,
+          "workingSetBytes": 22396928,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 21236,
+          "cpuTime": 0.038782,
+          "pid": 21236,
+          "workingSetBytes": 20619264,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 9692,
+          "cpuTime": 0.122556,
+          "pid": 9692,
+          "workingSetBytes": 31723520,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 9776,
+          "cpuTime": 0.03778,
+          "pid": 9776,
+          "workingSetBytes": 20447232,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "PooledProcess2",
+          "id": 12556,
+          "cpuTime": 0.003797,
+          "pid": 12556,
+          "workingSetBytes": null,
+          "processName": null,
+          "error": "Não é possível localizar um processo com o identificador de processo 12556."
+        }
+      ],
+      "complete": false,
+      "missingPids": [
+        12556
+      ],
+      "sumWorkingSetBytes": 505663488,
+      "workingSetBytesByType": {
+        "browser": 164315136,
+        "renderer": 134324224,
+        "GPU": 68022272,
+        "network.mojom.NetworkService": 43814912,
+        "storage.mojom.StorageService": 22396928,
+        "entity_extraction_service.mojom.Extractor": 20619264,
+        "winrt_app_id.mojom.WinrtAppIdService": 31723520,
+        "edge_collections.mojom.CollectionsDataManager": 20447232
+      },
+      "heap": {
+        "jsHeapUsedBytes": 3219200,
+        "jsHeapTotalBytes": 6189056
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 50,
+      "density": 10,
+      "repeat": 3,
+      "order": 8,
+      "attempt": 3,
+      "mounted": {
+        "nodeCount": 50,
+        "edgeCount": 500,
+        "visibleNodeCount": 50,
+        "visibleEdgeCount": 500,
+        "projectedNodeCount": 50,
+        "projectedEdgeCount": 500,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:50:01.687Z",
+      "readStarted": "2026-10-14T19:50:01.688Z",
+      "readFinished": "2026-10-14T19:50:02.531Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 9580,
+          "cpuTime": 1.91871,
+          "pid": 9580,
+          "workingSetBytes": 165715968,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 11692,
+          "cpuTime": 0.101938,
+          "pid": 11692,
+          "workingSetBytes": 35897344,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 22760,
+          "cpuTime": 0.358115,
+          "pid": 22760,
+          "workingSetBytes": 91336704,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 13340,
+          "cpuTime": 0.488331,
+          "pid": 13340,
+          "workingSetBytes": 66080768,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 18848,
+          "cpuTime": 0.276344,
+          "pid": 18848,
+          "workingSetBytes": 44142592,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 16852,
+          "cpuTime": 0.076706,
+          "pid": 16852,
+          "workingSetBytes": 22360064,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 7524,
+          "cpuTime": 0.039162,
+          "pid": 7524,
+          "workingSetBytes": 20615168,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 15860,
+          "cpuTime": 0.122123,
+          "pid": 15860,
+          "workingSetBytes": 31543296,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 22512,
+          "cpuTime": 0.03878,
+          "pid": 22512,
+          "workingSetBytes": 20500480,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 498192384,
+      "workingSetBytesByType": {
+        "browser": 165715968,
+        "renderer": 127234048,
+        "GPU": 66080768,
+        "network.mojom.NetworkService": 44142592,
+        "storage.mojom.StorageService": 22360064,
+        "entity_extraction_service.mojom.Extractor": 20615168,
+        "winrt_app_id.mojom.WinrtAppIdService": 31543296,
+        "edge_collections.mojom.CollectionsDataManager": 20500480
+      },
+      "heap": {
+        "jsHeapUsedBytes": 3357336,
+        "jsHeapTotalBytes": 5926912
+      }
+    },
+    {
+      "side": "before",
+      "nodes": 100,
+      "density": 10,
+      "repeat": 1,
+      "order": 9,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 100,
+        "edgeCount": 1000,
+        "visibleNodeCount": 100,
+        "visibleEdgeCount": 1000,
+        "projectedNodeCount": 100,
+        "projectedEdgeCount": 1000,
+        "zoom": 1.1572218088046988,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:50:06.191Z",
+      "readStarted": "2026-10-14T19:50:06.194Z",
+      "readFinished": "2026-10-14T19:50:06.922Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 22068,
+          "cpuTime": 1.880868,
+          "pid": 22068,
+          "workingSetBytes": 165621760,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 23720,
+          "cpuTime": 0.106254,
+          "pid": 23720,
+          "workingSetBytes": 38662144,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 14748,
+          "cpuTime": 0.491251,
+          "pid": 14748,
+          "workingSetBytes": 112074752,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 15368,
+          "cpuTime": 0.683744,
+          "pid": 15368,
+          "workingSetBytes": 73449472,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 19092,
+          "cpuTime": 0.262292,
+          "pid": 19092,
+          "workingSetBytes": 43855872,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 4296,
+          "cpuTime": 0.077409,
+          "pid": 4296,
+          "workingSetBytes": 22421504,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 21964,
+          "cpuTime": 0.039949,
+          "pid": 21964,
+          "workingSetBytes": 21311488,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 21412,
+          "cpuTime": 0.121901,
+          "pid": 21412,
+          "workingSetBytes": 30982144,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 13856,
+          "cpuTime": 0.035615,
+          "pid": 13856,
+          "workingSetBytes": 20447232,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 528826368,
+      "workingSetBytesByType": {
+        "browser": 165621760,
+        "renderer": 150736896,
+        "GPU": 73449472,
+        "network.mojom.NetworkService": 43855872,
+        "storage.mojom.StorageService": 22421504,
+        "entity_extraction_service.mojom.Extractor": 21311488,
+        "winrt_app_id.mojom.WinrtAppIdService": 30982144,
+        "edge_collections.mojom.CollectionsDataManager": 20447232
+      },
+      "heap": {
+        "jsHeapUsedBytes": 3276164,
+        "jsHeapTotalBytes": 8441856
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 100,
+      "density": 10,
+      "repeat": 1,
+      "order": 10,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 100,
+        "edgeCount": 1000,
+        "visibleNodeCount": 100,
+        "visibleEdgeCount": 1000,
+        "projectedNodeCount": 100,
+        "projectedEdgeCount": 1000,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:50:10.387Z",
+      "readStarted": "2026-10-14T19:50:10.392Z",
+      "readFinished": "2026-10-14T19:50:11.316Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 23168,
+          "cpuTime": 1.918432,
+          "pid": 23168,
+          "workingSetBytes": 166588416,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 16268,
+          "cpuTime": 0.108211,
+          "pid": 16268,
+          "workingSetBytes": 38670336,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 4404,
+          "cpuTime": 0.451722,
+          "pid": 4404,
+          "workingSetBytes": 103895040,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 22360,
+          "cpuTime": 0.584427,
+          "pid": 22360,
+          "workingSetBytes": 71208960,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 24424,
+          "cpuTime": 0.268568,
+          "pid": 24424,
+          "workingSetBytes": 43798528,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 24136,
+          "cpuTime": 0.076174,
+          "pid": 24136,
+          "workingSetBytes": 22409216,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 11304,
+          "cpuTime": 0.037852,
+          "pid": 11304,
+          "workingSetBytes": 20660224,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 12792,
+          "cpuTime": 0.12624,
+          "pid": 12792,
+          "workingSetBytes": 31035392,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 3892,
+          "cpuTime": 0.036674,
+          "pid": 3892,
+          "workingSetBytes": 20451328,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "PooledProcess2",
+          "id": 19648,
+          "cpuTime": 0.03837,
+          "pid": 19648,
+          "workingSetBytes": null,
+          "processName": null,
+          "error": "Não é possível localizar um processo com o identificador de processo 19648."
+        }
+      ],
+      "complete": false,
+      "missingPids": [
+        19648
+      ],
+      "sumWorkingSetBytes": 518717440,
+      "workingSetBytesByType": {
+        "browser": 166588416,
+        "renderer": 142565376,
+        "GPU": 71208960,
+        "network.mojom.NetworkService": 43798528,
+        "storage.mojom.StorageService": 22409216,
+        "entity_extraction_service.mojom.Extractor": 20660224,
+        "winrt_app_id.mojom.WinrtAppIdService": 31035392,
+        "edge_collections.mojom.CollectionsDataManager": 20451328
+      },
+      "heap": {
+        "jsHeapUsedBytes": 4635948,
+        "jsHeapTotalBytes": 8966144
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 100,
+      "density": 10,
+      "repeat": 1,
+      "order": 11,
+      "attempt": 2,
+      "mounted": {
+        "nodeCount": 100,
+        "edgeCount": 1000,
+        "visibleNodeCount": 100,
+        "visibleEdgeCount": 1000,
+        "projectedNodeCount": 100,
+        "projectedEdgeCount": 1000,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:50:14.495Z",
+      "readStarted": "2026-10-14T19:50:14.496Z",
+      "readFinished": "2026-10-14T19:50:15.198Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 22428,
+          "cpuTime": 1.911866,
+          "pid": 22428,
+          "workingSetBytes": 166359040,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 9640,
+          "cpuTime": 0.103925,
+          "pid": 9640,
+          "workingSetBytes": 35848192,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 21040,
+          "cpuTime": 0.450778,
+          "pid": 21040,
+          "workingSetBytes": 101203968,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 5228,
+          "cpuTime": 0.623828,
+          "pid": 5228,
+          "workingSetBytes": 71073792,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 21716,
+          "cpuTime": 0.287724,
+          "pid": 21716,
+          "workingSetBytes": 43753472,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 15192,
+          "cpuTime": 0.077182,
+          "pid": 15192,
+          "workingSetBytes": 22396928,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 7800,
+          "cpuTime": 0.040778,
+          "pid": 7800,
+          "workingSetBytes": 20627456,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 3176,
+          "cpuTime": 0.122998,
+          "pid": 3176,
+          "workingSetBytes": 30965760,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 24340,
+          "cpuTime": 0.038143,
+          "pid": 24340,
+          "workingSetBytes": 20480000,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 512708608,
+      "workingSetBytesByType": {
+        "browser": 166359040,
+        "renderer": 137052160,
+        "GPU": 71073792,
+        "network.mojom.NetworkService": 43753472,
+        "storage.mojom.StorageService": 22396928,
+        "entity_extraction_service.mojom.Extractor": 20627456,
+        "winrt_app_id.mojom.WinrtAppIdService": 30965760,
+        "edge_collections.mojom.CollectionsDataManager": 20480000
+      },
+      "heap": {
+        "jsHeapUsedBytes": 4444848,
+        "jsHeapTotalBytes": 8704000
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 100,
+      "density": 10,
+      "repeat": 2,
+      "order": 12,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 100,
+        "edgeCount": 1000,
+        "visibleNodeCount": 100,
+        "visibleEdgeCount": 1000,
+        "projectedNodeCount": 100,
+        "projectedEdgeCount": 1000,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:50:20.578Z",
+      "readStarted": "2026-10-14T19:50:20.580Z",
+      "readFinished": "2026-10-14T19:50:21.241Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 9712,
+          "cpuTime": 1.881963,
+          "pid": 9712,
+          "workingSetBytes": 164687872,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 12528,
+          "cpuTime": 0.103738,
+          "pid": 12528,
+          "workingSetBytes": 35864576,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 21956,
+          "cpuTime": 0.459341,
+          "pid": 21956,
+          "workingSetBytes": 101867520,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 16440,
+          "cpuTime": 0.568035,
+          "pid": 16440,
+          "workingSetBytes": 68354048,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 20588,
+          "cpuTime": 0.279377,
+          "pid": 20588,
+          "workingSetBytes": 43728896,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 8540,
+          "cpuTime": 0.077954,
+          "pid": 8540,
+          "workingSetBytes": 22384640,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 19688,
+          "cpuTime": 0.036828,
+          "pid": 19688,
+          "workingSetBytes": 20623360,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 7524,
+          "cpuTime": 0.123739,
+          "pid": 7524,
+          "workingSetBytes": 31006720,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 20744,
+          "cpuTime": 0.03911,
+          "pid": 20744,
+          "workingSetBytes": 20451328,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 508968960,
+      "workingSetBytesByType": {
+        "browser": 164687872,
+        "renderer": 137732096,
+        "GPU": 68354048,
+        "network.mojom.NetworkService": 43728896,
+        "storage.mojom.StorageService": 22384640,
+        "entity_extraction_service.mojom.Extractor": 20623360,
+        "winrt_app_id.mojom.WinrtAppIdService": 31006720,
+        "edge_collections.mojom.CollectionsDataManager": 20451328
+      },
+      "heap": {
+        "jsHeapUsedBytes": 4990956,
+        "jsHeapTotalBytes": 8704000
+      }
+    },
+    {
+      "side": "before",
+      "nodes": 100,
+      "density": 10,
+      "repeat": 2,
+      "order": 13,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 100,
+        "edgeCount": 1000,
+        "visibleNodeCount": 100,
+        "visibleEdgeCount": 1000,
+        "projectedNodeCount": 100,
+        "projectedEdgeCount": 1000,
+        "zoom": 1.2057660571062438,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:50:24.092Z",
+      "readStarted": "2026-10-14T19:50:24.094Z",
+      "readFinished": "2026-10-14T19:50:24.888Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 22320,
+          "cpuTime": 1.8807,
+          "pid": 22320,
+          "workingSetBytes": 165810176,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 20844,
+          "cpuTime": 0.102429,
+          "pid": 20844,
+          "workingSetBytes": 35864576,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 21784,
+          "cpuTime": 0.477281,
+          "pid": 21784,
+          "workingSetBytes": 112300032,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 16592,
+          "cpuTime": 0.625212,
+          "pid": 16592,
+          "workingSetBytes": 74952704,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 12440,
+          "cpuTime": 0.280607,
+          "pid": 12440,
+          "workingSetBytes": 44052480,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 23588,
+          "cpuTime": 0.074855,
+          "pid": 23588,
+          "workingSetBytes": 22380544,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 16148,
+          "cpuTime": 0.039266,
+          "pid": 16148,
+          "workingSetBytes": 20631552,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 21440,
+          "cpuTime": 0.124417,
+          "pid": 21440,
+          "workingSetBytes": 30978048,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 19300,
+          "cpuTime": 0.036482,
+          "pid": 19300,
+          "workingSetBytes": 20475904,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 527446016,
+      "workingSetBytesByType": {
+        "browser": 165810176,
+        "renderer": 148164608,
+        "GPU": 74952704,
+        "network.mojom.NetworkService": 44052480,
+        "storage.mojom.StorageService": 22380544,
+        "entity_extraction_service.mojom.Extractor": 20631552,
+        "winrt_app_id.mojom.WinrtAppIdService": 30978048,
+        "edge_collections.mojom.CollectionsDataManager": 20475904
+      },
+      "heap": {
+        "jsHeapUsedBytes": 3476656,
+        "jsHeapTotalBytes": 8441856
+      }
+    },
+    {
+      "side": "before",
+      "nodes": 100,
+      "density": 10,
+      "repeat": 3,
+      "order": 14,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 100,
+        "edgeCount": 1000,
+        "visibleNodeCount": 100,
+        "visibleEdgeCount": 1000,
+        "projectedNodeCount": 100,
+        "projectedEdgeCount": 1000,
+        "zoom": 1.2218619003267317,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:50:28.094Z",
+      "readStarted": "2026-10-14T19:50:28.096Z",
+      "readFinished": "2026-10-14T19:50:28.811Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 20592,
+          "cpuTime": 1.913671,
+          "pid": 20592,
+          "workingSetBytes": 166612992,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 17392,
+          "cpuTime": 0.104288,
+          "pid": 17392,
+          "workingSetBytes": 35876864,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 12716,
+          "cpuTime": 0.469536,
+          "pid": 12716,
+          "workingSetBytes": 111513600,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 9580,
+          "cpuTime": 0.654866,
+          "pid": 9580,
+          "workingSetBytes": 74678272,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 24432,
+          "cpuTime": 0.280587,
+          "pid": 24432,
+          "workingSetBytes": 43806720,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 22252,
+          "cpuTime": 0.076574,
+          "pid": 22252,
+          "workingSetBytes": 22388736,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 24004,
+          "cpuTime": 0.038001,
+          "pid": 24004,
+          "workingSetBytes": 20627456,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 19204,
+          "cpuTime": 0.129469,
+          "pid": 19204,
+          "workingSetBytes": 30965760,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 1704,
+          "cpuTime": 0.038635,
+          "pid": 1704,
+          "workingSetBytes": 20799488,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 527269888,
+      "workingSetBytesByType": {
+        "browser": 166612992,
+        "renderer": 147390464,
+        "GPU": 74678272,
+        "network.mojom.NetworkService": 43806720,
+        "storage.mojom.StorageService": 22388736,
+        "entity_extraction_service.mojom.Extractor": 20627456,
+        "winrt_app_id.mojom.WinrtAppIdService": 30965760,
+        "edge_collections.mojom.CollectionsDataManager": 20799488
+      },
+      "heap": {
+        "jsHeapUsedBytes": 3443108,
+        "jsHeapTotalBytes": 8441856
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 100,
+      "density": 10,
+      "repeat": 3,
+      "order": 15,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 100,
+        "edgeCount": 1000,
+        "visibleNodeCount": 100,
+        "visibleEdgeCount": 1000,
+        "projectedNodeCount": 100,
+        "projectedEdgeCount": 1000,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:50:32.061Z",
+      "readStarted": "2026-10-14T19:50:32.062Z",
+      "readFinished": "2026-10-14T19:50:32.762Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 19760,
+          "cpuTime": 1.867717,
+          "pid": 19760,
+          "workingSetBytes": 166215680,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 16616,
+          "cpuTime": 0.099805,
+          "pid": 16616,
+          "workingSetBytes": 35885056,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 6852,
+          "cpuTime": 0.457103,
+          "pid": 6852,
+          "workingSetBytes": 101371904,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 20744,
+          "cpuTime": 0.552548,
+          "pid": 20744,
+          "workingSetBytes": 68288512,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 10588,
+          "cpuTime": 0.281633,
+          "pid": 10588,
+          "workingSetBytes": 43851776,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 23836,
+          "cpuTime": 0.074647,
+          "pid": 23836,
+          "workingSetBytes": 22396928,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 9652,
+          "cpuTime": 0.039787,
+          "pid": 9652,
+          "workingSetBytes": 20606976,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 17672,
+          "cpuTime": 0.120868,
+          "pid": 17672,
+          "workingSetBytes": 30953472,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 17496,
+          "cpuTime": 0.037828,
+          "pid": 17496,
+          "workingSetBytes": 20500480,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 510070784,
+      "workingSetBytesByType": {
+        "browser": 166215680,
+        "renderer": 137256960,
+        "GPU": 68288512,
+        "network.mojom.NetworkService": 43851776,
+        "storage.mojom.StorageService": 22396928,
+        "entity_extraction_service.mojom.Extractor": 20606976,
+        "winrt_app_id.mojom.WinrtAppIdService": 30953472,
+        "edge_collections.mojom.CollectionsDataManager": 20500480
+      },
+      "heap": {
+        "jsHeapUsedBytes": 4393272,
+        "jsHeapTotalBytes": 8966144
+      }
+    },
+    {
+      "side": "before",
+      "nodes": 500,
+      "density": 10,
+      "repeat": 1,
+      "order": 16,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 500,
+        "edgeCount": 5000,
+        "visibleNodeCount": 500,
+        "visibleEdgeCount": 5000,
+        "projectedNodeCount": 500,
+        "projectedEdgeCount": 5000,
+        "zoom": 1.121285232499399,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:50:37.196Z",
+      "readStarted": "2026-10-14T19:50:37.197Z",
+      "readFinished": "2026-10-14T19:50:37.899Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 7844,
+          "cpuTime": 1.971343,
+          "pid": 7844,
+          "workingSetBytes": 171327488,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 21352,
+          "cpuTime": 0.106575,
+          "pid": 21352,
+          "workingSetBytes": 38682624,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 21612,
+          "cpuTime": 1.121752,
+          "pid": 21612,
+          "workingSetBytes": 129613824,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 17840,
+          "cpuTime": 1.228353,
+          "pid": 17840,
+          "workingSetBytes": 88338432,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 8060,
+          "cpuTime": 0.286458,
+          "pid": 8060,
+          "workingSetBytes": 43708416,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 23588,
+          "cpuTime": 0.076434,
+          "pid": 23588,
+          "workingSetBytes": 22388736,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 13684,
+          "cpuTime": 0.038061,
+          "pid": 13684,
+          "workingSetBytes": 20631552,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 16824,
+          "cpuTime": 0.123814,
+          "pid": 16824,
+          "workingSetBytes": 30982144,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 23992,
+          "cpuTime": 0.037229,
+          "pid": 23992,
+          "workingSetBytes": 20451328,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 566124544,
+      "workingSetBytesByType": {
+        "browser": 171327488,
+        "renderer": 168296448,
+        "GPU": 88338432,
+        "network.mojom.NetworkService": 43708416,
+        "storage.mojom.StorageService": 22388736,
+        "entity_extraction_service.mojom.Extractor": 20631552,
+        "winrt_app_id.mojom.WinrtAppIdService": 30982144,
+        "edge_collections.mojom.CollectionsDataManager": 20451328
+      },
+      "heap": {
+        "jsHeapUsedBytes": 9630852,
+        "jsHeapTotalBytes": 17317888
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 500,
+      "density": 10,
+      "repeat": 1,
+      "order": 17,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 500,
+        "edgeCount": 5000,
+        "visibleNodeCount": 500,
+        "visibleEdgeCount": 5000,
+        "projectedNodeCount": 500,
+        "projectedEdgeCount": 5000,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:50:41.496Z",
+      "readStarted": "2026-10-14T19:50:41.497Z",
+      "readFinished": "2026-10-14T19:50:42.199Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 22760,
+          "cpuTime": 1.898904,
+          "pid": 22760,
+          "workingSetBytes": 166461440,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 22408,
+          "cpuTime": 0.103716,
+          "pid": 22408,
+          "workingSetBytes": 35872768,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 24544,
+          "cpuTime": 0.801981,
+          "pid": 24544,
+          "workingSetBytes": 124968960,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 24028,
+          "cpuTime": 0.609297,
+          "pid": 24028,
+          "workingSetBytes": 73867264,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 22852,
+          "cpuTime": 0.276913,
+          "pid": 22852,
+          "workingSetBytes": 43716608,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 21756,
+          "cpuTime": 0.074416,
+          "pid": 21756,
+          "workingSetBytes": 22401024,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 23000,
+          "cpuTime": 0.037206,
+          "pid": 23000,
+          "workingSetBytes": 20643840,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 10400,
+          "cpuTime": 0.125976,
+          "pid": 10400,
+          "workingSetBytes": 30949376,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 7780,
+          "cpuTime": 0.03704,
+          "pid": 7780,
+          "workingSetBytes": 21172224,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 540053504,
+      "workingSetBytesByType": {
+        "browser": 166461440,
+        "renderer": 160841728,
+        "GPU": 73867264,
+        "network.mojom.NetworkService": 43716608,
+        "storage.mojom.StorageService": 22401024,
+        "entity_extraction_service.mojom.Extractor": 20643840,
+        "winrt_app_id.mojom.WinrtAppIdService": 30949376,
+        "edge_collections.mojom.CollectionsDataManager": 21172224
+      },
+      "heap": {
+        "jsHeapUsedBytes": 9281732,
+        "jsHeapTotalBytes": 17993728
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 500,
+      "density": 10,
+      "repeat": 2,
+      "order": 18,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 500,
+        "edgeCount": 5000,
+        "visibleNodeCount": 500,
+        "visibleEdgeCount": 5000,
+        "projectedNodeCount": 500,
+        "projectedEdgeCount": 5000,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:50:45.613Z",
+      "readStarted": "2026-10-14T19:50:45.614Z",
+      "readFinished": "2026-10-14T19:50:46.309Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 19464,
+          "cpuTime": 1.915744,
+          "pid": 19464,
+          "workingSetBytes": 165195776,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 15924,
+          "cpuTime": 0.105785,
+          "pid": 15924,
+          "workingSetBytes": 38670336,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 16216,
+          "cpuTime": 0.8089,
+          "pid": 16216,
+          "workingSetBytes": 125542400,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 13924,
+          "cpuTime": 0.573906,
+          "pid": 13924,
+          "workingSetBytes": 74534912,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 24236,
+          "cpuTime": 0.281479,
+          "pid": 24236,
+          "workingSetBytes": 43663360,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 17376,
+          "cpuTime": 0.075945,
+          "pid": 17376,
+          "workingSetBytes": 22384640,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 21724,
+          "cpuTime": 0.037293,
+          "pid": 21724,
+          "workingSetBytes": 20635648,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 5092,
+          "cpuTime": 0.126,
+          "pid": 5092,
+          "workingSetBytes": 30969856,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 17120,
+          "cpuTime": 0.036136,
+          "pid": 17120,
+          "workingSetBytes": 20451328,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 542048256,
+      "workingSetBytesByType": {
+        "browser": 165195776,
+        "renderer": 164212736,
+        "GPU": 74534912,
+        "network.mojom.NetworkService": 43663360,
+        "storage.mojom.StorageService": 22384640,
+        "entity_extraction_service.mojom.Extractor": 20635648,
+        "winrt_app_id.mojom.WinrtAppIdService": 30969856,
+        "edge_collections.mojom.CollectionsDataManager": 20451328
+      },
+      "heap": {
+        "jsHeapUsedBytes": 10889928,
+        "jsHeapTotalBytes": 18255872
+      }
+    },
+    {
+      "side": "before",
+      "nodes": 500,
+      "density": 10,
+      "repeat": 2,
+      "order": 19,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 500,
+        "edgeCount": 5000,
+        "visibleNodeCount": 500,
+        "visibleEdgeCount": 5000,
+        "projectedNodeCount": 500,
+        "projectedEdgeCount": 5000,
+        "zoom": 1.1457852645670599,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:50:50.312Z",
+      "readStarted": "2026-10-14T19:50:50.314Z",
+      "readFinished": "2026-10-14T19:50:50.985Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 15680,
+          "cpuTime": 1.884688,
+          "pid": 15680,
+          "workingSetBytes": 166940672,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 3440,
+          "cpuTime": 0.100857,
+          "pid": 3440,
+          "workingSetBytes": 35893248,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 22248,
+          "cpuTime": 1.082624,
+          "pid": 22248,
+          "workingSetBytes": 129232896,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 12056,
+          "cpuTime": 1.141658,
+          "pid": 12056,
+          "workingSetBytes": 92815360,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 20288,
+          "cpuTime": 0.281765,
+          "pid": 20288,
+          "workingSetBytes": 43778048,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 8080,
+          "cpuTime": 0.075315,
+          "pid": 8080,
+          "workingSetBytes": 22360064,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 24344,
+          "cpuTime": 0.037336,
+          "pid": 24344,
+          "workingSetBytes": 20656128,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 21980,
+          "cpuTime": 0.122678,
+          "pid": 21980,
+          "workingSetBytes": 31035392,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 24372,
+          "cpuTime": 0.034537,
+          "pid": 24372,
+          "workingSetBytes": 20459520,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 563171328,
+      "workingSetBytesByType": {
+        "browser": 166940672,
+        "renderer": 165126144,
+        "GPU": 92815360,
+        "network.mojom.NetworkService": 43778048,
+        "storage.mojom.StorageService": 22360064,
+        "entity_extraction_service.mojom.Extractor": 20656128,
+        "winrt_app_id.mojom.WinrtAppIdService": 31035392,
+        "edge_collections.mojom.CollectionsDataManager": 20459520
+      },
+      "heap": {
+        "jsHeapUsedBytes": 9912644,
+        "jsHeapTotalBytes": 17055744
+      }
+    },
+    {
+      "side": "before",
+      "nodes": 500,
+      "density": 10,
+      "repeat": 3,
+      "order": 20,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 500,
+        "edgeCount": 5000,
+        "visibleNodeCount": 500,
+        "visibleEdgeCount": 5000,
+        "projectedNodeCount": 500,
+        "projectedEdgeCount": 5000,
+        "zoom": 1.1384619524263206,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:50:55.130Z",
+      "readStarted": "2026-10-14T19:50:55.132Z",
+      "readFinished": "2026-10-14T19:50:55.851Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 14536,
+          "cpuTime": 1.932565,
+          "pid": 14536,
+          "workingSetBytes": 171286528,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 2436,
+          "cpuTime": 0.102657,
+          "pid": 2436,
+          "workingSetBytes": 35856384,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 16296,
+          "cpuTime": 1.098753,
+          "pid": 16296,
+          "workingSetBytes": 130506752,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 15676,
+          "cpuTime": 1.129115,
+          "pid": 15676,
+          "workingSetBytes": 90013696,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 12132,
+          "cpuTime": 0.286386,
+          "pid": 12132,
+          "workingSetBytes": 43732992,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 24020,
+          "cpuTime": 0.074999,
+          "pid": 24020,
+          "workingSetBytes": 22392832,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 10452,
+          "cpuTime": 0.037562,
+          "pid": 10452,
+          "workingSetBytes": 20652032,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 23192,
+          "cpuTime": 0.122858,
+          "pid": 23192,
+          "workingSetBytes": 30998528,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 19036,
+          "cpuTime": 0.034894,
+          "pid": 19036,
+          "workingSetBytes": 20480000,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 565919744,
+      "workingSetBytesByType": {
+        "browser": 171286528,
+        "renderer": 166363136,
+        "GPU": 90013696,
+        "network.mojom.NetworkService": 43732992,
+        "storage.mojom.StorageService": 22392832,
+        "entity_extraction_service.mojom.Extractor": 20652032,
+        "winrt_app_id.mojom.WinrtAppIdService": 30998528,
+        "edge_collections.mojom.CollectionsDataManager": 20480000
+      },
+      "heap": {
+        "jsHeapUsedBytes": 9900040,
+        "jsHeapTotalBytes": 17317888
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 500,
+      "density": 10,
+      "repeat": 3,
+      "order": 21,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 500,
+        "edgeCount": 5000,
+        "visibleNodeCount": 500,
+        "visibleEdgeCount": 5000,
+        "projectedNodeCount": 500,
+        "projectedEdgeCount": 5000,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:50:59.197Z",
+      "readStarted": "2026-10-14T19:50:59.198Z",
+      "readFinished": "2026-10-14T19:50:59.853Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 22292,
+          "cpuTime": 1.88769,
+          "pid": 22292,
+          "workingSetBytes": 167669760,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 5236,
+          "cpuTime": 0.10333,
+          "pid": 5236,
+          "workingSetBytes": 38719488,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 15312,
+          "cpuTime": 0.788233,
+          "pid": 15312,
+          "workingSetBytes": 124821504,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 15664,
+          "cpuTime": 0.610305,
+          "pid": 15664,
+          "workingSetBytes": 74469376,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 23416,
+          "cpuTime": 0.272545,
+          "pid": 23416,
+          "workingSetBytes": 43565056,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 18204,
+          "cpuTime": 0.075709,
+          "pid": 18204,
+          "workingSetBytes": 22384640,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 15968,
+          "cpuTime": 0.038312,
+          "pid": 15968,
+          "workingSetBytes": 20611072,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 14000,
+          "cpuTime": 0.124454,
+          "pid": 14000,
+          "workingSetBytes": 31019008,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 21408,
+          "cpuTime": 0.034205,
+          "pid": 21408,
+          "workingSetBytes": 20455424,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 543715328,
+      "workingSetBytesByType": {
+        "browser": 167669760,
+        "renderer": 163540992,
+        "GPU": 74469376,
+        "network.mojom.NetworkService": 43565056,
+        "storage.mojom.StorageService": 22384640,
+        "entity_extraction_service.mojom.Extractor": 20611072,
+        "winrt_app_id.mojom.WinrtAppIdService": 31019008,
+        "edge_collections.mojom.CollectionsDataManager": 20455424
+      },
+      "heap": {
+        "jsHeapUsedBytes": 10864656,
+        "jsHeapTotalBytes": 17993728
+      }
+    },
+    {
+      "side": "before",
+      "nodes": 1000,
+      "density": 10,
+      "repeat": 1,
+      "order": 22,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 1000,
+        "edgeCount": 10000,
+        "visibleNodeCount": 1000,
+        "visibleEdgeCount": 10000,
+        "projectedNodeCount": 1000,
+        "projectedEdgeCount": 10000,
+        "zoom": 1.1375850515041028,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:51:05.031Z",
+      "readStarted": "2026-10-14T19:51:05.032Z",
+      "readFinished": "2026-10-14T19:51:05.704Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 11804,
+          "cpuTime": 1.955161,
+          "pid": 11804,
+          "workingSetBytes": 170057728,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 17840,
+          "cpuTime": 0.106762,
+          "pid": 17840,
+          "workingSetBytes": 39079936,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 3440,
+          "cpuTime": 1.700044,
+          "pid": 3440,
+          "workingSetBytes": 149323776,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 9416,
+          "cpuTime": 1.839222,
+          "pid": 9416,
+          "workingSetBytes": 102572032,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 23924,
+          "cpuTime": 0.293567,
+          "pid": 23924,
+          "workingSetBytes": 43982848,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 24484,
+          "cpuTime": 0.076669,
+          "pid": 24484,
+          "workingSetBytes": 22958080,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 23724,
+          "cpuTime": 0.037436,
+          "pid": 23724,
+          "workingSetBytes": 20893696,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 21296,
+          "cpuTime": 0.121811,
+          "pid": 21296,
+          "workingSetBytes": 31490048,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 19308,
+          "cpuTime": 0.035684,
+          "pid": 19308,
+          "workingSetBytes": 20717568,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 601075712,
+      "workingSetBytesByType": {
+        "browser": 170057728,
+        "renderer": 188403712,
+        "GPU": 102572032,
+        "network.mojom.NetworkService": 43982848,
+        "storage.mojom.StorageService": 22958080,
+        "entity_extraction_service.mojom.Extractor": 20893696,
+        "winrt_app_id.mojom.WinrtAppIdService": 31490048,
+        "edge_collections.mojom.CollectionsDataManager": 20717568
+      },
+      "heap": {
+        "jsHeapUsedBytes": 16374220,
+        "jsHeapTotalBytes": 22585344
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 1000,
+      "density": 10,
+      "repeat": 1,
+      "order": 23,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 1000,
+        "edgeCount": 10000,
+        "visibleNodeCount": 1000,
+        "visibleEdgeCount": 10000,
+        "projectedNodeCount": 1000,
+        "projectedEdgeCount": 10000,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:51:09.914Z",
+      "readStarted": "2026-10-14T19:51:09.915Z",
+      "readFinished": "2026-10-14T19:51:10.567Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 22824,
+          "cpuTime": 1.934128,
+          "pid": 22824,
+          "workingSetBytes": 170684416,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 14288,
+          "cpuTime": 0.101965,
+          "pid": 14288,
+          "workingSetBytes": 35860480,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 18048,
+          "cpuTime": 1.288279,
+          "pid": 18048,
+          "workingSetBytes": 159772672,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 8252,
+          "cpuTime": 0.736687,
+          "pid": 8252,
+          "workingSetBytes": 109080576,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 19648,
+          "cpuTime": 0.264433,
+          "pid": 19648,
+          "workingSetBytes": 43716608,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 23196,
+          "cpuTime": 0.075848,
+          "pid": 23196,
+          "workingSetBytes": 22409216,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 22904,
+          "cpuTime": 0.038108,
+          "pid": 22904,
+          "workingSetBytes": 20627456,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 17340,
+          "cpuTime": 0.124333,
+          "pid": 17340,
+          "workingSetBytes": 30986240,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 11492,
+          "cpuTime": 0.036181,
+          "pid": 11492,
+          "workingSetBytes": 20451328,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 613588992,
+      "workingSetBytesByType": {
+        "browser": 170684416,
+        "renderer": 195633152,
+        "GPU": 109080576,
+        "network.mojom.NetworkService": 43716608,
+        "storage.mojom.StorageService": 22409216,
+        "entity_extraction_service.mojom.Extractor": 20627456,
+        "winrt_app_id.mojom.WinrtAppIdService": 30986240,
+        "edge_collections.mojom.CollectionsDataManager": 20451328
+      },
+      "heap": {
+        "jsHeapUsedBytes": 17960264,
+        "jsHeapTotalBytes": 34156544
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 1000,
+      "density": 10,
+      "repeat": 2,
+      "order": 24,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 1000,
+        "edgeCount": 10000,
+        "visibleNodeCount": 1000,
+        "visibleEdgeCount": 10000,
+        "projectedNodeCount": 1000,
+        "projectedEdgeCount": 10000,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:51:15.265Z",
+      "readStarted": "2026-10-14T19:51:15.267Z",
+      "readFinished": "2026-10-14T19:51:15.923Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 24360,
+          "cpuTime": 1.991699,
+          "pid": 24360,
+          "workingSetBytes": 171585536,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 20744,
+          "cpuTime": 0.101522,
+          "pid": 20744,
+          "workingSetBytes": 38768640,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 22660,
+          "cpuTime": 1.326298,
+          "pid": 22660,
+          "workingSetBytes": 164876288,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 21616,
+          "cpuTime": 0.807412,
+          "pid": 21616,
+          "workingSetBytes": 129748992,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 3288,
+          "cpuTime": 0.282271,
+          "pid": 3288,
+          "workingSetBytes": 43634688,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 13924,
+          "cpuTime": 0.075898,
+          "pid": 13924,
+          "workingSetBytes": 22384640,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 24532,
+          "cpuTime": 0.038576,
+          "pid": 24532,
+          "workingSetBytes": 20647936,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 6688,
+          "cpuTime": 0.123069,
+          "pid": 6688,
+          "workingSetBytes": 31031296,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 18304,
+          "cpuTime": 0.03613,
+          "pid": 18304,
+          "workingSetBytes": 20447232,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 643125248,
+      "workingSetBytesByType": {
+        "browser": 171585536,
+        "renderer": 203644928,
+        "GPU": 129748992,
+        "network.mojom.NetworkService": 43634688,
+        "storage.mojom.StorageService": 22384640,
+        "entity_extraction_service.mojom.Extractor": 20647936,
+        "winrt_app_id.mojom.WinrtAppIdService": 31031296,
+        "edge_collections.mojom.CollectionsDataManager": 20447232
+      },
+      "heap": {
+        "jsHeapUsedBytes": 16890892,
+        "jsHeapTotalBytes": 33894400
+      }
+    },
+    {
+      "side": "before",
+      "nodes": 1000,
+      "density": 10,
+      "repeat": 2,
+      "order": 25,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 1000,
+        "edgeCount": 10000,
+        "visibleNodeCount": 1000,
+        "visibleEdgeCount": 10000,
+        "projectedNodeCount": 1000,
+        "projectedEdgeCount": 10000,
+        "zoom": 1.1353290151432718,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:51:21.182Z",
+      "readStarted": "2026-10-14T19:51:21.184Z",
+      "readFinished": "2026-10-14T19:51:21.851Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 24316,
+          "cpuTime": 1.939495,
+          "pid": 24316,
+          "workingSetBytes": 171065344,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 8060,
+          "cpuTime": 0.104144,
+          "pid": 8060,
+          "workingSetBytes": 35848192,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 8608,
+          "cpuTime": 1.714894,
+          "pid": 8608,
+          "workingSetBytes": 149979136,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 18272,
+          "cpuTime": 1.836875,
+          "pid": 18272,
+          "workingSetBytes": 109387776,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 20128,
+          "cpuTime": 0.268343,
+          "pid": 20128,
+          "workingSetBytes": 43679744,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 22796,
+          "cpuTime": 0.07535,
+          "pid": 22796,
+          "workingSetBytes": 22376448,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 18740,
+          "cpuTime": 0.038843,
+          "pid": 18740,
+          "workingSetBytes": 20606976,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 24048,
+          "cpuTime": 0.124651,
+          "pid": 24048,
+          "workingSetBytes": 30965760,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 15764,
+          "cpuTime": 0.03573,
+          "pid": 15764,
+          "workingSetBytes": 20492288,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 604401664,
+      "workingSetBytesByType": {
+        "browser": 171065344,
+        "renderer": 185827328,
+        "GPU": 109387776,
+        "network.mojom.NetworkService": 43679744,
+        "storage.mojom.StorageService": 22376448,
+        "entity_extraction_service.mojom.Extractor": 20606976,
+        "winrt_app_id.mojom.WinrtAppIdService": 30965760,
+        "edge_collections.mojom.CollectionsDataManager": 20492288
+      },
+      "heap": {
+        "jsHeapUsedBytes": 14266552,
+        "jsHeapTotalBytes": 22585344
+      }
+    },
+    {
+      "side": "before",
+      "nodes": 1000,
+      "density": 10,
+      "repeat": 3,
+      "order": 26,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 1000,
+        "edgeCount": 10000,
+        "visibleNodeCount": 1000,
+        "visibleEdgeCount": 10000,
+        "projectedNodeCount": 1000,
+        "projectedEdgeCount": 10000,
+        "zoom": 1.1273664424998797,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:51:27.548Z",
+      "readStarted": "2026-10-14T19:51:27.550Z",
+      "readFinished": "2026-10-14T19:51:28.249Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 14796,
+          "cpuTime": 2.025172,
+          "pid": 14796,
+          "workingSetBytes": 174141440,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 17340,
+          "cpuTime": 0.102638,
+          "pid": 17340,
+          "workingSetBytes": 35880960,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 16296,
+          "cpuTime": 1.757415,
+          "pid": 16296,
+          "workingSetBytes": 151334912,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 23176,
+          "cpuTime": 2.002643,
+          "pid": 23176,
+          "workingSetBytes": 100139008,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 23756,
+          "cpuTime": 0.28562,
+          "pid": 23756,
+          "workingSetBytes": 43704320,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 24332,
+          "cpuTime": 0.07834,
+          "pid": 24332,
+          "workingSetBytes": 22429696,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 6404,
+          "cpuTime": 0.037676,
+          "pid": 6404,
+          "workingSetBytes": 20602880,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 16940,
+          "cpuTime": 0.123826,
+          "pid": 16940,
+          "workingSetBytes": 31031296,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 21096,
+          "cpuTime": 0.035496,
+          "pid": 21096,
+          "workingSetBytes": 20451328,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 599715840,
+      "workingSetBytesByType": {
+        "browser": 174141440,
+        "renderer": 187215872,
+        "GPU": 100139008,
+        "network.mojom.NetworkService": 43704320,
+        "storage.mojom.StorageService": 22429696,
+        "entity_extraction_service.mojom.Extractor": 20602880,
+        "winrt_app_id.mojom.WinrtAppIdService": 31031296,
+        "edge_collections.mojom.CollectionsDataManager": 20451328
+      },
+      "heap": {
+        "jsHeapUsedBytes": 13121076,
+        "jsHeapTotalBytes": 22585344
+      }
+    },
+    {
+      "side": "after",
+      "nodes": 1000,
+      "density": 10,
+      "repeat": 3,
+      "order": 27,
+      "attempt": 1,
+      "mounted": {
+        "nodeCount": 1000,
+        "edgeCount": 10000,
+        "visibleNodeCount": 1000,
+        "visibleEdgeCount": 10000,
+        "projectedNodeCount": 1000,
+        "projectedEdgeCount": 10000,
+        "zoom": 1.5,
+        "rafStopped": true
+      },
+      "enumerationTime": "2026-10-14T19:51:32.431Z",
+      "readStarted": "2026-10-14T19:51:32.433Z",
+      "readFinished": "2026-10-14T19:51:33.116Z",
+      "processes": [
+        {
+          "type": "browser",
+          "id": 17896,
+          "cpuTime": 1.947493,
+          "pid": 17896,
+          "workingSetBytes": 171376640,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 20600,
+          "cpuTime": 0.101695,
+          "pid": 20600,
+          "workingSetBytes": 35905536,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "renderer",
+          "id": 16656,
+          "cpuTime": 1.264397,
+          "pid": 16656,
+          "workingSetBytes": 161832960,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "GPU",
+          "id": 21612,
+          "cpuTime": 0.857932,
+          "pid": 21612,
+          "workingSetBytes": 125079552,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "network.mojom.NetworkService",
+          "id": 21724,
+          "cpuTime": 0.278991,
+          "pid": 21724,
+          "workingSetBytes": 43905024,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "storage.mojom.StorageService",
+          "id": 22188,
+          "cpuTime": 0.075214,
+          "pid": 22188,
+          "workingSetBytes": 22392832,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "entity_extraction_service.mojom.Extractor",
+          "id": 21352,
+          "cpuTime": 0.036425,
+          "pid": 21352,
+          "workingSetBytes": 20639744,
+          "processName": "msedge",
+          "error": null
+        },
+        {
+          "type": "winrt_app_id.mojom.WinrtAppIdService",
+          "id": 24044,
+          "cpuTime": 0.125188,
+          "pid": 24044,
+          "workingSetBytes": 30973952,
+          "processName": "identity_helper",
+          "error": null
+        },
+        {
+          "type": "edge_collections.mojom.CollectionsDataManager",
+          "id": 17024,
+          "cpuTime": 0.035977,
+          "pid": 17024,
+          "workingSetBytes": 20455424,
+          "processName": "msedge",
+          "error": null
+        }
+      ],
+      "complete": true,
+      "missingPids": [],
+      "sumWorkingSetBytes": 632561664,
+      "workingSetBytesByType": {
+        "browser": 171376640,
+        "renderer": 197738496,
+        "GPU": 125079552,
+        "network.mojom.NetworkService": 43905024,
+        "storage.mojom.StorageService": 22392832,
+        "entity_extraction_service.mojom.Extractor": 20639744,
+        "winrt_app_id.mojom.WinrtAppIdService": 30973952,
+        "edge_collections.mojom.CollectionsDataManager": 20455424
+      },
+      "heap": {
+        "jsHeapUsedBytes": 19441084,
+        "jsHeapTotalBytes": 33632256
+      }
+    }
+  ],
+  "errors": [],
+  "externalRequests": [],
+  "limits": [
+    "Sum of per-process Windows working sets can double-count shared pages; it is not private RAM or total system memory.",
+    "CDP SystemInfo.getProcessInfo identifies only this fresh browser instance; helper Node/PowerShell and other applications are excluded.",
+    "Each process is read sequentially, not in an atomic OS snapshot. Processes may exit between CDP enumeration and Get-Process; missing reads are recorded and invalidate the sample.",
+    "Point-in-time measurement after fixed mounting workload and wait, not peak memory, long-running convergence, leak test or operational workload.",
+    "No forced garbage collection; fresh browser each sample, existing OS/file caches and host noise remain.",
+    "Three paired samples per node count; p95 is nearest-rank maximum, not a reliable tail estimate.",
+    "JS heap from the page Performance CDP session is separate from process working set; never add them.",
+    "Before has random layout, after deterministic layout and adaptive text; all original nodes/edges remain expanded."
+  ],
+  "browser": "155.0.4283.45",
+  "summary": [
+    {
+      "nodes": 50,
+      "density": 10,
+      "before": {
+        "samples": 3,
+        "workingSetBytesP50": 508309504,
+        "workingSetBytesP95": 511430656,
+        "heapUsedBytesP50": 3222712
+      },
+      "after": {
+        "samples": 3,
+        "workingSetBytesP50": 498192384,
+        "workingSetBytesP95": 505602048,
+        "heapUsedBytesP50": 3157292
+      }
+    },
+    {
+      "nodes": 100,
+      "density": 10,
+      "before": {
+        "samples": 3,
+        "workingSetBytesP50": 527446016,
+        "workingSetBytesP95": 528826368,
+        "heapUsedBytesP50": 3443108
+      },
+      "after": {
+        "samples": 3,
+        "workingSetBytesP50": 510070784,
+        "workingSetBytesP95": 512708608,
+        "heapUsedBytesP50": 4444848
+      }
+    },
+    {
+      "nodes": 500,
+      "density": 10,
+      "before": {
+        "samples": 3,
+        "workingSetBytesP50": 565919744,
+        "workingSetBytesP95": 566124544,
+        "heapUsedBytesP50": 9900040
+      },
+      "after": {
+        "samples": 3,
+        "workingSetBytesP50": 542048256,
+        "workingSetBytesP95": 543715328,
+        "heapUsedBytesP50": 10864656
+      }
+    },
+    {
+      "nodes": 1000,
+      "density": 10,
+      "before": {
+        "samples": 3,
+        "workingSetBytesP50": 601075712,
+        "workingSetBytesP95": 604401664,
+        "heapUsedBytesP50": 14266552
+      },
+      "after": {
+        "samples": 3,
+        "workingSetBytesP50": 632561664,
+        "workingSetBytesP95": 643125248,
+        "heapUsedBytesP50": 17960264
+      }
+    }
+  ],
+  "finished": "2026-10-14T19:51:33.482Z"
+}

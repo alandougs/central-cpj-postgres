@@ -10,7 +10,7 @@ Uso (CLI):
   rag.py stats
 Cada resultado traz caso, arquivo, página e fls. para citação e conferência no original.
 """
-import argparse, os, re, sqlite3, sys
+import argparse, json, os, re, sqlite3, sys
 
 def ws_padrao():
     """Workspace CPJ: CPJ_WORKSPACE > 1ª pasta acima deste script com casos/ e modelos/ > cwd com casos/ > erro."""
@@ -202,45 +202,207 @@ def chave_no(tipo, v):
     return _n(v)
 
 
-def vinculos(tipo, valor, niveis=2, limite=400):
+COLUNAS_GRAFO = ('a_tipo','a_valor','b_tipo','b_valor','relacao','origem','fonte','localizador')
+ORDEM_GRAFO='a_tipo,a_valor,b_tipo,b_valor,relacao:asc'
+INDICES_GRAFO_SQL=(
+    'CREATE INDEX IF NOT EXISTS ix_ar_relacao ON arestas(a_tipo,a_valor,b_tipo,b_valor,relacao,origem,fonte)',
+    'CREATE INDEX IF NOT EXISTS ix_ar_fonte ON arestas(fonte,a_tipo,a_valor,b_tipo,b_valor,relacao)',
+    'CREATE INDEX IF NOT EXISTS ix_ar_origem ON arestas(origem)',
+)
+
+
+def metadados_pagina(total,pagina,limite,retornadas):
+    return {'total':total,'pagina':pagina,'limite':limite,'total_retornado':retornadas,
+            'proxima_pagina':pagina+1 if pagina*limite<total else None,
+            'truncado':total>retornadas,'ordem':ORDEM_GRAFO,
+            'completude':'parcial' if total>retornadas else 'completa_no_escopo',
+            'limites':{'relacoes':limite}}
+
+
+def _rotulos_cte(db,manuais,nos=None,busca=False):
+    if nos not in (None,'nos','selecionados'):raise ValueError('Escopo interno de rótulos inválido.')
+    join=f' JOIN {nos} n ON n.tipo=r.tipo AND n.valor=r.valor' if nos else ''
+    if manuais is None:return 'rotulos_efetivos AS (SELECT r.tipo,r.valor,r.rotulo FROM rotulos r'+join+')',[]
+    rot={(a[lado+'_tipo'],a[lado+'_valor']):a[lado+'_rotulo'] for a in manuais for lado in ('a','b') if a.get(lado+'_rotulo')}
+    rastreada=db.execute("SELECT 1 FROM sqlite_master WHERE name='grafo_rotulos_manuais' AND type='table'").fetchone()
+    base=("SELECT r.tipo,r.valor,CASE WHEN r.rotulo IS m.rotulo THEN m.anterior ELSE r.rotulo END rotulo "
+          "FROM rotulos r"+join+" LEFT JOIN grafo_rotulos_manuais m ON m.tipo=r.tipo AND m.valor=r.valor" if rastreada
+          else 'SELECT r.tipo,r.valor,r.rotulo FROM rotulos r'+join)
+    if not rot and not rastreada:return 'rotulos_efetivos AS ('+base+')',[]
+    efetivos=("SELECT tipo,valor,rotulo FROM rotulos_base UNION SELECT tipo,valor,rotulo FROM rotulos_ativos" if busca else
+            "SELECT r.tipo,r.valor,coalesce(m.rotulo,r.rotulo) rotulo FROM rotulos_base r "
+            "LEFT JOIN rotulos_ativos m ON m.tipo=r.tipo AND m.valor=r.valor UNION ALL "
+            "SELECT m.tipo,m.valor,m.rotulo FROM rotulos_ativos m WHERE NOT EXISTS "
+            "(SELECT 1 FROM rotulos_base r WHERE r.tipo=m.tipo AND r.valor=m.valor)")
+    return ("rotulos_ativos AS (SELECT json_extract(value,'$[0]') tipo,json_extract(value,'$[1]') valor,"
+            "json_extract(value,'$[2]') rotulo FROM json_each(?)),rotulos_base AS ("+base+"),"
+            "rotulos_efetivos AS ("+efetivos+")",
+            [json.dumps([[t,v,r] for (t,v),r in rot.items()],ensure_ascii=False)])
+
+
+def rotulos_em_lote(db,chaves,manuais=None):
+    """Rótulos por pares (tipo,valor), sem SELECT individual nem importação de app."""
+    chaves=list(dict.fromkeys(tuple(k) for k in chaves));rot={}
+    if not chaves:return rot
+    cte,params=_rotulos_cte(db,manuais,'selecionados')
+    for inicio in range(0,len(chaves),150):
+        lote=chaves[inicio:inicio+150];valores=','.join('(?,?)' for _ in lote)
+        rows=db.execute(f'WITH {cte},selecionados(tipo,valor) AS (VALUES {valores}) '
+                        'SELECT r.tipo,r.valor,r.rotulo FROM rotulos_efetivos r JOIN selecionados s '
+                        'ON r.tipo IS s.tipo AND r.valor IS s.valor',params+[v for k in lote for v in k]).fetchall()
+        rot.update({(t,v):r for t,v,r in rows if r})
+    pessoas=[v for t,v in chaves if t=='PESSOA' and (t,v) not in rot]
+    for inicio in range(0,len(pessoas),150):
+        lote=pessoas[inicio:inicio+150]
+        rows=db.execute('SELECT a_valor,min(b_valor) FROM arestas WHERE a_tipo=? AND b_tipo=? AND a_valor IN ('+
+                        ','.join('?' for _ in lote)+') GROUP BY a_valor',['PESSOA','NOME']+lote).fetchall()
+        rot.update({('PESSOA',v):n.title() for v,n in rows if n})
+    return rot
+
+
+def pagina_grafo(db,caso=None,termo='',manuais=(),pagina=1,limite=400,seeds=None,niveis=2,caso_cadastrado=True):
+    """Paginação de tuplas lógicas, com universo exato e sem cortar sementes/fontes.
+
+    O chamador fornece as linhas manuais já conciliadas com a fonte autoritativa.
+    Todo acesso usa a mesma conexão/transação de leitura do chamador.
+    """
+    campos=','.join(COLUNAS_GRAFO[:5]);escopo,params=escopo_grafo(caso)
+    filtro="origem IS NOT 'manual' AND "+escopo
+    if caso:
+        # Localizador nativo determina o caso da referência. Consulta não vira autos.
+        filtro+=(" AND CASE WHEN json_valid(localizador) THEN CASE WHEN json_extract(localizador,'$.schema')='astra-evidencia/1' "
+                 "THEN json_extract(localizador,'$.caso') ELSE CASE WHEN origem IS NOT 'consulta' AND (origem='caso' OR ?) "
+                 "THEN fonte END END ELSE CASE WHEN origem IS NOT 'consulta' AND (origem='caso' OR ?) THEN fonte END END=?")
+        params.extend([bool(caso_cadastrado),bool(caso_cadastrado),caso])
+    elif not termo and seeds is None:filtro+=" AND relacao IS NOT 'consta nos autos'"
+    manual_keys=list(dict.fromkeys(tuple(a[k] for k in COLUNAS_GRAFO[:5]) for a in manuais))
+    extrair=','.join(f"json_extract(value,'$[{i}]') {c}" for i,c in enumerate(COLUNAS_GRAFO[:5]))
+    ctes=[f'documentais AS (SELECT {campos} FROM arestas WHERE {filtro} GROUP BY {campos})',
+          f'manuais AS (SELECT {extrair} FROM json_each(?))',
+          f'relacoes AS (SELECT {campos} FROM documentais UNION SELECT {campos} FROM manuais)']
+    params.append(json.dumps(manual_keys,ensure_ascii=False))
+    if termo or seeds is not None:
+        rot,par=_rotulos_cte(db,manuais,'nos',busca=True);ctes.append(rot);params.extend(par)
+        ctes.append('nos AS (SELECT a_tipo tipo,a_valor valor FROM relacoes UNION SELECT b_tipo,b_valor FROM relacoes)')
+        if seeds is None:
+            tipos=[t for t in TIPOS_NO if t!='CASO' and (t!='PESSOA' or termo.startswith('P:'))]
+            numerico=bool(re.fullmatch(r'[\d.\-/() +]+',termo))
+            tipos=[t for t in tipos if t not in ('CPF','CNPJ','TELEFONE','RG','PROCESSO','BO','CONTA')
+                   or numerico or (t=='CONTA' and '|' in termo)]
+            chaves=[(t,chave_no(t,termo).lower()) for t in tipos if chave_no(t,termo)]
+            filtros=' OR '.join('(n.tipo=? AND instr(lower(n.valor),?)>0)' for _ in chaves)
+            params.extend([v for k in chaves for v in k]+[termo.lower()])
+            busca=_n(termo)
+            adicionais=[(a[lado+'_tipo'],a[lado+'_valor']) for a in manuais for lado in ('a','b')
+                        if busca in _n(' '.join(str(a.get(k,'')) for k in ('a_valor','b_valor','a_rotulo','b_rotulo','relacao')))]
+            ctes.append(f"sementes AS (SELECT n.tipo,n.valor FROM nos n LEFT JOIN rotulos_efetivos r ON r.tipo=n.tipo AND r.valor=n.valor "
+                        f"WHERE ({filtros or '0'}) OR (n.tipo!='CASO' AND instr(lower(coalesce(r.rotulo,'')),?)>0) UNION "
+                        "SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]') FROM json_each(?))")
+            params.append(json.dumps(adicionais,ensure_ascii=False))
+        else:
+            t,v=seeds
+            ctes.append("sementes AS (SELECT tipo,valor FROM nos WHERE tipo=? AND "+
+                        ("substr(valor,-length(?)-1)='|'||?" if t=='CONTA' and '|' not in v else 'valor=?')+")")
+            params.extend([t,v,v] if t=='CONTA' and '|' not in v else [t,v])
+        ctes.append("alcance(tipo,valor,nivel) AS (SELECT tipo,valor,0 FROM sementes UNION "
+                    "SELECT a.b_tipo,a.b_valor,n.nivel+1 FROM alcance n JOIN relacoes a ON a.a_tipo=n.tipo AND a.a_valor=n.valor "
+                    "WHERE n.nivel<? AND (n.tipo!='NOME' OR n.nivel=0) UNION "
+                    "SELECT a.a_tipo,a.a_valor,n.nivel+1 FROM alcance n JOIN relacoes a ON a.b_tipo=n.tipo AND a.b_valor=n.valor "
+                    "WHERE n.nivel<? AND (n.tipo!='NOME' OR n.nivel=0))")
+        params.extend([niveis,niveis])
+        ctes.append('niveis_nos AS (SELECT tipo,valor,min(nivel) nivel FROM alcance GROUP BY tipo,valor)')
+        ctes.append("expansiveis AS (SELECT tipo,valor FROM niveis_nos WHERE nivel<? AND (tipo!='NOME' OR nivel=0))")
+        params.append(niveis)
+        ctes.append("elegiveis AS (SELECT r.* FROM relacoes r JOIN expansiveis n ON r.a_tipo=n.tipo AND r.a_valor=n.valor UNION "
+                    "SELECT r.* FROM relacoes r JOIN expansiveis n ON r.b_tipo=n.tipo AND r.b_valor=n.valor)")
+    else:ctes.append('elegiveis AS (SELECT * FROM relacoes)')
+    niveis_colunas='0,0';niveis_joins=''
+    if termo or seeds is not None:
+        niveis_colunas='na.nivel,nb.nivel'
+        niveis_joins=(' LEFT JOIN niveis_nos na ON na.tipo IS p.a_tipo AND na.valor IS p.a_valor '
+                      'LEFT JOIN niveis_nos nb ON nb.tipo IS p.b_tipo AND nb.valor IS p.b_valor')
+    sql=('WITH RECURSIVE '+','.join(ctes)+f',pagina AS (SELECT {campos},1 presente FROM elegiveis '
+         f'ORDER BY {campos} LIMIT ? OFFSET ?) SELECT t.total,p.*,'+niveis_colunas+' FROM (SELECT count(*) total FROM elegiveis) t '
+         'LEFT JOIN pagina p ON 1'+niveis_joins+' ORDER BY '+','.join('p.'+c for c in COLUNAS_GRAFO[:5]))
+    rows=db.execute(sql,params+[limite,(pagina-1)*limite]).fetchall()
+    chaves=[tuple(r[1:6]) for r in rows if r[6] is not None]
+    niveis_nos={(r[i],r[i+1]):r[7 if i==1 else 8] for r in rows if r[6] is not None for i in (1,3)}
+    return {'chaves':chaves,'niveis_nos':niveis_nos,**metadados_pagina(rows[0][0],pagina,limite,len(chaves))}
+
+
+def escopo_grafo(caso=None, alias=''):
+    p=alias+'.' if alias else ''
+    return ((f"({p}fonte=? OR ({p}a_tipo='CASO' AND {p}a_valor=?) OR ({p}b_tipo='CASO' AND {p}b_valor=?))", [caso]*3)
+            if caso else ('1',[]))
+
+
+def referencias_relacoes(db, chaves, caso=None, interno=True):
+    """Todas as referências das relações selecionadas; corte ocorre antes delas."""
+    chaves=list(dict.fromkeys(tuple(k) for k in chaves)); saida=[]
+    for inicio in range(0,len(chaves),150):
+        lote=chaves[inicio:inicio+150]
+        valores=','.join('(?,?,?,?,?)' for _ in lote)
+        campos=','.join(COLUNAS_GRAFO[:5])
+        join=' AND '.join(f'a.{k} IS s.{k}' for k in COLUNAS_GRAFO[:5])
+        escopo,params=escopo_grafo(caso,'a')
+        rows=db.execute(f'WITH selecionadas({campos}) AS (VALUES {valores}) '
+                        f"SELECT a.rowid,{','.join('a.'+k for k in COLUNAS_GRAFO)} FROM arestas a "
+                        f'JOIN selecionadas s ON {join} WHERE {escopo} ORDER BY a.rowid',
+                        [v for k in lote for v in k]+params).fetchall()
+        for row in rows:
+            a=dict(zip(COLUNAS_GRAFO,row[1:]))
+            if interno:a['_rowid']=row[0]
+            saida.append(a)
+    return saida
+
+
+def vinculos(tipo, valor, niveis=2, limite=400, caso=None, interno=False):
     """Grafo de vínculos (registros de pessoa, nomes, telefones, veículos, endereços, empresas, processos, contas,
     chaves Pix, casos) a partir do nó informado, até `niveis` saltos. Retorna {nos, arestas} com rótulos.
     Identidade: PESSOA é o registro de origem (id 'P:...'); o nome é apenas um nó NOME (candidato a conferir) e
     não é atravessado — homônimos aparecem como candidatos, sem trazer os vínculos uns dos outros."""
-    db = conectar()
-    try: db.execute("SELECT 1 FROM arestas LIMIT 1")
-    except sqlite3.OperationalError: db.close(); return {"nos": [], "arestas": []}
-    t0 = (tipo or "").upper()
-    if t0 == "PESSOA" and not str(valor or "").startswith("P:"): t0 = "NOME"   # compatibilidade: busca por nome
-    k0 = chave_no(t0, valor)
-    if not k0: db.close(); return {"nos": [], "arestas": []}
-    inicios = [(t0, k0)]
-    if t0 == "CONTA" and "|" not in k0:   # conta sem banco: todos os bancos com esses dígitos
-        inicios = [("CONTA", r[0]) for r in db.execute(
-            "SELECT DISTINCT a_valor FROM arestas WHERE a_tipo='CONTA' AND a_valor LIKE ? UNION "
-            "SELECT DISTINCT b_valor FROM arestas WHERE b_tipo='CONTA' AND b_valor LIKE ?", (f"%|{k0}", f"%|{k0}"))] or inicios
-    vistos, fronteira, arestas = {i: 0 for i in inicios}, list(inicios), []
-    for nivel in range(1, niveis + 1):
-        prox = []
-        for t, v in fronteira:
-            if t in NAO_EXPANDIR and vistos.get((t, v)) != 0: continue   # nome só expande quando é o ponto de partida
-            for r in db.execute("SELECT a_tipo,a_valor,b_tipo,b_valor,relacao,origem,fonte,localizador FROM arestas "
-                                "WHERE (a_tipo=? AND a_valor=?) OR (b_tipo=? AND b_valor=?) LIMIT ?", (t, v, t, v, limite)):
-                arestas.append(dict(zip(("a_tipo", "a_valor", "b_tipo", "b_valor", "relacao", "origem", "fonte", "localizador"), r)))
-                for no in ((r[0], r[1]), (r[2], r[3])):
-                    if no not in vistos and len(vistos) < limite: vistos[no] = nivel; prox.append(no)
-        fronteira = prox
-    rot = {}
+    db=conectar()
     try:
-        for t, v in vistos:
-            x = db.execute("SELECT rotulo FROM rotulos WHERE tipo=? AND valor=?", (t, v)).fetchone()
-            if x: rot[(t, v)] = x[0]
-    except sqlite3.OperationalError:
-        pass
-    db.close()
-    unicas = {tuple(a.values()): a for a in arestas}
-    return {"nos": [{"tipo": t, "valor": v, "nivel": n, "rotulo": rot.get((t, v), v)} for (t, v), n in vistos.items()],
-            "arestas": list(unicas.values())}
+        try:db.execute('SELECT 1 FROM arestas LIMIT 1')
+        except sqlite3.OperationalError:return {'nos':[],'arestas':[],'truncado':None,'completude':'indice_indisponivel'}
+        t0=(tipo or '').upper()
+        if t0=='PESSOA' and not str(valor or '').startswith('P:'):t0='NOME'
+        k0=chave_no(t0,valor)
+        if not k0:return {'nos':[],'arestas':[],'truncado':False,'completude':'completa_no_escopo'}
+        inicios=[(t0,k0)];truncado=False
+        if t0=='CONTA' and '|' not in k0:
+            escopo,params=escopo_grafo(caso)
+            rows=db.execute("SELECT a_valor FROM arestas WHERE a_tipo='CONTA' AND a_valor LIKE ? AND "+escopo+
+                            " UNION SELECT b_valor FROM arestas WHERE b_tipo='CONTA' AND b_valor LIKE ? AND "+escopo+
+                            ' ORDER BY 1 LIMIT ?', [f'%|{k0}']+params+[f'%|{k0}']+params+[limite+1]).fetchall()
+            truncado=len(rows)>limite
+            inicios=[('CONTA',r[0]) for r in rows[:limite]] or inicios
+        vistos={i:0 for i in inicios};fronteira=list(inicios);chaves={}
+        escopo,params=escopo_grafo(caso)
+        campos=','.join(COLUNAS_GRAFO[:5])
+        for nivel in range(1,niveis+1):
+            prox=[]
+            for t,v in fronteira:
+                if t in NAO_EXPANDIR and vistos[t,v]!=0:continue
+                rows=db.execute(f'SELECT {campos} FROM arestas WHERE ((a_tipo=? AND a_valor=?) OR '
+                                f'(b_tipo=? AND b_valor=?)) AND {escopo} GROUP BY {campos} ORDER BY {campos} LIMIT ?',
+                                [t,v,t,v]+params+[limite+1]).fetchall()
+                if len(rows)>limite:truncado=True
+                for r in rows[:limite]:
+                    novos={no for no in ((r[0],r[1]),(r[2],r[3])) if no not in vistos}
+                    if len(vistos)+len(novos)>limite:truncado=True;continue
+                    chaves[tuple(r)]=None
+                    for no in novos:vistos[no]=nivel;prox.append(no)
+            fronteira=prox
+        arestas=referencias_relacoes(db,chaves,caso,interno=interno)
+        rot={}
+        try:
+            rot=rotulos_em_lote(db,vistos)
+        except sqlite3.OperationalError:pass
+        return {'nos':[{'tipo':t,'valor':v,'nivel':n,'rotulo':rot.get((t,v),v)} for (t,v),n in vistos.items()],
+                'arestas':arestas,'truncado':truncado,'completude':'parcial' if truncado else 'completa_no_escopo',
+                'limites':{'nos':limite,'relacoes_por_no':limite,'niveis':niveis}}
+    finally:db.close()
 
 
 def stats():
