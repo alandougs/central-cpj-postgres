@@ -250,6 +250,30 @@ class RunnerEstrito(unittest.TestCase):
         with unittest.mock.patch.object(self.runner.os, "symlink", return_value=None):
             self.assertFalse(self.runner._host_sem_link_simbolico())
 
+    def test_ci_executar_publica_o_motivo_da_falha_como_anotacao(self):
+        exe = [sys.executable, str(ROOT / "ferramentas" / "ci-executar.py")]
+        r = subprocess.run(exe + ["rótulo, com: especiais", "--", sys.executable, "-c",
+                                  "print('linha um'); print('100% quebrado'); raise SystemExit(3)"],
+                           capture_output=True, text=True, encoding="utf-8")
+        self.assertEqual(r.returncode, 3)
+        self.assertIn("linha um", r.stdout)                                  # a saída segue indo ao log
+        nota = [l for l in r.stdout.splitlines() if l.startswith("::error")]
+        self.assertEqual(len(nota), 1, r.stdout)
+        self.assertIn("title=rótulo%2C com%3A especiais (saída 3)::", nota[0])
+        self.assertIn("linha um%0A100%25 quebrado", nota[0])
+        ok = subprocess.run(exe + ["bom", "--", sys.executable, "-c", "print('tudo certo')"], capture_output=True, text=True, encoding="utf-8")
+        self.assertEqual(ok.returncode, 0)
+        self.assertNotIn("::error", ok.stdout)
+        self.assertEqual(subprocess.run(exe + ["x"], capture_output=True).returncode, 2)       # sem comando
+        self.assertEqual(subprocess.run(exe + ["x", "--", "comando-inexistente-un17"], capture_output=True).returncode, 127)
+
+    def test_nenhum_passo_do_workflow_junta_comandos_que_mascaram_falha(self):
+        import re
+        for bloco in re.findall(r"\n\s+run: \|\n((?:\s{10,}.*\n)+)", WORKFLOW.read_text(encoding="utf-8")):
+            python_chamadas = [l for l in bloco.splitlines() if l.strip().startswith("python ") and "--version" not in l]
+            self.assertLessEqual(len(python_chamadas), 1,
+                                 "vários comandos Python num passo: no pwsh só o último código de saída vale\n" + bloco)
+
     def test_job_de_desempenho_e_so_sob_demanda_e_nao_mascara_falha(self):
         texto = WORKFLOW.read_text(encoding="utf-8")
         marca = "\n  desempenho:"

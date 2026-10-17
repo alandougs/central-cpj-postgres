@@ -55,13 +55,13 @@ jobs:
           python --version
           git --version
       - name: Varredura de sigilo da revisao candidata
-        run: python ferramentas/verificar-publicacao.py --ref HEAD
-      - name: Portateis e adaptadores conferem com a fonte
-        run: |
-          python ferramentas/exportar-portatil.py --verificar
-          python ferramentas/configurar-codex.py --verificar
+        run: python ferramentas/ci-executar.py "Varredura de sigilo da revisao candidata" -- python ferramentas/verificar-publicacao.py --ref HEAD
+      - name: Portateis conferem com a fonte
+        run: python ferramentas/ci-executar.py "Portateis conferem com a fonte" -- python ferramentas/exportar-portatil.py --verificar
+      - name: Adaptadores conferem com a fonte
+        run: python ferramentas/ci-executar.py "Adaptadores conferem com a fonte" -- python ferramentas/configurar-codex.py --verificar
       - name: Testes do verificador e do workflow
-        run: python plugin/investigacao-cpj/app/testes/teste_publicacao_un17.py
+        run: python ferramentas/ci-executar.py "Testes do verificador e do workflow" -- python plugin/investigacao-cpj/app/testes/teste_publicacao_un17.py
 
   suite:
     name: suite completa (Windows, navegador e OCR)
@@ -122,14 +122,16 @@ jobs:
           $edge = Get-Item "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
           "Edge $($edge.VersionInfo.ProductVersion)"
           python -c "import quickjs, playwright, reportlab; print('quickjs, playwright e reportlab importados')"
-      - name: Sigilo e distribuicao
-        run: |
-          python ferramentas/verificar-publicacao.py --ref HEAD
-          python ferramentas/exportar-portatil.py --verificar
-          python ferramentas/configurar-codex.py --verificar
-          python plugin/investigacao-cpj/app/testes/teste_distribuicao_un16.py
-      - name: Suite completa em modo estrito (skip fora da lista tolerada reprova)
-        run: python ferramentas/testar-tudo.py --estrito
+      - name: Sigilo da revisao candidata
+        run: python ferramentas/ci-executar.py "Sigilo da revisao candidata" -- python ferramentas/verificar-publicacao.py --ref HEAD
+      - name: Portateis conferem com a fonte
+        run: python ferramentas/ci-executar.py "Portateis conferem com a fonte" -- python ferramentas/exportar-portatil.py --verificar
+      - name: Adaptadores conferem com a fonte
+        run: python ferramentas/ci-executar.py "Adaptadores conferem com a fonte" -- python ferramentas/configurar-codex.py --verificar
+      - name: Distribuicao do plugin
+        run: python ferramentas/ci-executar.py "Distribuicao do plugin" -- python plugin/investigacao-cpj/app/testes/teste_distribuicao_un16.py
+      - name: Suite completa em modo estrito
+        run: python ferramentas/ci-executar.py "Suite completa em modo estrito" -- python ferramentas/testar-tudo.py --estrito
 
   desempenho:
     name: desempenho (Windows, sob demanda; medicao, nao bloqueia regressao)
@@ -200,7 +202,7 @@ jobs:
           if ($LASTEXITCODE) { throw "Revisao de referencia '$ref' indisponivel" }
           "baseline=$(git -C ../baseline rev-parse --short HEAD) candidato=$(git rev-parse --short HEAD)"
       - name: Medicao baseline x candidato (alternada, apos aquecimento)
-        run: python ferramentas/medir-desempenho.py --candidato . --baseline ../baseline --repeticoes ${{ inputs.repeticoes || 5 }} --saida desempenho.json
+        run: python ferramentas/ci-executar.py "Medicao de desempenho" -- python ferramentas/medir-desempenho.py --candidato . --baseline ../baseline --repeticoes ${{ inputs.repeticoes || 5 }} --saida desempenho.json
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always()
         with:
