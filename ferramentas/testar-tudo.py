@@ -40,9 +40,23 @@ def argumentos():
 
 
 # Único tipo de skip aceito em modo estrito: depende de privilégio do sistema operacional (não de ferramenta ausente),
-# e a recusa de link simbólico segue coberta pelos demais testes de caminho. Navegador, OCR, git, PowerShell e
-# quickjs ausentes NÃO são toleráveis: o CI precisa provisioná-los.
-SKIPS_TOLERADOS = (re.compile(r"link simbólico|symlink", re.I),)
+# e a recusa de link simbólico segue coberta pelos demais testes de caminho. Só vale se este host realmente não consegue
+# criar link simbólico (sonda abaixo): num host que consegue (ex.: runner do CI), pular esses testes reprova.
+# Navegador, OCR, git, PowerShell e quickjs ausentes NÃO são toleráveis: o CI precisa provisioná-los.
+def _host_sem_link_simbolico() -> bool:
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="cpj-sonda-link-") as d:
+        alvo = os.path.join(d, "alvo")
+        open(alvo, "w").close()
+        try:
+            os.symlink(alvo, os.path.join(d, "link"))
+        except (OSError, NotImplementedError):
+            return True
+    return False
+
+
+PADROES_PRIVILEGIO = (re.compile(r"links? simbólicos?|symlink", re.I),)
+SKIPS_TOLERADOS = PADROES_PRIVILEGIO if _host_sem_link_simbolico() else ()
 
 
 def motivos_de_skip(texto: str) -> list[str]:

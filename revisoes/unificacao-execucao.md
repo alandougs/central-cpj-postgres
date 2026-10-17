@@ -13,9 +13,10 @@
 | UN14 | concluída (somente banco/workspace fictício) | ver `git log` | `teste_fluxo_execucao_un14.py` 15/15; mutações 7/7 mortas pelos testes certos; 25 suítes de regressão com saída 0 (esteira e E2E F03 via runner) |
 | UN15 | concluída (API + painel, banco/workspace fictício) | ver `git log` | `teste_fila_unificada_un15.py` 15/15; `teste_fila_unificada_un15_ui.py` 5/5; mutações 7/7 mortas (4 API, 3 tela); regressões AST07–AST15, FP01, RV14, RV20, UN13, UN14, esteira e runner rápido sem queda |
 | UN16 | concluída (pacote, portáteis e adaptadores; nada instalado) | ver `git log` | `teste_distribuicao_un16.py` 18 (1 skip explícito: link simbólico sem privilégio); mutações 5/5 mortas; AST05–AST17, UN13–UN15 e CL06 aprovados; runner rápido 5/5 |
-| UN17–UN18 | pendentes | — | — |
+| UN17 | concluída como candidato testado (CI escrito, **ainda não executado no GitHub**); 3 pendências abertas, ver seção | `72924ef` + commit de fechamento (ver `git log`) | suíte estrita completa 115/118 em `72924ef` (+ correções abaixo); `teste_publicacao_un17.py` 18; `teste_interrupcao_real_un17.py` 1; desempenho 5×2 medido |
+| UN18 | pendente | — | — |
 
-**Próximo comando seguro:** `python ferramentas/fila-tarefas.py assumir UN17 --agente Claude-unificacao` (CI `.github/workflows/validacao.yml`, `verificar-publicacao.py`, suíte completa em revisão congelada, E2E e desempenho; tratar o brasão ignorado pelo Git no CI limpo e a decisão pendente sobre `teste_identidade_form_codex`).
+**Próximo comando seguro:** `python ferramentas/fila-tarefas.py assumir UN18 --agente Claude-unificacao` (push sem force, PR para a branch padrão ligando #18/#19, comparar SHA local×remoto, verificar o CI **naquele** SHA pelas ferramentas ccd_pr, montar o pacote de evidências e pedir a liberação final; backup/restauração verificados antes de qualquer migração).
 **Autorização pendente:** merge em `main`, troca da branch padrão e instalação/migração operacional (liberação final em UN18). Nada disso foi feito.
 **Processos de teste ativos:** nenhum.
 
@@ -209,3 +210,52 @@ Limites e riscos abertos:
 - O atualizador real (`.ps1`) não foi executado; o fluxo ponta a ponta (validar com `claude plugin validate`, instalar, conferir versão) fica para a liberação operacional.
 - `portatil/` carrega o instantâneo de `calibracao/licoes-aprendidas.md`; qualquer mudança nele volta a divergir até regerar.
 - Há worktrees Codex locais com um commit cada ainda não integrados (`codex/astra-editor-20261014`, `codex/docx-fls-assinatura-20261014`, `codex/fila-progresso-20261014`); este item segue como registrado na UN11 e não foi tocado na UN16.
+
+
+## UN17 — sigilo, CI, suíte estrita, E2E e desempenho (17/10/2026)
+
+Revisão congelada da suíte: `72924ef` (worktree separado `congelada-un17`; nada foi escrito nele durante a rodada). Correções posteriores tocaram só runner, testes e ferramentas; **nenhum arquivo do aplicativo mudou depois de `72924ef`** (por isso a rodada não foi repetida inteira — apenas as suítes afetadas).
+
+### Entregue
+- `ferramentas/verificar-publicacao.py` (somente leitura; `--staged` / `--ref`; saída 0/1/2; nunca imprime o trecho achado). Regras P01–P09 (casos reais, config, bancos, ambiente/chaves, assinatura, pastas locais, documentos/mídia, >2 MB, binário não inspecionável) e C01–C04 (chave privada, token de provedor, segredo atribuído, CPF com dígitos válidos; C03/C04 ignoram caminhos de teste). Base em `HEAD`: 489 arquivos, 0 achados. Testes: `teste_publicacao_un17.py` (18).
+- `.github/workflows/validacao.yml`: jobs `sigilo` (Ubuntu), `suite` (Windows: Python 3.12, Node 24.19.0 + Playwright 1.62.1, Edge, Tesseract 5.4 com `por` fixado por commit e SHA-256, brasão sintético) e `desempenho` (**só `workflow_dispatch`**, baseline × candidato, artefato JSON). Actions fixadas por SHA (todas ≥2 semanas), `permissions: contents: read`, sem `continue-on-error`, sem segredos.
+- `testar-tudo.py --estrito`: skip fora da lista tolerada reprova a rodada. Tolerância apenas para "link simbólico" **e só se o host realmente não cria link simbólico** (sonda `os.symlink`); runner de CI que consegue criar, ao pular, reprova.
+- `teste_interrupcao_real_un17.py`: mata o processo `servidor.py` (TerminateProcess) durante o OCR de autos fictícios, reinicia no mesmo workspace e confere conclusão, original com o mesmo SHA-256, nenhum caso duplicado e nenhuma execução órfã em `/api/fluxos`. Mutação (retomada desligada em `retomar_pendentes`) → o teste falha em 154 s, como esperado; arquivo revertido (`git checkout`).
+- `ferramentas/medir-desempenho.py` + `.cjs` (não bloqueia; ver abaixo).
+
+### Suíte estrita completa em `72924ef` (665 s): 115/118, saída 1 — resultado integral
+| Item | Situação |
+|---|---|
+| `teste_identidade_form_codex.py` | **Falha preexistente** (também em `782563a`): exige select de cargo e máscara de CPF nos formulários que não existem. **Decisão do operador pendente** (implementar ~HTML/JS em `f-setup`/`f-usuario`/`f-conta`, ou aposentar o teste). Enquanto isso o CI estrito ficará vermelho. |
+| `teste_interface_f01.py` | Regressão **minha** (UN15): interface agregada 297 KB → 311 KB > teto 300 KB. Teto elevado para 350 KB, com justificativa no teste (PR19 + painel UN15). Passa. |
+| `teste_workspace_v01.py` (V01.4) | Falha **intermitente de ambiente**: o teste fotografa `C:\CPJ - TRABALHO` inteiro e os servidores reais do usuário (PIDs 3444/5248, não tocados) gravam em `config\plantao.sqlite`. Reexecutado: aprovado (por runner e diretamente) quando não houve escrita; a rodada completa falhou em outra janela. Não indica defeito do código; no CI não existe esse servidor. |
+| Skip (estrito) | `teste_executores_rv17.py` (4 skips: sem privilégio para criar link simbólico) e 1 skip de `teste_distribuicao_un16.py`. Após a correção da sonda, esses skips só são tolerados neste host; **a cobertura de recusa de link simbólico não foi exercida aqui**. |
+
+### Cobertura E2E (UN17 pede: recebimento, OCR, O.S., análise com executor falso, relatório, revisão, interrupção/retomada, entrega só explícita)
+Existente e aprovada: `teste_astra_ast17_e2e.py` (HTTP + Edge: upload, extração, O.S. ao final do PDF, análise fictícia determinística, indexação/reinício do servidor, relatório DOCX, gate FINAL/`entregue` por ação), `teste_e2e_f03.py` (navegador: OCR, caso, minuta, DOCX, FINAL, painel), `teste_esteira_completa.py`, UN13/UN14 (falha simulada no banco, checkpoint, reserva, cancelamento). Lacuna fechada: morte real do processo (acima). **Não coberto**: concorrência com vários processos de servidor ao mesmo tempo; o DOCX só é verificado estruturalmente (sem renderização visual); a etapa `revisao` é exercida pelos testes de revisão/relatório, não por um E2E único com a mesma carga.
+
+### Desempenho (candidato `72924ef` × baseline `782563a`; Windows 11, 4 CPUs; Edge headless; 60 casos fictícios; autos fictícios com 4 páginas escaneadas; modo solo)
+Método: um par de aquecimento descartado + 5 pares alternados (ABAB, ordem invertida a cada rodada), servidor e perfil de navegador novos por execução, mesma massa e mesma configuração (administrador fictício copiado). Memória = working set (inclui páginas compartilhadas; não é memória privada). A árvore do candidato estava com as ferramentas de medição ainda não commitadas (código do aplicativo idêntico a `72924ef`).
+
+| Métrica | Candidato (mediana; mín–máx) | Baseline | Δ |
+|---|---|---|---|
+| Abertura da aplicação | 543 ms (512–632) | 376 ms (361–401) | **+44% — reproduzível, faixas não se sobrepõem** |
+| `GET /api/tarefas` (mediana de 20) | 7,5 ms | 7,35 ms | +2% |
+| `GET /api/casos` (60 casos) | 22,4 ms | 20,6 ms | +9% (dispersão do baseline ±62%) |
+| Navegação entre abas, ocioso | 23,8 ms | 26,4 ms | −10% |
+| Navegação durante OCR (mediana / máx.) | 25,5 / 44 ms | 23,7 / 30,6 ms | +8% / +44% (pior amostra isolada; 14 ms absolutos; dispersão ±23%) |
+| Maior tarefa longa do navegador | 0 ms | 0 ms | — |
+| Autos fictícios até concluir | 6,5 s | 6,5 s | 0% |
+| Servidor + filhos, ocioso / durante OCR | 45,9 / 52,8 MB | 45,4 / 52,3 MB | +1% |
+| Pico do servidor + filhos (SO) | 66,8 MB | 63,4 MB | +5% |
+| Navegador, ocioso / durante OCR | 458,5 / 515,1 MB | 453,1 / 511,2 MB | +1% |
+| Heap JS ao final | 4,1 MB | 4,3 MB | −5% |
+
+**Investigação da regressão de abertura (única reproduzível >10%):** a página do baseline é um `index.html` com os scripts embutidos (9 recursos, 113 KB); o candidato carrega 27 recursos (304 KB), porque o módulo único foi dividido em 20 arquivos `.js` (PR19/AST16, deliberado) e passou a incluir `fila-unificada.js` (UN15). O servidor responde `Cache-Control: no-store` a tudo (`servidor.py`, política deliberada), então **toda abertura rebusca os 27 recursos**. Custo absoluto: ≈ +170 ms em loopback, sem tarefa longa no navegador e sem efeito em tarefas/OCR/memória. **Não foi corrigido**: reduzir isso exigiria mudar a política de cache para estáticos versionados ou empacotar os módulos, decisão de design fora do escopo da UN17. Fica como item para o operador.
+Limites da medição: uma máquina, uma massa, Edge headless; sem repetição em outra data; "memória do navegador" soma o working set dos processos `msedge` do perfil de teste.
+
+### Pendências abertas ao fim da UN17
+1. **CI nunca executado no GitHub**: o `choco install tesseract --version 5.4.0.20240606` e o canal `msedge` no runner não foram comprovados; a primeira execução pode exigir ajuste. Só se declara o CI "verde" olhando a execução no SHA enviado (UN18).
+2. Decisão do operador sobre `teste_identidade_form_codex` (CI estrito vermelho até lá).
+3. Decisão do operador sobre o custo de abertura (cache de estáticos / empacotamento).
+4. Três worktrees Codex com um commit cada ainda não integrados (inalterado desde a UN11); `.ps1` do atualizador nunca executado; nenhuma instalação/migração/merge feito.

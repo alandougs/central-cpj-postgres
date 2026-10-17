@@ -95,9 +95,12 @@ class TesteInterfaceF01(unittest.TestCase):
     # O limite antigo (+15% sobre 85 881 bytes, da tarefa F01) ficou obsoleto: a Central ganhou abas
     # (configurações, esteira etc.). A proteção que importa é a interface sem dependência externa
     # (testes acima); aqui fica só um teto folgado contra inchaço acidental (ex.: dado embutido).
+    # UN17 (17/10/2026): 300 000 -> 350 000. A integração do PR19 (módulos ASTRA/grafo/editor/paginação) levou a
+    # interface agregada de 240 KB para 297 KB e o painel da fila unificada (UN15) acrescentou 15 KB; crescimento
+    # deliberado e conferido, sem dado embutido. O teto continua existindo para barrar inchaço acidental.
     def test_tamanho_dentro_do_limite(self):
         tamanho = len(self.html.encode("utf-8"))
-        limite = 300_000
+        limite = 350_000
         self.assertLessEqual(tamanho, limite, f"Interface agregada acima do teto: {tamanho} bytes (limite {limite})")
 
 

@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -224,7 +225,7 @@ class RunnerEstrito(unittest.TestCase):
         spec.loader.exec_module(cls.runner)
 
     def tolerado(self, motivo):
-        return any(p.search(motivo) for p in self.runner.SKIPS_TOLERADOS)
+        return any(p.search(motivo) for p in self.runner.PADROES_PRIVILEGIO)
 
     def test_extrai_motivos_do_modo_verboso(self):
         saida = ("test_a (m.C.test_a) ... skipped 'Runtime Node/Playwright indisponível'\n"
@@ -239,6 +240,24 @@ class RunnerEstrito(unittest.TestCase):
             self.assertFalse(self.tolerado(motivo), motivo)
         self.assertTrue(self.tolerado("link simbólico indisponível neste Windows (sem privilégio)"))
         self.assertTrue(self.tolerado("symlink não suportado"))
+        self.assertTrue(self.tolerado("Ambiente sem permissão para criar links simbólicos"))
+
+    def test_tolerancia_so_vale_em_host_que_nao_cria_link_simbolico(self):
+        esperado = self.runner.PADROES_PRIVILEGIO if self.runner._host_sem_link_simbolico() else ()
+        self.assertEqual(self.runner.SKIPS_TOLERADOS, esperado)
+        with unittest.mock.patch.object(self.runner.os, "symlink", side_effect=OSError("sem privilégio")):
+            self.assertTrue(self.runner._host_sem_link_simbolico())
+        with unittest.mock.patch.object(self.runner.os, "symlink", return_value=None):
+            self.assertFalse(self.runner._host_sem_link_simbolico())
+
+    def test_job_de_desempenho_e_so_sob_demanda_e_nao_mascara_falha(self):
+        texto = WORKFLOW.read_text(encoding="utf-8")
+        marca = "\n  desempenho:"
+        bloco = texto[texto.index(marca):]
+        self.assertIn("github.event_name == 'workflow_dispatch'", bloco)
+        self.assertNotIn("continue-on-error", texto)
+        self.assertIn("medir-desempenho.py --candidato . --baseline", bloco)
+        self.assertNotIn("medir-desempenho", texto[:texto.index(marca)])
 
     def test_workflow_provisiona_o_que_as_suites_nao_podem_pular(self):
         texto = WORKFLOW.read_text(encoding="utf-8")
