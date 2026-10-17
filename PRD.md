@@ -129,6 +129,8 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 
 ## 9. Estado atual e próximos passos (atualizar sempre)
 
+**16/10/2026 — UN01 (diagnóstico e desenho):** operador confirmou unificação do desenvolvimento e do painel de processamento. Proposta: uma versão oficial em main, fila compartilhada com IDs vinculados ao GitHub e acompanhamento persistente por O.S., aproveitando Python/Flask/SQLite. A branch auditada estava sincronizada, mas PR18/PR19 e master/main ainda não estavam consolidados. Reindexação apagou um vínculo manual em reprodução fictícia; avaliar as correções existentes na ASTRA antes de integrar. Rodada isolada em snapshot d13db28: 79/91 suítes aprovadas; o teste de workspace passou na repetição sem gravações concorrentes, e as demais falhas/limites estão documentados. Encontrados 11 portáteis divergentes, entrada pessoal Codex ausente e exclusão de JS pelo atualizador. Desenho para revisão em `docs/superpowers/specs/2026-10-16-cpj-unificado-design.md`; evidências em `revisoes/diagnostico-unificacao-2026-10-16.md`. Implementação, integração e instalação ainda pendentes.
+
 **16/10/2026 — SY03:** triagem para sincronizar a branch `codex/os-markdown-relatorio-20261014`: os 28 arquivos novos foram mantidos locais e excluídos do versionamento. Há 17 scripts operacionais/avulsos, configuração de assinatura, base de sincronização, marcador temporário e oito cópias idênticas de arquivos já preservados em `legado/`. `.gitignore` protege também variantes locais de `.env`, preservando `.env.example`. Três commits pendentes tiveram 41 revisões de arquivos examinadas, sem caminhos operacionais proibidos nem correspondências aos padrões de credenciais verificados; identificadores dos testes foram conferidos como fictícios. Reexecução isolada: OCR01 10/10, GEO01 7/7 e segurança 11/11; 28 exclusões reais e 18 exemplos de política Git conferidos. Não foi reexecutada a suíte geral nem certificada a ausência de falhas de produto fora dessa seleção. Evidências e limites em `revisoes/sincronizacao-github-2026-10-16.md`.
 
 **FP01 —14/10/2026:** fila mostra atividade/etapa, tempo decorrido, estimativas por arquivo e acumuladas; dados de início/fim/progresso/histórico já disponíveis, sem reiniciar o worker. Página corrente apenas no OCR; dados insuficientes indicam cálculo, duração superada recalcula e falha preserva cartões. Interface aplicada à Central primária preservando RP01; portabilidade ASTRA e limites em `revisoes/fila-progresso-2026-10-14.md`.
@@ -249,6 +251,8 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
 **UX03 — 15/10/2026:** a lista da aba Casos destaca com fundo verde as linhas cujo status é `entregue`, mantendo realce na passagem do cursor. Os demais status e a abertura da ficha pelo clique na linha não mudam.
 
 ## Registro de mudanças
+
+- **16/10/2026 — UN01:** diagnóstico do código, GitHub, filas, distribuição e testes; especificação de unificação para revisão do operador. Somente documentação e governança nesta entrega; nenhum merge, alteração de dados de casos ou instalação.
 
 - **16/10/2026 — SY03:** revisão dos arquivos novos e do histórico pendente para envio autorizado ao GitHub; exclusão explícita de dados operacionais, configurações de assinatura, temporários e cópias locais do experimento PostgreSQL/Docker já arquivado. Preservados os arquivos locais e o funcionamento SQLite. Validação seletiva: 28 testes aprovados, 28 arquivos excluídos e 18 exemplos da política de exclusão conferidos; sem merge ou alteração de produção.
 
