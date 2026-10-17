@@ -12,6 +12,8 @@ import datetime, json, os, re, signal, socket, sqlite3, subprocess, sys, threadi
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
+from fluxo_execucao import Fluxos
+
 AQUI = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.dirname(AQUI)
 S_BASE = os.path.join(PLUGIN, "skills", "base-cpj", "scripts")
@@ -258,6 +260,8 @@ class Plantao:
                 try: c.execute("ALTER TABLE pedidos ADD COLUMN " + coluna)
                 except sqlite3.OperationalError: pass
             c.execute("CREATE TABLE IF NOT EXISTS etapas_pedido (pedido TEXT PRIMARY KEY, plano TEXT NOT NULL)")
+        # Registro durável de fluxos (UN13): migração aditiva e idempotente; falha aparece, não é engolida.
+        Fluxos(ws).migrar()
 
     def etapas(self, pid):
         with self._c() as c:

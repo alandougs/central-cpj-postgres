@@ -9,9 +9,10 @@
 | UN10 | concluída (código/teste); sem migração real | ver `git log` da branch | `teste_recuperacao_un10.py` 5/5; runner `--rapido --incluir` 5/5 suítes, saída 0 |
 | UN11 | concluída (integração local; sem merge remoto/produção) | merge `8c9241d` + commit de ajustes (ver `git log`) | AST06 27/27, AST07 13/13, AST08 11/11, regressões abaixo |
 | UN12 | concluída com pendência de decisão (identidade/CPF) | `1e65bfd` + este registro | suíte completa 109/112 em `1e65bfd`; 2 falhas explicadas por ambiente e reexecutadas 5/5 e 5/5; 1 suíte falha (decisão); 1 skip |
-| UN13–UN18 | pendentes | — | — |
+| UN13 | concluída (somente banco fictício) | ver `git log` | `teste_fluxo_store_un13.py` 15/15; 11 suítes de Plantão/fila/concorrência/consentimento/orçamento com saída 0 |
+| UN14–UN18 | pendentes | — | — |
 
-**Próximo comando seguro:** `python ferramentas/fila-tarefas.py assumir UN13 --agente Claude-unificacao` (rascunho do módulo e 14 testes fora do repositório; mover para `app/` e `app/testes/`). Antes (UN12, já feito): preparar o ambiente de testes (QuickJS, Playwright, Tesseract `por`; os dados `por.traineddata` existem localmente em `C:\CPJ - TRABALHOerramentas	essdata`, ignorados pelo Git — usar via `TESSDATA_PREFIX`, sem copiar para o repositório).
+**Próximo comando seguro:** `python ferramentas/fila-tarefas.py assumir UN14 --agente Claude-unificacao` (rascunho com os ganchos de execução em `scratchpad/un14/`, fora do repositório; escrever primeiro os 6 testes). UN12/UN13 já concluídas. Antes: preparar o ambiente de testes (QuickJS, Playwright, Tesseract `por`; os dados `por.traineddata` existem localmente em `C:\CPJ - TRABALHOerramentas	essdata`, ignorados pelo Git — usar via `TESSDATA_PREFIX`, sem copiar para o repositório).
 **Autorização pendente:** merge em `main`, troca da branch padrão e instalação/migração operacional (liberação final em UN18). Nada disso foi feito.
 **Processos de teste ativos:** nenhum.
 
@@ -104,3 +105,14 @@ Skip (não conta como aprovação): `teste_executores_rv17.py::test_escrita_nao_
 Consequência para UN17: o CI (clone limpo) não terá `brasao-pcsp.png`; a suíte do CI precisa fornecer um PNG sintético ou o teste precisa tolerar a ausência, sob decisão registrada. Hoje, em clone limpo, F03 e AST11 falham.
 
 Limites: renderização visual do DOCX não verificável (sem Word/LibreOffice); suíte completa não foi repetida após copiar o brasão (nenhuma mudança funcional no código desde `1e65bfd`; reexecutadas só as 2 suítes afetadas).
+
+
+## UN13 — registro durável de fluxos (17/10/2026)
+
+`app/fluxo_execucao.py` (novo): tabelas `fluxos_migracoes`, `fluxos_execucoes`, `fluxos_etapas` em `config/plantao.sqlite` (mesmo banco; nada de outro servidor de filas). Migração aditiva, idempotente, versionada por tabela própria (não usa `PRAGMA user_version`); cada versão é tudo-ou-nada. Versão otimista por etapa; terminais imutáveis; `aguardando_operador` só sai por `reconciliar`; nova tentativa cria etapa ligada à anterior; precedência de estados na agregação; paginação por cursor com filtro de casos permitidos; `importar_legado` correlaciona `processamento.json` e `pedidos` sem alterar nenhum deles e sem inventar término (pedido pendente continua `na_fila`).
+
+`plantao.py`: única mudança é `Fluxos(ws).migrar()` ao final de `Plantao.__init__` (falha propaga, não é engolida). Assinaturas e comportamento de fila inalterados.
+
+Testes: 15/15 no módulo novo (inclui migração sobre banco legado com pedidos, idempotência, concorrência, importação sem tocar `processamento.json`, instância nova do `Plantao`). Compatibilidade com saída 0: plantão, painel de plantão, concorrência (claude/f10/gemini), orçamento de IA, consentimento (se01/px01), fila de tarefas RV14, evidência RV20, gravação atômica RV19, tarefas C03, FP01.
+
+Limites: nenhum banco real migrado. A migração roda sempre que o `Plantao` é instanciado, então a primeira execução da Central instalada migra o `plantao.sqlite` real — por isso a UN18 exige backup verificado antes. Para a UN16: `fluxo_execucao.py` precisa ir junto na distribuição/portáteis (`agente-plantao.py` importa `plantao`, que agora importa o módulo).
