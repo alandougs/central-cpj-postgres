@@ -1,6 +1,6 @@
 # Central CPJ unificada — desenho para revisão
 
-Data: 16/10/2026. Tarefa: UN01. Estado: proposta escrita; implementação ainda não iniciada.
+Data: 16/10/2026. Tarefa: UN01. Estado: desenho aprovado pelo operador em 16/10/2026; implementação ainda não iniciada. Plano e prompt registrados pela UN02 em `docs/superpowers/plans/2026-10-16-cpj-unificado.md` e `docs/superpowers/plans/2026-10-16-cpj-unificado-prompt.md`; o operador determinou que outro agente execute mediante pedido posterior.
 
 ## Resultado solicitado
 
