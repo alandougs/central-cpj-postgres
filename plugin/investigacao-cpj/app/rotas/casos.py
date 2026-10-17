@@ -29,6 +29,7 @@ from rotas.comum import (
     enfileirar,
     idioma_ocr,
     ler_proc,
+    limitacao_ocr,
     nome_seguro,
     pode_alterar_os,
     preparar_modo,
@@ -906,8 +907,15 @@ def api_pendencias_ocr():
             ext_dir = os.path.join(C.caminho(c["id"]), "01-extracao", doc_nome)
             tem_md = os.path.isfile(os.path.join(ext_dir, "transcricao.md"))
             tem_csv = arq.lower().endswith(".csv") and os.path.isfile(os.path.join(ext_dir, "tabelas", arq))
-            
-            if tem_md or tem_csv:
+            motivo = None
+            if tem_md:
+                try:
+                    with open(os.path.join(ext_dir, "relatorio_extracao.json"), encoding="utf-8") as f:
+                        motivo = limitacao_ocr(json.load(f))
+                except (OSError, ValueError):
+                    pass
+
+            if (tem_md and not motivo) or tem_csv:
                 continue
                 
             trab_atual = next((t for t in trabalhos if t.get("doc") == doc_nome and t.get("arquivo") == arq), None)
@@ -921,7 +929,8 @@ def api_pendencias_ocr():
                 "doc": doc_nome,
                 "caminho_relativo": f"00-originais/{arq}",
                 "status": trab_atual.get("status") if trab_atual else None,
-                "erro": trab_atual.get("erro") if trab_atual else None
+                "erro": trab_atual.get("erro") if trab_atual else None,
+                "motivo": motivo
             })
             
     return jsonify({"pendentes": pendentes})

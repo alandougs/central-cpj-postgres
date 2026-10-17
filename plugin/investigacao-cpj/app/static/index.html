@@ -1087,7 +1087,7 @@ function renderPendencias(){
       <td><input type="checkbox" class="pend-chk" data-idx="${idx}" checked></td>
       <td><b>${esc(i.os)}</b></td>
       <td>${esc(i.arquivo)}</td>
-      <td>${i.status?badge(i.status):(i.erro?badge("erro"):esc("-"))}${i.erro?` <span style="color:var(--crit)">${esc(i.erro)}</span>`:""}</td>
+      <td>${i.status?badge(i.status):(i.erro?badge("erro"):esc("-"))}${i.erro?` <span style="color:var(--crit)">${esc(i.erro)}</span>`:""}${i.motivo?` <span style="color:var(--crit)">${esc(i.motivo)}</span>`:""}</td>
     </tr>
   `).join("");
   

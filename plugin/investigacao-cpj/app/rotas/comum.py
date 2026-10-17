@@ -478,6 +478,17 @@ def preparar_modo(modo, usuario, pdfs, consentimento=None):
     return EL.criar_consentimento(usuario["login"], aceitos, escopo="transcricao_visual"), None, None
 
 
+def limitacao_ocr(rel):
+    """Alerta quando a extração rodou sem OCR e deixou páginas sem texto; None se não houver ou se o relatório for inválido."""
+    if not isinstance(rel, dict) or not isinstance(rel.get("ferramentas"), dict):
+        return None
+    pendentes = rel.get("pendentes_transcricao_visual") or []
+    if rel["ferramentas"].get("ocr") != "indisponível" or not pendentes:
+        return None
+    return (f"OCR indisponível (Tesseract ou idioma português não encontrado): {len(pendentes)} página(s) sem texto "
+            "ficaram pendentes. Verifique o Tesseract e o pacote de idioma e reprocesse o documento.")
+
+
 def processar(trab, app_logger=None):
     id_, doc, arq = trab["caso"], trab["doc"], trab["arquivo"]
     base = C.caminho(id_)
@@ -533,9 +544,11 @@ def processar(trab, app_logger=None):
         rodar([PY, os.path.join(S_PDF, "dados_json.py"), dest], env, log)
         etapa("registro", progresso=96)
         rel = os.path.join(dest, "relatorio_extracao.json")
+        sem_ocr = None
         if os.path.exists(rel):
             C.importar_ip(id_, rel)
             r = json.load(open(rel, encoding="utf-8"))
+            sem_ocr = limitacao_ocr(r)
             registrar_tratamento(
                 id_,
                 [
@@ -544,8 +557,10 @@ def processar(trab, app_logger=None):
                     f"- Métodos: {r.get('metodos')} · OCR: {r.get('ferramentas', {}).get('ocr')}",
                     f"- Pendentes de transcrição visual: {len(r.get('pendentes_transcricao_visual', []))} · a conferir: {len(r.get('conferir_visualmente', []))}",
                     f"- Saída: `01-extracao\\{doc}\\`",
-                ],
+                ] + ([f"- ATENÇÃO: {sem_ocr}"] if sem_ocr else []),
             )
+            if sem_ocr:
+                atualizar_trabalho(id_, doc, limitacao=" ".join(filter(None, [trab.get("limitacao"), sem_ocr])))
         else:
             c = C.carregar(id_)
             c["documentos"] = [d for d in c.get("documentos", []) if d.get("arquivo") != arq] + [{"arquivo": arq, "pasta": doc, "tipo": ext.lstrip(".")}]
@@ -581,7 +596,7 @@ def processar(trab, app_logger=None):
                     raise
             elif plano:
                 limitacao = "Inteligente concluído apenas localmente: transcrição visual pendente, sem API ativa/aceite."
-                atualizar_trabalho(id_, doc, limitacao=limitacao)
+                atualizar_trabalho(id_, doc, limitacao=" ".join(filter(None, [trab.get("limitacao"), sem_ocr, limitacao])))
                 registrar_tratamento(id_, [f"- {arq}: {limitacao}"])
         atualizar_trabalho(id_, doc, status="concluido", etapa="concluído", fim=agora(), progresso=100)
     except Exception as e:
