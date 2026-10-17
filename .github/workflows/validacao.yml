@@ -57,8 +57,10 @@ jobs:
       - name: Varredura de sigilo da revisao candidata
         run: python ferramentas/ci-executar.py "Varredura de sigilo da revisao candidata" -- python ferramentas/verificar-publicacao.py --ref HEAD
       - name: Portateis conferem com a fonte
+        if: ${{ !cancelled() }}
         run: python ferramentas/ci-executar.py "Portateis conferem com a fonte" -- python ferramentas/exportar-portatil.py --verificar
       - name: Adaptadores conferem com a fonte
+        if: ${{ !cancelled() }}
         run: python ferramentas/ci-executar.py "Adaptadores conferem com a fonte" -- python ferramentas/configurar-codex.py --verificar
       - name: Testes do verificador e do workflow
         run: python ferramentas/ci-executar.py "Testes do verificador e do workflow" -- python plugin/investigacao-cpj/app/testes/teste_publicacao_un17.py
@@ -125,12 +127,16 @@ jobs:
       - name: Sigilo da revisao candidata
         run: python ferramentas/ci-executar.py "Sigilo da revisao candidata" -- python ferramentas/verificar-publicacao.py --ref HEAD
       - name: Portateis conferem com a fonte
+        if: ${{ !cancelled() }}
         run: python ferramentas/ci-executar.py "Portateis conferem com a fonte" -- python ferramentas/exportar-portatil.py --verificar
       - name: Adaptadores conferem com a fonte
+        if: ${{ !cancelled() }}
         run: python ferramentas/ci-executar.py "Adaptadores conferem com a fonte" -- python ferramentas/configurar-codex.py --verificar
       - name: Distribuicao do plugin
+        if: ${{ !cancelled() }}
         run: python ferramentas/ci-executar.py "Distribuicao do plugin" -- python plugin/investigacao-cpj/app/testes/teste_distribuicao_un16.py
       - name: Suite completa em modo estrito
+        if: ${{ !cancelled() }}
         run: python ferramentas/ci-executar.py "Suite completa em modo estrito" -- python ferramentas/testar-tudo.py --estrito
 
   desempenho:

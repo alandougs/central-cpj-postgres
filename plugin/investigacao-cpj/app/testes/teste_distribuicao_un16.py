@@ -295,7 +295,7 @@ class AdaptadoresCodex(unittest.TestCase):
         entrada = usuario / "cpj-projeto" / "SKILL.md"
         self.assertTrue(entrada.is_file())
         texto = entrada.read_text(encoding="utf-8")
-        self.assertIn(str(self.ws), texto)
+        self.assertIn(str(self.ws.resolve()), texto)     # o gerador grava o caminho resolvido (no CI, TEMP vem em formato 8.3)
         self.assertIn("cpj-desenvolver", texto)
         for nome in ("cpj-processar-ip", "cpj-relatorio-ip", "cpj-fluxo-completo", "cpj-osint-policial"):
             self.assertIn(nome, texto)
