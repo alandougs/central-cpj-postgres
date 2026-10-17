@@ -14,10 +14,10 @@
 | UN15 | concluída (API + painel, banco/workspace fictício) | ver `git log` | `teste_fila_unificada_un15.py` 15/15; `teste_fila_unificada_un15_ui.py` 5/5; mutações 7/7 mortas (4 API, 3 tela); regressões AST07–AST15, FP01, RV14, RV20, UN13, UN14, esteira e runner rápido sem queda |
 | UN16 | concluída (pacote, portáteis e adaptadores; nada instalado) | ver `git log` | `teste_distribuicao_un16.py` 18 (1 skip explícito: link simbólico sem privilégio); mutações 5/5 mortas; AST05–AST17, UN13–UN15 e CL06 aprovados; runner rápido 5/5 |
 | UN17 | concluída como candidato testado (CI escrito, **ainda não executado no GitHub**); 3 pendências abertas, ver seção | `72924ef` + commit de fechamento (ver `git log`) | suíte estrita completa 115/118 em `72924ef` (+ correções abaixo); `teste_publicacao_un17.py` 18; `teste_interrupcao_real_un17.py` 1; desempenho 5×2 medido |
-| UN18 | pendente | — | — |
+| UN18 | candidato sincronizado e validado no CI; **liberação final pendente** (sem merge, sem troca de branch padrão, sem instalação/migração) | ver `git log` (último commit da branch) | CI `validacao` em `8133a08`: sigilo verde; suíte Windows 117/118, única falha = `teste_identidade_form_codex` (decisão do operador) |
 
-**Próximo comando seguro:** `python ferramentas/fila-tarefas.py assumir UN18 --agente Claude-unificacao` (push sem force, PR para a branch padrão ligando #18/#19, comparar SHA local×remoto, verificar o CI **naquele** SHA pelas ferramentas ccd_pr, montar o pacote de evidências e pedir a liberação final; backup/restauração verificados antes de qualquer migração).
-**Autorização pendente:** merge em `main`, troca da branch padrão e instalação/migração operacional (liberação final em UN18). Nada disso foi feito.
+**Próximo comando seguro:** o operador decide (1) `teste_identidade_form_codex` (implementar select de cargo e máscara de CPF, ou aposentar o teste) e (2) o custo de abertura da interface (cache de estáticos / empacotamento); em seguida criar o PR `codex/unificacao-cpj` → `main` (ligando #18/#19; não há `gh` nesta máquina), conferir o CI no SHA do PR e só então dar a liberação final (merge, branch padrão, instalação/migração com `ferramentas/backup_consistente.py backup` + `verificar` antes).
+**Autorização pendente:** criação do PR (a conta GitHub não está autenticada aqui), merge em `main`, troca da branch padrão e instalação/migração operacional (liberação final em UN18). Nada disso foi feito.
 **Processos de teste ativos:** nenhum.
 
 ## UN10 — base e inventário (16/10/2026)
@@ -259,3 +259,35 @@ Limites da medição: uma máquina, uma massa, Edge headless; sem repetição em
 2. Decisão do operador sobre `teste_identidade_form_codex` (CI estrito vermelho até lá).
 3. Decisão do operador sobre o custo de abertura (cache de estáticos / empacotamento).
 4. Três worktrees Codex com um commit cada ainda não integrados (inalterado desde a UN11); `.ps1` do atualizador nunca executado; nenhuma instalação/migração/merge feito.
+
+
+## UN18 — sincronização e liberação (17/10/2026) — parcial: candidato pronto, liberação pendente
+
+Nada de operacional foi feito: **sem PR criado** (não há `gh`; a API pública é somente leitura), **sem merge**, **sem troca da branch padrão**, **sem instalação ou migração**, nenhum banco real tocado. `origin/main` (`f56653c`) é ancestral da branch, portanto o PR será um avanço limpo; PR #18 (`codex/os-markdown-relatorio-20261014`) e PR #19 (`codex/astra-evolucao-20261014`) continuam abertos, ambos já contidos na branch.
+
+### Revisão e CI (workflow `validacao`, GitHub Actions)
+| SHA | sigilo (Ubuntu) | suíte estrita (Windows, 118 suítes) | Observação |
+|---|---|---|---|
+| `72924ef` | verde | falhou no passo "Sigilo e distribuição" (log exige login) | passos com vários comandos em `pwsh` só respeitam o último código de saída |
+| `b56ad33`/`2b6956a` | — | cancelada/falha | mesma causa |
+| `1949c52` | verde | falhou: `teste_entrada_pessoal_em_destino_temporario` | TEMP do runner em formato 8.3 (`RUNNER~1`) × caminho resolvido; erro do teste |
+| `ca4e617` | verde | falhou só a suíte estrita; detalhe ilegível (a anotação continha HTML) | levou ao resumo de falha por linhas-chave |
+| `c272460` | verde | falhou: ENV04, AST17 (caminho 8.3), identidade | primeira anotação legível |
+| `c34b15e` | verde | falhou: AST15 UI, CL02 cancelamento, identidade | AST15 lia o toast sem esperar; CL02 estourou 12 s para encerrar a árvore de processos no runner |
+| **`8133a08`** | **verde** | **117/118; única falha: `teste_identidade_form_codex`** | primeiro estado em que só resta a falha preexistente |
+
+Mudanças feitas por causa do CI (todas em testes/ferramentas, nenhum código do aplicativo): cada comando virou um passo próprio, executado por `ferramentas/ci-executar.py`, que publica o resumo da falha como anotação pública; caminhos resolvidos nos testes UN16/ENV04/AST17; espera explícita do toast (AST15); prazo de cancelamento 12 → 40 s no CL02. **Risco registrado:** AST15 UI e CL02 passaram localmente e em outras execuções do CI e falharam em uma — são sensíveis a tempo; a segunda pode, em tese, esconder lentidão real do encerramento de processos no Windows. Foi observado uma única vez e não investigado além da leitura do código.
+Capacidades comprovadas no runner (não só no código): Tesseract 5.4.0.20240606 + `por` por hash, Node 24.19.0 + Playwright 1.62.1, Edge, quickjs; teste de recusa de link simbólico rodou e passou (runner cria links).
+O job de desempenho (dispatch-only) **nunca foi executado** no GitHub.
+
+### Evidências de preservação e recuperação (todas com dados fictícios)
+- `teste_recuperacao_un10.py` 5/5 na suíte completa local e no CI: backup consistente (SQLite com WAL), restauração que não sobrescreve trabalho posterior, backup adulterado recusado sem escrever, backup anterior nunca sobrescrito.
+- UN13/UN14: registro durável, reservas, cancelamento, reconciliação de inicialização; UN17: morte real do processo durante o OCR e retomada (original com o mesmo SHA-256, sem caso duplicado, sem execução órfã).
+- Varredura de sigilo (`verificar-publicacao.py`) em todos os pushes: 0 achados; o repositório foi confrontado com `--ref HEAD` no CI.
+- **Não feito (depende da liberação):** backup consistente e restauração verificada do workspace **real**, contagens e hashes do workspace real, smoke local pós-instalação, migração do `plantao.sqlite` real.
+
+### O que a liberação final precisa decidir
+1. Criar o PR (botão do app ou por você) e conferir o CI nesse SHA.
+2. `teste_identidade_form_codex`: implementar ou aposentar (CI fica vermelho até lá).
+3. Custo de abertura da interface (+44%, ≈170 ms): aceitar, ou cache de estáticos versionados/empacotamento.
+4. Merge em `main`, troca da branch padrão e instalação/migração operacional — somente com backup consistente + restauração verificada antes.
