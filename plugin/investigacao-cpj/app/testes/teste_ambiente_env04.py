@@ -16,7 +16,7 @@ class Ambiente(unittest.TestCase):
         fonte = (ROOT / "ferramentas/verificar-ambiente.ps1").read_text(encoding="utf-8")
         preambulo = fonte.split("Item 'Python'", 1)[0]
         with tempfile.TemporaryDirectory(prefix="cpj-env04-") as td:
-            ws = Path(td)
+            ws = Path(td).resolve()      # TEMP pode vir em formato 8.3 (CI); o script PowerShell resolve o caminho
             (ws / "ferramentas").mkdir()
             exe = ws / ".venv/Scripts/python.exe"
             exe.parent.mkdir(parents=True)

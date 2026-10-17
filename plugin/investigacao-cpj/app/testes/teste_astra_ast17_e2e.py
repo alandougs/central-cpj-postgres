@@ -71,7 +71,7 @@ class HomologacaoAST17(unittest.TestCase):
         source_paths = [APP / p for p in ('servidor.py', 'rotas/comum.py', 'rotas/casos.py', 'rotas/consulta.py',
                         'rotas/relatorios.py', 'grafo_evidencias.py', 'static/js/astra.js', 'static/js/grafo.js',
                         'static/js/editor.js', 'static/js/recebimento.js')]
-        source_paths += [Path(__file__), FIXTURE/'fluxo.cjs']
+        source_paths += [Path(__file__).resolve(), FIXTURE/'fluxo.cjs']
         hashes = lambda: {str(p.relative_to(APP)): hashlib.sha256(p.read_bytes()).hexdigest()
                           for p in source_paths if p.is_file()}
         initial_hashes = hashes()
