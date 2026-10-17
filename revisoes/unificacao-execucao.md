@@ -10,9 +10,10 @@
 | UN11 | concluída (integração local; sem merge remoto/produção) | merge `8c9241d` + commit de ajustes (ver `git log`) | AST06 27/27, AST07 13/13, AST08 11/11, regressões abaixo |
 | UN12 | concluída com pendência de decisão (identidade/CPF) | `1e65bfd` + este registro | suíte completa 109/112 em `1e65bfd`; 2 falhas explicadas por ambiente e reexecutadas 5/5 e 5/5; 1 suíte falha (decisão); 1 skip |
 | UN13 | concluída (somente banco fictício) | ver `git log` | `teste_fluxo_store_un13.py` 15/15; 11 suítes de Plantão/fila/concorrência/consentimento/orçamento com saída 0 |
-| UN14–UN18 | pendentes | — | — |
+| UN14 | concluída (somente banco/workspace fictício) | ver `git log` | `teste_fluxo_execucao_un14.py` 15/15; mutações 7/7 mortas pelos testes certos; 25 suítes de regressão com saída 0 (esteira e E2E F03 via runner) |
+| UN15–UN18 | pendentes | — | — |
 
-**Próximo comando seguro:** `python ferramentas/fila-tarefas.py assumir UN14 --agente Claude-unificacao` (rascunho com os ganchos de execução em `scratchpad/un14/`, fora do repositório; escrever primeiro os 6 testes). UN12/UN13 já concluídas. Antes: preparar o ambiente de testes (QuickJS, Playwright, Tesseract `por`; os dados `por.traineddata` existem localmente em `C:\CPJ - TRABALHOerramentas	essdata`, ignorados pelo Git — usar via `TESSDATA_PREFIX`, sem copiar para o repositório).
+**Próximo comando seguro:** `python ferramentas/fila-tarefas.py assumir UN15 --agente Claude-unificacao` (API `/api/fluxos`, contrato `cpj-fluxos/1`, painel `fila-unificada.js`; ler o escopo da UN15 no plano).
 **Autorização pendente:** merge em `main`, troca da branch padrão e instalação/migração operacional (liberação final em UN18). Nada disso foi feito.
 **Processos de teste ativos:** nenhum.
 
@@ -116,3 +117,29 @@ Limites: renderização visual do DOCX não verificável (sem Word/LibreOffice);
 Testes: 15/15 no módulo novo (inclui migração sobre banco legado com pedidos, idempotência, concorrência, importação sem tocar `processamento.json`, instância nova do `Plantao`). Compatibilidade com saída 0: plantão, painel de plantão, concorrência (claude/f10/gemini), orçamento de IA, consentimento (se01/px01), fila de tarefas RV14, evidência RV20, gravação atômica RV19, tarefas C03, FP01.
 
 Limites: nenhum banco real migrado. A migração roda sempre que o `Plantao` é instanciado, então a primeira execução da Central instalada migra o `plantao.sqlite` real — por isso a UN18 exige backup verificado antes. Para a UN16: `fluxo_execucao.py` precisa ir junto na distribuição/portáteis (`agente-plantao.py` importa `plantao`, que agora importa o módulo).
+
+
+## UN14 — reservas, cancelamento e recuperação (17/10/2026)
+
+Integração aos executores existentes, sem substituí-los e sem mudar assinaturas públicas (`Plantao.reivindicar/concluir/falhar/cancelar/enfileirar`, `comum.enfileirar/processar/retomar_pendentes`). A reserva atômica da IA continua sendo a do Plantão (`BEGIN IMMEDIATE`); o registro de fluxos a espelha.
+
+- `fluxo_execucao.py` (migração v2, aditiva): `fluxos_reservas` (dono + validade por etapa) e `fluxos_intencoes` (chave única por chamada externa, com resultado). Novos: `reservar/renovar/atualizar_reservado` (resultado só é gravado por quem detém reserva válida), `registrar_intencao/registrar_resultado`, `cancelar_execucao` (preserva etapas terminais; pede o cancelamento ao pedido correlacionado), `proximas` (prioridade respeitando dependência), `espelhar_pedido`, `registrar_extracao`, `reconciliar_inicializacao`.
+- `plantao.py`: `enfileirar` só despacha se o registro durável aceitar (senão cancela o grupo recém-criado e levanta `RuntimeError`, que as rotas devolvem como 503); `reivindicar` devolve o pedido à fila, sem despachar, se o registro recusar a reserva (motivo em `detalhe`); abandono pelo silêncio do agente **nunca** devolve à fila um pedido com chamada externa sem resultado (vai a `erro` e a etapa a `aguardando_operador`); chamada de API paga grava intenção antes e resultado logo depois (`_chamar_sessao`), e resultado já registrado é reaproveitado sem nova chamada; `como_tarefa` ganhou `execucao_id` (campo opcional, nada removido).
+- `rotas/comum.py`: `enfileirar` registra a tentativa de extração (e não despacha se o registro falhar; o trabalho fica `erro` com o motivo); o trabalhador reserva a etapa antes de `processar` e registra o resultado; `retomar_pendentes` importa o legado e reconcilia órfãs antes de reenfileirar (documento `concluido` não é reenfileirado nem reextraído). `rotas/sistema.py` e `rotas/casos.py`: 503 para falha de coordenação e `execucao_id` na resposta.
+- `tarefas.py` **não precisou mudar** (cancelamento de pedido já passa por `Plantao.cancelar`).
+
+Inspeção: nenhum caminho novo escreve `caso.json`/`entregue`; `pos_processar` só gera DOCX e reindexa.
+
+Testes (`teste_fluxo_execucao_un14.py`, 15): `test_dois_workers_uma_etapa` (8 threads em barreira + dois agentes), `test_cancelar_impede_proxima`, `test_falha_na_gravacao_nao_despacha`, `test_queda_apos_resposta_nao_repete_api` (provedor falso que conta chamadas: 1 chamada no total), `test_checkpoint_retoma_sem_reextrair_pronto` (subprocesso com a fila real), `test_prioridade_respeita_dependencia`, mais reserva expirada, cancelamento de grupo preservando concluído, reconciliação na inicialização, intenção aberta e resultado reaproveitado. Mutação (7): sem intenção, incerta volta à fila, sem devolução, enfileirar sem abortar, reserva expirada vale, cancelar sem pedido, extração sem reserva — todas mortas pelos testes correspondentes.
+
+Teste UN13 ajustado por requisito novo: `Plantao.enfileirar` agora já correlaciona o pedido; o pedido "legado" do teste de importação passou a ser inserido direto no SQL e foi acrescentado teste de que o pedido novo já nasce correlacionado (cobertura mantida).
+
+Regressões com saída 0: plantão, painel de plantão, concorrência (claude/f10/gemini), orçamento, consentimento (se01 ×2, px01), fila (RV14, RV20, O.S. ×2, FP01), gravação atômica, tarefas C03, executores RV17 (1 skip de link simbólico, ver UN12), gates (v04, v05, RV08, RV18), relatórios RV17; esteira completa e E2E F03/OF03 pelo runner.
+
+Limites e riscos abertos:
+- Queda real do processo não foi reproduzida; foi simulada com `BaseException` e com remoção de reservas. Não há promessa de "exatamente uma vez" entre SQLite, arquivos e API externa.
+- Espelhamentos terminais (`concluir/falhar/cancelar`) gravam aviso no log se falharem e se realinham no próximo evento ou na inicialização; só `enfileirar` e `reivindicar` bloqueiam o despacho.
+- A ação explícita do operador (`reconciliar`) existe no módulo, mas só ganha rota/painel na UN15; depois de reconciliar, o pedido de IA em `erro` precisa ser solicitado de novo (não é reaberto automaticamente).
+- Dois registros por O.S. podem coexistir (execução `legado-importado` e `extracao`); a visão agregada por O.S. é tarefa da UN15.
+- Reserva de plantão vale 1 h, renovada a cada ≥30 s de progresso; a de extração vale 12 h.
+- Concorrência entre processos (duas Centrais no mesmo `plantao.sqlite`) não foi testada.

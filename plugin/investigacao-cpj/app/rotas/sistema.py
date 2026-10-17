@@ -99,11 +99,13 @@ def api_ia(id_):
                                   consentimento=json.dumps(consentimento) if consentimento else None)
     except ValueError as e:
         return jsonify({"erro": str(e)}), 400
+    except RuntimeError as e:
+        return jsonify({"erro": str(e)}), 503
     if consentimento:
         auditar("consentimento_aceito", f"{id_}: aceite para {consentimento['destinos']}")
         comum.registrar_tratamento(id_, [f"- Consentimento externo: Usuário {consentimento['usuario']} autorizou envio para {consentimento['destinos']} em {consentimento['data_hora']}."])
     auditar("ia_acionada", f"{id_}: {d.get('acao')}" + (f" -> {agente}" if agente else ""))
-    return jsonify({"tarefa": tid})
+    return jsonify({"tarefa": tid, "execucao_id": tarefas.plantao.execucao_id(tid)})
 
 
 @bp_sistema.post("/api/casos/<id_>/transcricao-visual")

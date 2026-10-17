@@ -31,6 +31,7 @@ import rag as R  # noqa: E402
 import referencias as RF  # noqa: E402
 from auth import Auth, DESCRICAO, PERFIS, TODAS  # noqa: E402
 from tarefas import SEM_JANELA, Tarefas, gerar_docx, gerar_pdf, soffice  # noqa: E402
+from fluxo_execucao import Fluxos  # noqa: E402
 
 WS = C.WS
 PY = sys.executable
@@ -605,11 +606,49 @@ def processar(trab, app_logger=None):
             lg.write(f"\n[{agora()}] ERRO: {e}\n")
 
 
+_fluxos_cache = {}
+
+
+def fluxos():
+    """Registro durável de fluxos do workspace (migração aplicada uma vez por processo)."""
+    if WS not in _fluxos_cache:
+        fx = Fluxos(WS)
+        fx.migrar()
+        _fluxos_cache[WS] = fx
+    return _fluxos_cache[WS]
+
+
+def _processar_coordenado(trab):
+    """Extração com reserva durável: uma única execução efetiva por etapa. Sem registro/reserva, não há despacho."""
+    etapa_id = trab.get("etapa_id")
+    if not etapa_id:                       # item sem correlação (chamada direta antiga): comportamento original
+        processar(trab)
+        return
+    id_, doc = trab["caso"], trab["doc"]
+    dono = f"extrator-{os.getpid()}-{threading.get_ident()}"
+    try:
+        fx = fluxos()
+        etapa = fx.reservar(etapa_id, dono, 12 * 3600)
+    except Exception as erro:
+        atualizar_trabalho(id_, doc, status="erro", erro=f"Coordenação de fluxos indisponível; extração não iniciada: {erro}"[:300], fim=agora())
+        return
+    if etapa is None:                      # outro executor já detém (ou concluiu) esta tentativa
+        return
+    processar(trab)
+    final = next((t for t in ler_proc(id_).get("trabalhos", []) if t.get("doc") == doc), {})
+    estado = {"concluido": "concluida", "cancelado": "cancelada"}.get(final.get("status"), "falhou")
+    try:
+        fx.atualizar_reservado(etapa_id, dono, etapa["versao"], estado, 100 if estado == "concluida" else None, final.get("erro") or "")
+    except Exception as erro:              # o checkpoint em processamento.json segue válido; o registro é realinhado depois
+        import logging
+        logging.getLogger("cpj.fluxos").warning("registro de extração desatualizado (%s/%s): %s", id_, doc, erro)
+
+
 def trabalhador():
     while True:
         trab = fila.get()
         try:
-            processar(trab)
+            _processar_coordenado(trab)
         finally:
             fila.task_done()
 
@@ -627,10 +666,26 @@ def enfileirar(id_, doc, arquivo, modo="inteligente", usuario="", consentimento=
         return d
     alterar_proc(id_, _mutar)
     registrar_tratamento(id_, [f"- Processamento {modo}: {arquivo}; usuário {usuario or 'local'}." + (f" {limitacao}" if limitacao else "")])
-    fila.put({"caso": id_, "doc": doc, "arquivo": arquivo, **dados})
+    try:
+        etapa = fluxos().registrar_extracao(id_, usuario, doc, arquivo, ler_proc_item(id_, doc).get("enfileirado", ""))
+    except Exception as erro:              # sem registro durável não há despacho; o motivo fica visível no próprio trabalho
+        atualizar_trabalho(id_, doc, status="erro", erro=f"Coordenação de fluxos indisponível; extração não despachada: {erro}"[:300], fim=agora())
+        return
+    fila.put({"caso": id_, "doc": doc, "arquivo": arquivo, "etapa_id": etapa["id"], **dados})
+
+
+def ler_proc_item(id_, doc):
+    return next((t for t in ler_proc(id_).get("trabalhos", []) if t.get("doc") == doc), {})
 
 
 def retomar_pendentes():
+    try:                                   # correlaciona o legado e reconcilia execuções interrompidas (nada é executado aqui)
+        fx = fluxos()
+        fx.importar_legado()
+        fx.reconciliar_inicializacao()
+    except Exception as erro:
+        import logging
+        logging.getLogger("cpj.fluxos").warning("reconciliação de inicialização incompleta: %s", erro)
     for c in C.listar():
         for t in ler_proc(c["id"]).get("trabalhos", []):
             if t.get("status") in ("na_fila", "processando"):

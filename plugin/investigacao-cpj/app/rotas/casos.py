@@ -810,12 +810,15 @@ def api_caso_esteira(id_):
         tid = tarefas.enfileirar_ia(id_, "esteira", request.usuario["login"], obs, agente)
     except ValueError as e:
         return jsonify({"erro": str(e)}), 400
+    except RuntimeError as e:
+        return jsonify({"erro": str(e)}), 503
 
     auditar("esteira_completa_acionada", f"{id_}: 1-clique" + (f" → {agente}" if agente else ""))
     return jsonify({
         "ok": True,
         "caso": id_,
         "tarefa": tid,
+        "execucao_id": tarefas.plantao.execucao_id(tid),
         "etapas": ["extração/ocr", "análise documental", "caminho do dinheiro", "minuta docx", "revisão independente"],
         "mensagem": "Esteira Completa 1-Clique iniciada com sucesso."
     })

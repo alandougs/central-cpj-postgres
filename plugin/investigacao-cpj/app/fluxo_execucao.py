@@ -56,7 +56,18 @@ def _ddl_v1(c) -> None:
     c.execute("CREATE INDEX IF NOT EXISTS ix_fluxos_etapas_exec ON fluxos_etapas(execucao_id, seq)")
 
 
-MIGRACOES = ((1, _ddl_v1),)   # (versão, função DDL aditiva); novas versões só acrescentam ao final
+def _ddl_v2(c) -> None:
+    """UN14: reservas duráveis por etapa e intenção de despacho externo (chave única por operação)."""
+    c.execute("""CREATE TABLE IF NOT EXISTS fluxos_reservas(
+        etapa_id TEXT PRIMARY KEY REFERENCES fluxos_etapas(id), dono TEXT NOT NULL,
+        ate TEXT NOT NULL, criado_em TEXT NOT NULL)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS fluxos_intencoes(
+        chave TEXT PRIMARY KEY, etapa_id TEXT NOT NULL REFERENCES fluxos_etapas(id), dono TEXT NOT NULL,
+        registrada_em TEXT NOT NULL, resultado TEXT, resultado_em TEXT)""")
+    c.execute("CREATE INDEX IF NOT EXISTS ix_fluxos_intencoes_etapa ON fluxos_intencoes(etapa_id)")
+
+
+MIGRACOES = ((1, _ddl_v1), (2, _ddl_v2))   # (versão, função DDL aditiva); novas versões só acrescentam ao final
 
 
 class ConflitoVersao(Exception):
@@ -65,6 +76,14 @@ class ConflitoVersao(Exception):
 
 class TransicaoInvalida(Exception):
     """Transição de estado proibida pelo contrato."""
+
+
+class ReservaPerdida(Exception):
+    """O chamador não detém (mais) uma reserva válida da etapa; o resultado não deve ser gravado."""
+
+
+class ResultadoIncerto(Exception):
+    """Há uma chamada externa registrada sem resultado: nunca repetir sem reconciliação explícita."""
 
 
 def agora() -> str:
@@ -120,45 +139,54 @@ class Fluxos:
 
     # ------------------------------------------------------------ escrita
     def criar(self, caso: str, solicitante: str, chave: str, prioridade: int = 0, tipo: str = "fluxo") -> dict:
+        with self._tx() as c:
+            r = self._criar_c(c, caso, solicitante, chave, prioridade, tipo)
+        return {k: r[k] for k in ("id", "caso", "solicitante", "chave", "prioridade", "tipo", "versao")}
+
+    @staticmethod
+    def _criar_c(c, caso, solicitante, chave, prioridade=0, tipo="fluxo"):
         for nome, v in (("caso", caso), ("solicitante", solicitante), ("chave", chave)):
             if not isinstance(v, str) or not v.strip():
                 raise ValueError(f"{nome} obrigatório.")
         if type(prioridade) is not int:
             raise ValueError("prioridade deve ser inteiro.")
-        with self._tx() as c:
+        r = c.execute("SELECT * FROM fluxos_execucoes WHERE caso=? AND solicitante=? AND chave=?",
+                      (caso, solicitante, chave)).fetchone()
+        if r is None:
+            t = agora()
+            c.execute("INSERT INTO fluxos_execucoes(id,caso,solicitante,chave,prioridade,tipo,versao,criado_em,atualizado_em) "
+                      "VALUES(?,?,?,?,?,?,1,?,?)", (str(uuid.uuid4()), caso, solicitante, chave, prioridade, tipo, t, t))
             r = c.execute("SELECT * FROM fluxos_execucoes WHERE caso=? AND solicitante=? AND chave=?",
                           (caso, solicitante, chave)).fetchone()
-            if r is None:
-                t = agora()
-                c.execute("INSERT INTO fluxos_execucoes(id,caso,solicitante,chave,prioridade,tipo,versao,criado_em,atualizado_em) "
-                          "VALUES(?,?,?,?,?,?,1,?,?)", (str(uuid.uuid4()), caso, solicitante, chave, prioridade, tipo, t, t))
-                r = c.execute("SELECT * FROM fluxos_execucoes WHERE caso=? AND solicitante=? AND chave=?",
-                              (caso, solicitante, chave)).fetchone()
-        return {k: r[k] for k in ("id", "caso", "solicitante", "chave", "prioridade", "tipo", "versao")}
+        return r
 
     def vincular_etapa(self, execucao_id: str, etapa: str, origem: str, origem_id: str, documento: str | None = None,
                        _estado: str = "na_fila", _progresso: float | None = None, _detalhe: str = "") -> dict:
+        with self._tx() as c:
+            r = self._vincular_c(c, execucao_id, etapa, origem, origem_id, documento, _estado, _progresso, _detalhe)
+        return self._resumo_etapa(r)
+
+    def _vincular_c(self, c, execucao_id, etapa, origem, origem_id, documento=None, estado="na_fila", progresso=None,
+                    detalhe="", tentativa=1, anterior_id=None):
         if etapa not in ETAPAS:
             raise ValueError(f"Etapa inválida: {etapa}")
         if origem not in ORIGENS:
             raise ValueError(f"Origem inválida: {origem}")
         if not isinstance(origem_id, str) or not origem_id.strip():
             raise ValueError("origem_id obrigatório.")
-        with self._tx() as c:
-            if c.execute("SELECT 1 FROM fluxos_execucoes WHERE id=?", (execucao_id,)).fetchone() is None:
-                raise KeyError(f"Execução inexistente: {execucao_id}")
-            r = c.execute("SELECT * FROM fluxos_etapas WHERE origem=? AND origem_id=?", (origem, origem_id)).fetchone()
-            if r is not None:
-                if (r["execucao_id"], r["etapa"]) != (execucao_id, etapa):
-                    raise ValueError("Esta origem já está vinculada a outra execução ou etapa.")
-                return self._resumo_etapa(r)
-            t, eid = agora(), str(uuid.uuid4())
-            c.execute("INSERT INTO fluxos_etapas(id,execucao_id,etapa,origem,origem_id,documento,estado,versao,progresso,detalhe,"
-                      "tentativa,criado_em,atualizado_em) VALUES(?,?,?,?,?,?,?,1,?,?,1,?,?)",
-                      (eid, execucao_id, etapa, origem, origem_id, documento, _estado, _progresso, _detalhe, t, t))
-            self._tocar(c, execucao_id, t)
-            r = c.execute("SELECT * FROM fluxos_etapas WHERE id=?", (eid,)).fetchone()
-        return self._resumo_etapa(r)
+        if c.execute("SELECT 1 FROM fluxos_execucoes WHERE id=?", (execucao_id,)).fetchone() is None:
+            raise KeyError(f"Execução inexistente: {execucao_id}")
+        r = c.execute("SELECT * FROM fluxos_etapas WHERE origem=? AND origem_id=?", (origem, origem_id)).fetchone()
+        if r is not None:
+            if (r["execucao_id"], r["etapa"]) != (execucao_id, etapa):
+                raise ValueError("Esta origem já está vinculada a outra execução ou etapa.")
+            return r
+        t, eid = agora(), str(uuid.uuid4())
+        c.execute("INSERT INTO fluxos_etapas(id,execucao_id,etapa,origem,origem_id,documento,estado,versao,progresso,detalhe,"
+                  "tentativa,anterior_id,criado_em,atualizado_em) VALUES(?,?,?,?,?,?,?,1,?,?,?,?,?,?)",
+                  (eid, execucao_id, etapa, origem, origem_id, documento, estado, progresso, detalhe, tentativa, anterior_id, t, t))
+        self._tocar(c, execucao_id, t)
+        return c.execute("SELECT * FROM fluxos_etapas WHERE id=?", (eid,)).fetchone()
 
     @staticmethod
     def _tocar(c, execucao_id: str, t: str) -> None:
@@ -169,7 +197,8 @@ class Fluxos:
         return {k: r[k] for k in ("id", "execucao_id", "etapa", "origem", "origem_id", "documento", "estado", "versao",
                                   "progresso", "detalhe", "tentativa", "anterior_id", "criado_em", "atualizado_em")}
 
-    def _mudar(self, etapa_id: str, versao: int, estado: str, progresso, detalhe: str, *, reconciliando: bool) -> dict:
+    def _mudar(self, etapa_id: str, versao: int, estado: str, progresso, detalhe: str, *, reconciliando: bool,
+               dono: str | None = None) -> dict:
         if estado not in ESTADOS:
             raise ValueError(f"Estado inválido: {estado}")
         if progresso is not None:
@@ -181,6 +210,8 @@ class Fluxos:
                 raise KeyError(f"Etapa inexistente: {etapa_id}")
             if r["versao"] != versao:
                 raise ConflitoVersao(f"versão {versao} obsoleta; atual {r['versao']}")
+            if dono is not None:
+                self._exigir_reserva(c, etapa_id, dono)
             atual = r["estado"]
             if atual in TERMINAIS:
                 raise TransicaoInvalida(f"estado terminal '{atual}' é imutável")
@@ -193,6 +224,10 @@ class Fluxos:
             novo_prog = progresso if progresso is not None else (None if estado in ("na_fila",) else r["progresso"])
             c.execute("UPDATE fluxos_etapas SET estado=?, progresso=?, detalhe=?, versao=versao+1, atualizado_em=? "
                       "WHERE id=? AND versao=?", (estado, novo_prog, detalhe or "", t, etapa_id, versao))
+            if estado != "em_execucao":
+                c.execute("DELETE FROM fluxos_reservas WHERE etapa_id=?", (etapa_id,))
+            if reconciliando and estado in RECONCILIA_PARA:
+                c.execute("DELETE FROM fluxos_intencoes WHERE etapa_id=? AND resultado IS NULL", (etapa_id,))
             self._tocar(c, r["execucao_id"], t)
             r = c.execute("SELECT * FROM fluxos_etapas WHERE id=?", (etapa_id,)).fetchone()
         return self._resumo_etapa(r)
@@ -226,6 +261,266 @@ class Fluxos:
             self._tocar(c, r["execucao_id"], t)
             n = c.execute("SELECT * FROM fluxos_etapas WHERE id=?", (eid,)).fetchone()
         return self._resumo_etapa(n)
+
+    # ------------------------------------------------------------ UN14: reservas, intenção, cancelamento
+    @staticmethod
+    def _exigir_reserva(c, etapa_id: str, dono: str) -> None:
+        r = c.execute("SELECT dono, ate FROM fluxos_reservas WHERE etapa_id=?", (etapa_id,)).fetchone()
+        if r is None or r["dono"] != dono or r["ate"] <= agora():
+            raise ReservaPerdida(f"reserva da etapa {etapa_id} não pertence a {dono} ou expirou")
+
+    def _elegivel(self, c, e) -> bool:
+        """Etapa só é elegível quando todas as etapas anteriores (vigentes) da execução estão concluídas."""
+        exe = c.execute("SELECT tipo FROM fluxos_execucoes WHERE id=?", (e["execucao_id"],)).fetchone()
+        if exe["tipo"] == "legado":
+            return True
+        todas = [self._resumo_etapa(x) for x in c.execute("SELECT * FROM fluxos_etapas WHERE execucao_id=?", (e["execucao_id"],))]
+        idx = ETAPAS.index(e["etapa"])
+        return all(v["estado"] == "concluida" for v in self._vigentes(todas) if ETAPAS.index(v["etapa"]) < idx)
+
+    @staticmethod
+    def _expiracao(validade_s: float) -> str:
+        if not isinstance(validade_s, (int, float)) or isinstance(validade_s, bool) or validade_s <= 0:
+            raise ValueError("validade_s deve ser positiva.")
+        return (datetime.datetime.now() + datetime.timedelta(seconds=validade_s)).isoformat(timespec="microseconds")
+
+    def reservar(self, etapa_id: str, dono: str, validade_s: float = 300) -> dict | None:
+        """Reserva atômica: só um proprietário vence. Move na_fila -> em_execucao. None = não obtida."""
+        if not isinstance(dono, str) or not dono.strip():
+            raise ValueError("dono obrigatório.")
+        ate = self._expiracao(validade_s)
+        with self._tx() as c:
+            e = c.execute("SELECT * FROM fluxos_etapas WHERE id=?", (etapa_id,)).fetchone()
+            if e is None:
+                raise KeyError(f"Etapa inexistente: {etapa_id}")
+            if e["estado"] != "na_fila" or c.execute("SELECT 1 FROM fluxos_reservas WHERE etapa_id=?", (etapa_id,)).fetchone():
+                return None
+            if not self._elegivel(c, e):
+                return None
+            t = agora()
+            c.execute("INSERT INTO fluxos_reservas(etapa_id,dono,ate,criado_em) VALUES(?,?,?,?)", (etapa_id, dono, ate, t))
+            c.execute("UPDATE fluxos_etapas SET estado='em_execucao', versao=versao+1, atualizado_em=? WHERE id=?", (t, etapa_id))
+            self._tocar(c, e["execucao_id"], t)
+            r = c.execute("SELECT * FROM fluxos_etapas WHERE id=?", (etapa_id,)).fetchone()
+        return self._resumo_etapa(r)
+
+    def renovar(self, etapa_id: str, dono: str, validade_s: float = 300) -> None:
+        ate = self._expiracao(validade_s)
+        with self._tx() as c:
+            self._exigir_reserva(c, etapa_id, dono)
+            c.execute("UPDATE fluxos_reservas SET ate=? WHERE etapa_id=?", (ate, etapa_id))
+
+    def reserva_valida(self, etapa_id: str, dono: str) -> bool:
+        with self._c() as c:
+            try:
+                self._exigir_reserva(c, etapa_id, dono)
+                return True
+            except ReservaPerdida:
+                return False
+
+    def atualizar_reservado(self, etapa_id: str, dono: str, versao: int, estado: str,
+                            progresso: float | None = None, detalhe: str = "") -> dict:
+        """Como atualizar(), mas valida dono/validade da reserva na mesma transação do resultado."""
+        return self._mudar(etapa_id, versao, estado, progresso, detalhe, reconciliando=False, dono=dono)
+
+    def deve_cancelar(self, etapa_id: str) -> bool:
+        with self._c() as c:
+            r = c.execute("SELECT estado FROM fluxos_etapas WHERE id=?", (etapa_id,)).fetchone()
+        return r is None or r["estado"] == "cancelada"
+
+    def registrar_intencao(self, etapa_id: str, dono: str, chave: str) -> dict:
+        """Grava a intenção ANTES da chamada externa. Mesma chave: devolve o resultado já conhecido ou
+        levanta ResultadoIncerto (chamada feita sem resultado registrado)."""
+        if not isinstance(chave, str) or not chave.strip():
+            raise ValueError("chave obrigatória.")
+        with self._tx() as c:
+            self._exigir_reserva(c, etapa_id, dono)
+            r = c.execute("SELECT * FROM fluxos_intencoes WHERE chave=?", (chave,)).fetchone()
+            if r is None:
+                c.execute("INSERT INTO fluxos_intencoes(chave,etapa_id,dono,registrada_em) VALUES(?,?,?,?)",
+                          (chave, etapa_id, dono, agora()))
+                return {"nova": True, "resultado": None}
+            if r["resultado"] is None:
+                raise ResultadoIncerto(f"chamada externa '{chave}' já iniciada sem resultado registrado")
+            return {"nova": False, "resultado": json.loads(r["resultado"])}
+
+    def registrar_resultado(self, etapa_id: str, dono: str, chave: str, resultado) -> None:
+        with self._tx() as c:
+            self._exigir_reserva(c, etapa_id, dono)
+            n = c.execute("UPDATE fluxos_intencoes SET resultado=?, resultado_em=? WHERE chave=? AND etapa_id=? AND resultado IS NULL",
+                          (json.dumps(resultado, ensure_ascii=False, default=str), agora(), chave, etapa_id)).rowcount
+            if not n:
+                raise ValueError("intenção inexistente ou resultado já registrado.")
+
+    def cancelar_execucao(self, execucao_id: str, versao: int | None = None, motivo: str = "") -> dict:
+        """Cancela etapas ainda não terminadas (inclusive a em execução) e preserva as já concluídas."""
+        with self._tx() as c:
+            ex = c.execute("SELECT * FROM fluxos_execucoes WHERE id=?", (execucao_id,)).fetchone()
+            if ex is None:
+                raise KeyError(f"Execução inexistente: {execucao_id}")
+            if versao is not None and ex["versao"] != versao:
+                raise ConflitoVersao(f"versão {versao} obsoleta; atual {ex['versao']}")
+            t, canceladas, preservadas = agora(), 0, 0
+            for e in c.execute("SELECT * FROM fluxos_etapas WHERE execucao_id=?", (execucao_id,)).fetchall():
+                if e["estado"] in TERMINAIS:
+                    preservadas += 1
+                    continue
+                c.execute("UPDATE fluxos_etapas SET estado='cancelada', detalhe=?, versao=versao+1, atualizado_em=? WHERE id=?",
+                          ("cancelada: " + (motivo or "solicitação do operador"), t, e["id"]))
+                c.execute("DELETE FROM fluxos_reservas WHERE etapa_id=?", (e["id"],))
+                if e["origem"] == "plantao":      # o pedido é a autoridade da execução: o cancelamento é pedido a ele
+                    c.execute("UPDATE pedidos SET cancelar=1, estado=CASE WHEN estado='pendente' THEN 'cancelada' ELSE estado END, "
+                              "etapa='cancelamento solicitado', fim=CASE WHEN estado='pendente' THEN ? ELSE fim END "
+                              "WHERE id=? AND estado IN ('pendente','executando')", (t, e["origem_id"].split("#t")[0]))
+                canceladas += 1
+            self._tocar(c, execucao_id, t)
+        return {"execucao_id": execucao_id, "canceladas": canceladas, "preservadas": preservadas}
+
+    def proximas(self, limite: int = 10) -> list[dict]:
+        """Etapas na fila elegíveis e sem reserva, por prioridade (maior primeiro), entrada e ID."""
+        if type(limite) is not int or limite < 1:
+            raise ValueError("limite inválido.")
+        out = []
+        with self._c() as c:
+            q = ("SELECT e.* FROM fluxos_etapas e JOIN fluxos_execucoes x ON x.id=e.execucao_id "
+                 "WHERE e.estado='na_fila' AND NOT EXISTS (SELECT 1 FROM fluxos_reservas r WHERE r.etapa_id=e.id) "
+                 "ORDER BY x.prioridade DESC, x.seq ASC, e.seq ASC")
+            for e in c.execute(q):
+                if self._elegivel(c, e):
+                    out.append(self._resumo_etapa(e))
+                    if len(out) >= limite:
+                        break
+        return out
+
+    # ------------------------------------------------------------ UN14: tentativas, plantão e extração
+    def _set_c(self, c, e, estado: str, detalhe: str, progresso=None) -> None:
+        """Escrita interna do espelhamento: a autoridade do estado é o executor (pedido/extração), não o chamador."""
+        t = agora()
+        c.execute("UPDATE fluxos_etapas SET estado=?, detalhe=?, progresso=COALESCE(?,progresso), versao=versao+1, atualizado_em=? WHERE id=?",
+                  (estado, detalhe or "", progresso, t, e["id"]))
+        if estado != "em_execucao":
+            c.execute("DELETE FROM fluxos_reservas WHERE etapa_id=?", (e["id"],))
+        self._tocar(c, e["execucao_id"], t)
+
+    @staticmethod
+    def _incerta_c(c, etapa_id: str) -> bool:
+        return c.execute("SELECT 1 FROM fluxos_intencoes WHERE etapa_id=? AND resultado IS NULL", (etapa_id,)).fetchone() is not None
+
+    def _interromper_c(self, c, e, motivo: str = "interrompida por queda/reinício; retomada em nova tentativa"):
+        """Tentativa sem executor vivo. Chamada externa sem resultado -> operador; senão nova tentativa na fila."""
+        if self._incerta_c(c, e["id"]):
+            self._set_c(c, e, "aguardando_operador",
+                        "resultado externo incerto: chamada iniciada sem resultado registrado; conferir antes de repetir")
+            return c.execute("SELECT * FROM fluxos_etapas WHERE id=?", (e["id"],)).fetchone()
+        self._set_c(c, e, "falhou", motivo)
+        base = e["origem_id"].split("#t")[0]
+        return self._vincular_c(c, e["execucao_id"], e["etapa"], e["origem"], f"{base}#t{e['tentativa'] + 1}", e["documento"],
+                                "na_fila", None, "", e["tentativa"] + 1, e["id"])
+
+    @staticmethod
+    def _etapa_pedido_c(c, pid: str):
+        return c.execute("SELECT * FROM fluxos_etapas WHERE origem='plantao' AND (origem_id=? OR origem_id LIKE ?) "
+                         "ORDER BY tentativa DESC, seq DESC LIMIT 1", (pid, pid + "#t%")).fetchone()
+
+    def etapa_do_pedido(self, pid: str) -> dict | None:
+        with self._c() as c:
+            r = self._etapa_pedido_c(c, pid)
+        return self._resumo_etapa(r) if r else None
+
+    def pedido_com_resultado_incerto(self, pid: str) -> bool:
+        with self._c() as c:
+            return c.execute("SELECT 1 FROM fluxos_intencoes i JOIN fluxos_etapas e ON e.id=i.etapa_id WHERE e.origem='plantao' "
+                             "AND (e.origem_id=? OR e.origem_id LIKE ?) AND i.resultado IS NULL", (pid, pid + "#t%")).fetchone() is not None
+
+    def espelhar_pedido(self, pid: str, validade_s: float = 3600) -> dict | None:
+        """Alinha a etapa do pedido de plantão ao estado do pedido (idempotente; lê `pedidos`, nunca o altera)."""
+        ate = self._expiracao(validade_s)
+        with self._tx() as c:
+            return self._espelhar_c(c, pid, ate)
+
+    def _espelhar_c(self, c, pid: str, ate: str) -> dict | None:
+        p = c.execute("SELECT * FROM pedidos WHERE id=?", (pid,)).fetchone()
+        etapa = ACAO_PARA_ETAPA.get(p["acao"]) if p else None
+        if etapa is None:
+            return None
+        e = self._etapa_pedido_c(c, pid)
+        if e is None:
+            exe = self._criar_c(c, p["caso"], p["solicitante"] or "legado", p["grupo"] or pid)
+            e = self._vincular_c(c, exe["id"], etapa, "plantao", pid)
+        ps, ee = p["estado"], e["estado"]
+        if ee == "aguardando_operador" or ee in TERMINAIS:
+            return self._resumo_etapa(e)
+        if ps == "pendente" and ee == "em_execucao":
+            e = self._interromper_c(c, e)
+        elif ps == "executando":
+            ag = p["agente"] or "?"
+            if ee == "em_execucao":
+                r = c.execute("SELECT dono FROM fluxos_reservas WHERE etapa_id=?", (e["id"],)).fetchone()
+                if r is not None and r["dono"] != ag:       # outro agente assumiu: a tentativa anterior morreu
+                    e = self._interromper_c(c, e)
+            if e["estado"] == "na_fila":
+                self._set_c(c, e, "em_execucao", p["etapa"] or "")
+            if e["estado"] != "aguardando_operador":
+                c.execute("INSERT INTO fluxos_reservas(etapa_id,dono,ate,criado_em) VALUES(?,?,?,?) "
+                          "ON CONFLICT(etapa_id) DO UPDATE SET ate=excluded.ate", (e["id"], ag, ate, agora()))
+                c.execute("UPDATE fluxos_etapas SET progresso=?, detalhe=? WHERE id=?",
+                          (p["progresso"], p["etapa"] or "", e["id"]))
+            e = c.execute("SELECT * FROM fluxos_etapas WHERE id=?", (e["id"],)).fetchone()
+        elif ps == "concluida":
+            self._set_c(c, e, "concluida", "", 100)
+        elif ps == "erro":
+            if ee == "em_execucao" and self._incerta_c(c, e["id"]):
+                self._set_c(c, e, "aguardando_operador", "resultado externo incerto: " + (p["erro"] or ""))
+            elif ee == "em_execucao":
+                self._set_c(c, e, "falhou", p["erro"] or "")
+            else:
+                self._set_c(c, e, "cancelada", "pedido encerrado com erro antes de iniciar: " + (p["erro"] or ""))
+        elif ps == "cancelada":
+            self._set_c(c, e, "cancelada", p["etapa"] or "cancelada")
+        return self._resumo_etapa(c.execute("SELECT * FROM fluxos_etapas WHERE id=?", (e["id"],)).fetchone())
+
+    def registrar_extracao(self, caso: str, usuario: str, doc: str, arquivo: str, enfileirado: str) -> dict:
+        """Vincula o trabalho de extração (processamento.json) ao fluxo da O.S. Uma tentativa por enfileiramento;
+        retomada após queda reaproveita a tentativa que já está na fila."""
+        with self._tx() as c:
+            r = c.execute("SELECT e.* FROM fluxos_etapas e JOIN fluxos_execucoes x ON x.id=e.execucao_id WHERE x.caso=? "
+                          "AND e.etapa='extracao' AND e.documento=? ORDER BY e.tentativa DESC, e.seq DESC LIMIT 1",
+                          (caso, arquivo)).fetchone()
+            if r is not None and r["estado"] == "em_execucao" and c.execute(
+                    "SELECT 1 FROM fluxos_reservas WHERE etapa_id=? AND ate>?", (r["id"], agora())).fetchone() is None:
+                r = self._interromper_c(c, r)                      # executor anterior morreu
+            if r is not None and r["estado"] in ("na_fila", "em_execucao", "aguardando_operador"):
+                return self._resumo_etapa(r)
+            oid = f"{caso}|{doc}|{enfileirado}"
+            if r is None:
+                exe = self._criar_c(c, caso, usuario or "local", "extracao")
+                n = self._vincular_c(c, exe["id"], "extracao", "processamento", oid, arquivo)
+            else:
+                n = self._vincular_c(c, r["execucao_id"], "extracao", "processamento", oid, arquivo, "na_fila", None, "",
+                                     r["tentativa"] + 1, r["id"])
+        return self._resumo_etapa(n)
+
+    def reconciliar_inicializacao(self) -> dict:
+        """Na inicialização: etapas em execução sem reserva válida. Chamada externa sem resultado -> operador;
+        caso contrário a tentativa é encerrada como interrompida e outra é criada. Etapas de plantão seguem o
+        estado do pedido (o Plantão decide o abandono pelo silêncio do agente). Não executa nada."""
+        incertas = retomadas = alinhadas = 0
+        ate = self._expiracao(3600)
+        with self._tx() as c:
+            t = agora()
+            for e in c.execute("SELECT * FROM fluxos_etapas WHERE estado IN ('na_fila','em_execucao') AND origem='plantao'").fetchall():
+                novo = self._espelhar_c(c, e["origem_id"].split("#t")[0], ate)
+                if novo is not None and novo["estado"] != e["estado"]:
+                    alinhadas += 1
+            orfas = c.execute("SELECT e.* FROM fluxos_etapas e LEFT JOIN fluxos_reservas r ON r.etapa_id=e.id "
+                              "WHERE e.estado='em_execucao' AND e.origem!='plantao' AND (r.etapa_id IS NULL OR r.ate <= ?)", (t,)).fetchall()
+            for e in orfas:
+                c.execute("DELETE FROM fluxos_reservas WHERE etapa_id=?", (e["id"],))
+                if self._interromper_c(c, e)["estado"] == "aguardando_operador":
+                    incertas += 1
+                else:
+                    retomadas += 1
+        return {"incertas": incertas, "retomadas": retomadas, "alinhadas": alinhadas}
 
     # ------------------------------------------------------------ leitura
     @staticmethod

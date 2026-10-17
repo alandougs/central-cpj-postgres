@@ -8,11 +8,13 @@ o primeiro OCIOSO e APROVADO reserva o próximo pedido (reserva atômica: dois a
 Regras de segurança: agente novo entra como "aguardando aprovação" (aprovar no PC da Central); um pedido ativo por caso;
 agente que para de responder devolve o pedido à fila (até 2 tentativas); cancelamento pela Central é respeitado.
 """
-import datetime, json, os, re, signal, socket, sqlite3, subprocess, sys, threading, time, uuid
+import datetime, json, logging, os, re, signal, socket, sqlite3, subprocess, sys, threading, time, uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
-from fluxo_execucao import Fluxos
+from fluxo_execucao import Fluxos, ResultadoIncerto  # noqa: F401
+
+LOG = logging.getLogger("cpj.plantao")
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.dirname(AQUI)
@@ -244,6 +246,7 @@ def prompt_etapa(job, ws, etapa):
 class Plantao:
     def __init__(self, ws):
         self.ws = ws
+        self._ult_esp = {}
         os.makedirs(os.path.join(ws, "config"), exist_ok=True)
         self.db = os.path.join(ws, "config", "plantao.sqlite")
         with self._c() as c:
@@ -262,6 +265,47 @@ class Plantao:
             c.execute("CREATE TABLE IF NOT EXISTS etapas_pedido (pedido TEXT PRIMARY KEY, plano TEXT NOT NULL)")
         # Registro durável de fluxos (UN13): migração aditiva e idempotente; falha aparece, não é engolida.
         Fluxos(ws).migrar()
+
+    # ------------------------------------------------ registro durável de fluxos (UN14)
+    def _espelhar(self, pid, grupo=True):
+        """Alinha o registro de fluxos ao pedido (e ao seu grupo). Falha aparece no log e se corrige no próximo alinhamento
+        ou na reconciliação de inicialização; nunca altera o pedido."""
+        try:
+            with self._c() as c:
+                ids = ([r["id"] for r in c.execute("SELECT id FROM pedidos WHERE id=? OR (grupo IS NOT NULL AND grupo="
+                                                   "(SELECT grupo FROM pedidos WHERE id=?)) ORDER BY ordem", (pid, pid))]
+                       if grupo else [pid])
+            fx = Fluxos(self.ws)
+            for i in ids:
+                fx.espelhar_pedido(i)
+        except Exception as erro:
+            LOG.warning("registro de fluxos desatualizado para %s: %s", pid, erro)
+
+    def _abortar_grupo(self, ids, grupo, erro):
+        """Sem registro durável do fluxo não há despacho: os pedidos recém-criados são cancelados."""
+        with self._c() as c:
+            c.execute("UPDATE pedidos SET cancelar=1, estado='cancelada', etapa='coordenação indisponível', erro=?, fim=? "
+                      "WHERE grupo=? AND estado='pendente'", ("coordenação indisponível: " + str(erro)[:300], agora(), grupo))
+        for i in ids:
+            self._espelhar(i, grupo=False)
+
+    def _devolver(self, pid, nome, erro):
+        """A reserva do pedido não pôde ser registrada: devolve à fila sem despachar e deixa o motivo visível."""
+        LOG.warning("despacho de %s adiado: coordenação indisponível: %s", pid, erro)
+        with self._c() as c:
+            c.execute("UPDATE pedidos SET estado='pendente', agente=NULL, tentativas=MAX(tentativas-1,0), iniciado_em=NULL, "
+                      "progresso=0, etapa='aguardando agente de plantão', detalhe=? WHERE id=? AND estado='executando' AND agente=?",
+                      ("coordenação indisponível; despacho adiado: " + str(erro)[:200], pid, nome))
+            c.execute("UPDATE agentes SET estado='ocioso', job=NULL WHERE nome=? AND job=?", (nome, pid))
+
+    def execucao_id(self, pid):
+        try:
+            with self._c() as c:
+                r = c.execute("SELECT execucao_id FROM fluxos_etapas WHERE origem='plantao' AND (origem_id=? OR origem_id LIKE ?) "
+                              "ORDER BY tentativa DESC, seq DESC LIMIT 1", (pid, pid + "#t%")).fetchone()
+            return r["execucao_id"] if r else None
+        except sqlite3.Error:
+            return None
 
     def etapas(self, pid):
         with self._c() as c:
@@ -334,15 +378,23 @@ class Plantao:
             if c.execute("SELECT 1 FROM pedidos WHERE caso=? AND estado IN ('pendente','executando')", (caso,)).fetchone():
                 c.execute("ROLLBACK"); raise ValueError("Já existe uma tarefa de IA em andamento para este caso.")
             etapas = ("analisar", "financeiro", "relatorio", "revisar") if acao in ("completo", "esteira") else (acao,)
-            grupo, anterior, pid = "fluxo-" + uuid.uuid4().hex[:10], None, None
+            grupo, anterior, pid, ids = "fluxo-" + uuid.uuid4().hex[:10], None, None, []
             for ordem, etapa in enumerate(etapas, 1):
                 atual = "ia-" + uuid.uuid4().hex[:10]
+                ids.append(atual)
                 c.execute("INSERT INTO pedidos(id,caso,acao,observacoes,solicitante,preferido,estado,etapa,criado_em,grupo,ordem,depende_de,consentimento,orcamento) "
                           "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (atual, caso, etapa, (observacoes or "")[:2000], solicitante, preferido or None,
                           "pendente", "aguardando etapa anterior" if anterior else "aguardando agente de plantão", agora(), grupo, ordem, anterior, consentimento,
                           json.dumps(orcamento) if orcamento is not None else None))
                 pid, anterior = pid or atual, atual
             c.execute("COMMIT")
+        try:
+            fx = Fluxos(self.ws)
+            for i in ids:
+                fx.espelhar_pedido(i)
+        except Exception as erro:
+            self._abortar_grupo(ids, grupo, erro)
+            raise RuntimeError("Coordenação de fluxos indisponível; nenhum pedido foi despachado: " + str(erro)[:200]) from erro
         return pid
 
     def _encerrar_orfaos(self, c):
@@ -354,11 +406,21 @@ class Plantao:
             pass
 
     def _recolher_abandonados(self, c):
-        """Pedidos em execução cujo agente parou de responder voltam à fila (ou falham após TENTATIVAS_MAX)."""
+        """Pedidos em execução cujo agente parou de responder voltam à fila (ou falham após TENTATIVAS_MAX).
+        Pedido com chamada externa sem resultado registrado nunca volta à fila: vai para o operador conferir.
+        Retorna os pedidos alterados, para o registro de fluxos ser alinhado depois do commit."""
+        tocados = []
         for p in c.execute("SELECT p.id, p.tentativas, a.modo, a.visto_em FROM pedidos p LEFT JOIN agentes a ON a.nome=p.agente "
                            "WHERE p.estado='executando'").fetchall():
             if time.time() - _ts(p["visto_em"]) <= SILENCIO_MAX.get(p["modo"] or "auto", 60): continue
-            if p["tentativas"] >= TENTATIVAS_MAX:
+            tocados.append(p["id"])
+            incerta = c.execute("SELECT 1 FROM fluxos_intencoes i JOIN fluxos_etapas e ON e.id=i.etapa_id WHERE e.origem='plantao' "
+                                "AND (e.origem_id=? OR e.origem_id LIKE ?) AND i.resultado IS NULL", (p["id"], p["id"] + "#t%")).fetchone()
+            if incerta:
+                c.execute("UPDATE pedidos SET estado='erro', erro=?, fim=? WHERE id=?",
+                          ("O agente parou de responder depois de iniciar uma chamada externa sem resultado registrado "
+                           "(resultado incerto): conferir no provedor antes de repetir.", agora(), p["id"]))
+            elif p["tentativas"] >= TENTATIVAS_MAX:
                 c.execute("UPDATE pedidos SET estado='erro', erro='O agente parou de responder (tentativas esgotadas).', fim=? "
                           "WHERE id=?", (agora(), p["id"]))
             else:
@@ -366,13 +428,29 @@ class Plantao:
                 c.execute("UPDATE pedidos SET estado='pendente', agente=NULL, preferido=NULL, "
                           "etapa='devolvido à fila: agente parou de responder' WHERE id=?", (p["id"],))
         self._encerrar_orfaos(c)
+        return tocados
 
     def reivindicar(self, nome):
-        """O agente ocioso e aprovado reserva o pedido pendente mais antigo (ou o que foi direcionado a ele)."""
+        """O agente ocioso e aprovado reserva o pedido pendente mais antigo (ou o que foi direcionado a ele).
+        A reserva só vale se o registro durável do fluxo também a aceitar; senão o pedido volta à fila."""
+        recolhidos = []
+        pid = self._reivindicar_tx(nome, recolhidos)
+        for r in recolhidos:
+            self._espelhar(r)
+        if not pid:
+            return None
+        try:
+            Fluxos(self.ws).espelhar_pedido(pid)
+        except Exception as erro:
+            self._devolver(pid, nome, erro)
+            return None
+        return self.pedido(pid)
+
+    def _reivindicar_tx(self, nome, recolhidos):
         with self._c() as c:
             c.execute("BEGIN IMMEDIATE")
             try:
-                self._recolher_abandonados(c)
+                recolhidos.extend(self._recolher_abandonados(c))
                 a = c.execute("SELECT aprovado FROM agentes WHERE nome=?", (nome,)).fetchone()
                 ocupado = c.execute("SELECT 1 FROM pedidos WHERE estado='executando' AND agente=?", (nome,)).fetchone()
                 if not a or not a["aprovado"] or ocupado: c.execute("COMMIT"); return None
@@ -383,7 +461,7 @@ class Plantao:
                           "etapa='iniciando', detalhe=? WHERE id=? AND estado='pendente'", (nome, agora(), f"agente {nome}", p["id"]))
                 c.execute("UPDATE agentes SET estado='ocupado', job=?, visto_em=? WHERE nome=?", (p["id"], agora(), nome))
                 c.execute("COMMIT")
-                return self.pedido(p["id"])
+                return p["id"]
             except Exception:
                 c.execute("ROLLBACK"); raise
 
@@ -406,6 +484,9 @@ class Plantao:
             c.execute("UPDATE pedidos SET progresso=?, etapa=COALESCE(?,etapa), detalhe=COALESCE(?,detalhe) WHERE id=?",
                       (max(p["progresso"] or 0, min(99, int(pct if pct is not None else p["progresso"] or 0))), etapa, detalhe, pid))
             c.execute("UPDATE agentes SET estado='ocupado', job=?, visto_em=? WHERE nome=?", (pid, agora(), nome))
+        if time.time() - self._ult_esp.get(pid, 0) > 30:     # renova a reserva e o progresso no registro de fluxos
+            self._ult_esp[pid] = time.time()
+            self._espelhar(pid, grupo=False)
         return True
 
     def concluir(self, pid, nome, resultado):
@@ -417,6 +498,7 @@ class Plantao:
                                    (json.dumps(resultado, ensure_ascii=False), agora(), pid, nome)).rowcount
             if not atualizado: raise ValueError("Pedido cancelado ou reserva não pertence mais ao agente.")
             c.execute("UPDATE agentes SET estado='ocioso', job=NULL, visto_em=? WHERE nome=?", (agora(), nome))
+        self._espelhar(pid, grupo=False)
 
     def falhar(self, pid, nome, erro):
         self._do_agente(pid, nome)
@@ -427,6 +509,7 @@ class Plantao:
             if not atualizado: raise ValueError("Reserva não pertence mais ao agente ou pedido já encerrado.")
             self._encerrar_orfaos(c)
             c.execute("UPDATE agentes SET estado='ocioso', job=NULL, visto_em=? WHERE nome=?", (agora(), nome))
+        self._espelhar(pid)
 
     def cancelar(self, pid):
         with self._c() as c:
@@ -437,14 +520,18 @@ class Plantao:
             if p["grupo"]:
                 c.execute("UPDATE pedidos SET cancelar=1, estado='cancelada', etapa='cancelado com o fluxo', fim=? "
                           "WHERE grupo=? AND estado='pendente'", (agora(), p["grupo"]))
+        self._espelhar(pid)
         return True
 
     def pedidos(self, horas=24):
         limite = (datetime.datetime.now() - datetime.timedelta(hours=horas)).isoformat()
         with self._c() as c:
-            self._recolher_abandonados(c)
-            return [dict(r) for r in c.execute("SELECT * FROM pedidos WHERE estado IN ('pendente','executando') OR criado_em >= ? "
-                                               "ORDER BY criado_em DESC", (limite,))]
+            recolhidos = self._recolher_abandonados(c)
+            lista = [dict(r) for r in c.execute("SELECT * FROM pedidos WHERE estado IN ('pendente','executando') OR criado_em >= ? "
+                                                "ORDER BY criado_em DESC", (limite,))]
+        for r in recolhidos:
+            self._espelhar(r)
+        return lista
 
     def como_tarefa(self, p):
         """Formato das tarefas da Central (a interface atual mostra os pedidos sem alteração)."""
@@ -462,7 +549,8 @@ class Plantao:
                 "inicio": p["iniciado_em"] or p["criado_em"], "fim": p["fim"], "erro": p["erro"], "resultado": res,
                 "observacoes": p["observacoes"], "agente": p["agente"], "etapas": self.etapas(p["id"]),
                 "orcamento": json.loads(p["orcamento"]) if p.get("orcamento") else None,
-                "uso_ia": json.loads(p["uso_ia"]) if p.get("uso_ia") else None}
+                "uso_ia": json.loads(p["uso_ia"]) if p.get("uso_ia") else None,
+                "execucao_id": self.execucao_id(p["id"])}
 
 
 # ------------------------------------------------------------------ executores automáticos
@@ -631,12 +719,13 @@ def executar_pedido(pl, job, nome, tipo):
         e.update(estado="executando", inicio=agora(), fim=None)
         with trava: pl.gravar_etapas(job["id"], plano)
         try:
-            res = _executar_sessao(pl, dict(job, _etapa=e), nome, tipo)
+            res, reaproveitado = _chamar_sessao(pl, job, e, nome, tipo)
             e.update(**res)  # Preserva sessão consumida mesmo se o gate de saída falhar.
             for p in arquivos(e):
                 meta = metadata(p)
                 if not meta or not meta[1]: raise RuntimeError(f"{e['etapa']}: saída ausente ou vazia: {os.path.basename(p)}")
-                if meta == antes[p]: raise RuntimeError(f"{e['etapa']}: arquivo não atualizado: {os.path.basename(p)}")
+                if meta == antes[p] and not reaproveitado:
+                    raise RuntimeError(f"{e['etapa']}: arquivo não atualizado: {os.path.basename(p)}")
             e.update(estado="concluida", fim=agora())
         except Exception as exc:
             e.update(estado="erro", fim=agora(), erro=str(exc))
@@ -652,6 +741,25 @@ def executar_pedido(pl, job, nome, tipo):
         if e["tipo"] != "blocos": rodar(e)
     return {"resumo": "; ".join(f"{e['etapa']}: {e['estado']} {e.get('resumo', '')}" for e in plano)[:1500],
             "log": next((e.get("log") for e in reversed(plano) if e.get("log")), "")}
+
+
+def _chamar_sessao(pl, job, e, nome, tipo):
+    """Sessão da etapa. Provedor de API (externo, com custo) grava a intenção ANTES e o resultado logo depois: se a
+    execução cair no meio, a chamada nunca é repetida automaticamente (ResultadoIncerto -> operador).
+    Retorna (resultado, reaproveitado)."""
+    if tipo not in TIPOS_API:
+        return _executar_sessao(pl, dict(job, _etapa=e), nome, tipo), False
+    fx = Fluxos(pl.ws)
+    et = fx.etapa_do_pedido(job["id"])
+    if et is None:
+        raise RuntimeError("Coordenação: etapa do pedido não registrada; a chamada externa não foi iniciada.")
+    chave = f"{job['id']}:{e['id']}:{tipo}"
+    reg = fx.registrar_intencao(et["id"], nome, chave)
+    if not reg["nova"]:
+        return reg["resultado"], True
+    res = _executar_sessao(pl, dict(job, _etapa=e), nome, tipo)
+    fx.registrar_resultado(et["id"], nome, chave, res)
+    return res, False
 
 
 def _executar_sessao(pl, job, nome, tipo):

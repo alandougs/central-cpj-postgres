@@ -265,8 +265,15 @@ class TesteMigracao(Base):
 class TesteImportacaoLegado(Base):
     def _legado(self):
         from plantao import Plantao
-        pl = Plantao(str(self.ws))
-        pid = pl.enfileirar(CASO, "analisar", "op")
+        Plantao(str(self.ws))      # cria as tabelas; o pedido legado é gravado direto, como uma versão anterior faria
+        pid = "ia-legado0001"
+        c = sqlite3.connect(self.ws / "config" / "plantao.sqlite")
+        try:
+            c.execute("INSERT INTO pedidos(id,caso,acao,solicitante,estado,criado_em,grupo,ordem) VALUES(?,?,?,?,?,?,?,1)",
+                      (pid, CASO, "analisar", "op", "pendente", "2099-01-01T09:59:00", "fluxo-legado"))
+            c.commit()
+        finally:
+            c.close()
         caso = self.ws / "casos" / CASO
         caso.mkdir(parents=True)
         proc = {"trabalhos": [
@@ -298,6 +305,13 @@ class TesteImportacaoLegado(Base):
 
 
 class TestePlantaoMigra(Base):
+    def test_pedido_novo_ja_nasce_correlacionado(self):
+        from plantao import Plantao
+        pid = Plantao(str(self.ws)).enfileirar(CASO, "analisar", "op")
+        et = self.F.etapa_do_pedido(pid)
+        self.assertEqual((et["etapa"], et["estado"], et["origem_id"]), ("analise", "na_fila", pid))
+        self.assertEqual(self.F.importar_legado()["etapas_importadas"], 0)      # nada a importar: já está registrado
+
     def test_plantao_aplica_migracao_e_preserva_pedidos(self):
         from plantao import Plantao
         pl = Plantao(str(self.ws))
