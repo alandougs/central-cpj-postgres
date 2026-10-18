@@ -186,6 +186,25 @@ class _Contrato:
 
 
 class _Acoes:
+    def test_acoes_rejeitam_json_que_nao_seja_objeto_sem_alterar_estado(self):
+        ex, _, _, alvo = self.semear_os_com_duas_tentativas()
+        urls = (f"/api/fluxos/{ex['id']}/cancelar",
+                f"/api/fluxos/{ex['id']}/etapas/{alvo['id']}/reconciliar")
+        banco_antes = self.hash_banco()
+        checkpoint = self.ws / "casos" / self.caso / "processamento.json"
+        checkpoint_antes = checkpoint.read_bytes() if checkpoint.exists() else None
+        for url in urls:
+            for corpo in (None, False, True, 0, 1, "", "invalido", [], [1]):
+                with self.subTest(acao=url.rsplit("/", 1)[-1], corpo=corpo):
+                    try:
+                        resp = self.client.post(url, data=json.dumps(corpo),
+                                                content_type="application/json", headers=HEADERS)
+                        self.assertEqual(resp.status_code, 400)
+                        self.assertIsInstance(resp.get_json().get("erro"), str)
+                    finally:
+                        self.assertEqual(self.hash_banco(), banco_antes)
+                        self.assertEqual(checkpoint.read_bytes() if checkpoint.exists() else None, checkpoint_antes)
+
     def test_csrf_exige_cabecalho(self):
         ex, *_ = self.semear_os_com_duas_tentativas()
         v = self.get("/api/fluxos").get_json()["itens"][0]["versao"]
