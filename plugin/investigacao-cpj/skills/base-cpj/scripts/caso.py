@@ -250,11 +250,26 @@ def salvar(c, revisao_esperada=None):
                 raise ConflitoRevisao(
                     f"Conflito de versão no caso {c['id']}: revisão no disco é {rev_disco}, fornecida tinha revisão {c['revisao']}."
                 )
-        c["revisao"] = rev_disco + 1
-        c["atualizado_em"] = datetime.datetime.now().isoformat(timespec="seconds")
+        dados = dict(c, revisao=rev_disco + 1,
+                     atualizado_em=datetime.datetime.now().isoformat(timespec="seconds"))
         tmp = os.path.join(caminho(c["id"]), f".caso.{os.getpid()}_{uuid.uuid4().hex}.tmp")
-        with open(tmp, "w", encoding="utf-8") as f: json.dump(c, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, p)
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(dados, f, ensure_ascii=False, indent=2)
+            for tentativa in range(3):
+                try:
+                    os.replace(tmp, p)
+                    break
+                except OSError as erro:
+                    if (not isinstance(erro, PermissionError)
+                            and getattr(erro, "winerror", None) not in (5, 32, 33)) or tentativa == 2:
+                        raise
+                    # Leitores Windows podem impedir temporariamente a troca do destino.
+                    time.sleep(0.02 * (tentativa + 1))
+        finally:
+            with contextlib.suppress(OSError):
+                os.remove(tmp)
+        c.update(revisao=dados["revisao"], atualizado_em=dados["atualizado_em"])
         return c
 
 
