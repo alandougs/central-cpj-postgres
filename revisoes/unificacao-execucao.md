@@ -6,7 +6,9 @@ Pedido explícito: corrigir pendências e sincronizar a estrutura no GitHub, man
 
 **Estado atual da fonte:** PR #20 integrado em `main` no merge `9471131`, com #18/#19 encerrados. Candidata `beef9e6`: CI Windows estrito **119/119**, 568,95 s, e job sigilo/distribuição/portáteis aprovado (run `39090064610`). Três commits de worktrees locais publicados em branches próprias; pasta principal limpa e somente iniciador/ignore alterados, sem atualização do app ativo.
 
-**Próximo passo de metadados:** operador conclui autenticação sudo no GitHub; a primeira solicitação GitHub Mobile expirou. Só então salvar checks obrigatórios de `main` e torná-la branch padrão. Nenhuma proteção é declarada ativa antes da conferência. Esse passo não autoriza instalação/migração.
+**Metadados concluídos:** `main` definida como padrão e proteção conferida por GET na API: checks obrigatórios `sigilo, distribuicao e portateis` e `suite completa (Windows, navegador e OCR)`, app GitHub Actions `15368`; exigidos também de administradores; exclusão e push forçado desabilitados. A solicitação sudo no navegador expirou, mas a autenticação já usada pelo Git permitiu concluir a administração pela API; não é necessária confirmação GitHub Mobile. Credenciais não foram exibidas nem gravadas em arquivos desta tarefa.
+
+**Próximo passo seguro:** nenhum passo operacional está autorizado nesta entrega. Para futura instalação/migração, retomar as pré-condições de UN18 (backup consistente, restauração verificada, revisão do destino e processos ativos) somente quando o operador pedir explicitamente. Não atualizar a Central pelo simples fato de main estar sincronizada.
 
 **Limites atuais:** suíte local 112/119 por QuickJS ausente, com skips explícitos de Playwright Python/links simbólicos; CI completo sem esse impedimento. Desempenho de abertura previamente medido permanece documentado, sem mudança de cache. Não há processo de teste local em execução. Nenhum instalador, migração ou alteração de banco operacional foi executado.
 
