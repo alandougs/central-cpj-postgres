@@ -1,6 +1,16 @@
 # Checkpoint — execução da unificação da Central CPJ (UN10–UN18)
 
-## Continuação SY04 — autorização do operador nesta sessão
+## Continuação AS01–AS02 — 18/10/2026
+
+O operador autorizou corrigir a intermitência da ASTRA, testar, sincronizar e continuar melhorias em ciclos; depois priorizou explicitamente o **fluxo de processamento por O.S.**. Instalação/atualização da Central em uso e migração operacional continuam excluídas.
+
+AS01: gravação atômica tolera bloqueio transitório Windows e só confirma revisão após sucesso. Integrada em main no [PR #21](https://github.com/alandougs/central-cpj-postgres/pull/21), merge `748213a`; [CI](https://github.com/alandougs/central-cpj-postgres/actions/runs/39098239936) **120/120**, sem skips de testes, sigilo/distribuição aprovados. Ambiente de teste separado provisionado em TL01; não repetir a alegação histórica de QuickJS/Playwright ausentes nesse ambiente.
+
+AS02: falha na aquisição/interrupção libera arquivo e trava em memória, com **5/5** testes novos e regressão AS01 **5/5**. Duas completas locais **120/121**, única reprovação no guard da árvore operacional; reteste **5/5**. Observador confirmou mudança de metadados em `config/plantao.sqlite` durante o guard e por 45 s sem suíte ativa. Não atribuir o processo gravador sem evidência, enfraquecer o guard ou parar produção para obter placar verde. Publicação/CI isolado rastreáveis na branch `codex/astra-travas-recuperaveis` e em `astra-travas-as02.md`.
+
+AS02 publicada no [PR #22](https://github.com/alandougs/central-cpj-postgres/pull/22), correção `3a0ce6e`; conferir os checks do head corrente e a integração no próprio PR. Próximo ciclo autorizado: revisar o fluxo por O.S. nos contratos UN14/UN15, reproduzir a primeira falha com fixture e assumir a tarefa antes de editar. Preservar checkpoints, permissões, cancelamento versionado, consentimento e ausência de entrega automática. A fonte operacional continua em `codex/os-markdown-relatorio-20261014`, `66ea935`; nenhum instalador/migração/reinício foi executado. As seções abaixo são históricas.
+
+## Continuação SY04 — autorização do operador nesta sessão (histórico)
 
 Pedido explícito: corrigir pendências e sincronizar a estrutura no GitHub, mantendo dados reais somente locais; não instalar nem migrar. A continuação atua sobre a revisão candidata e os metadados do repositório. UN18 operacional continua pendente: nenhuma atualização da Central em uso, migração ou restauração de dados reais integra esta entrega. Evidências atuais em `sincronizacao-github-sy04.md`; os estados anteriores abaixo são históricos.
 

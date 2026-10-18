@@ -93,30 +93,35 @@ class ReentrantFileLock:
             return self
         tempo_restante = max(0.01, self.timeout - (time.monotonic() - t0))
         fim = time.monotonic() + tempo_restante
-        os.makedirs(self.pasta, exist_ok=True)
-        lock_path = os.path.join(self.pasta, ".caso.lock")
-        self.lock_file = open(lock_path, "a+b")
-        bloqueado = False
-        while time.monotonic() < fim:
-            try:
-                if os.name == "nt":
-                    import msvcrt
-                    self.lock_file.seek(0)
-                    msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
-                else:
-                    import fcntl
-                    fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                bloqueado = True
-                break
-            except (BlockingIOError, OSError, PermissionError):
-                time.sleep(0.02)
-        if not bloqueado:
-            self.lock_file.close()
+        try:
+            os.makedirs(self.pasta, exist_ok=True)
+            lock_path = os.path.join(self.pasta, ".caso.lock")
+            self.lock_file = open(lock_path, "a+b")
+            bloqueado = False
+            while time.monotonic() < fim:
+                try:
+                    if os.name == "nt":
+                        import msvcrt
+                        self.lock_file.seek(0)
+                        msvcrt.locking(self.lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+                    else:
+                        import fcntl
+                        fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    bloqueado = True
+                    break
+                except (BlockingIOError, OSError, PermissionError):
+                    time.sleep(0.02)
+            if not bloqueado:
+                raise CasoOcupado(f"Timeout ao aguardar trava de processo para caso {self.id_}")
+            return self
+        except BaseException:
+            if self.lock_file is not None:
+                with contextlib.suppress(OSError):
+                    self.lock_file.close()
             self.lock_file = None
-            casos[self.id_] = depth
+            casos.pop(self.id_, None)
             self.rlock.release()
-            raise CasoOcupado(f"Timeout ao aguardar trava de processo para caso {self.id_}")
-        return self
+            raise
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         casos = _get_casos_ativos()

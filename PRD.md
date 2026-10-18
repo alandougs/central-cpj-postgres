@@ -129,6 +129,8 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 
 ## 9. Estado atual e próximos passos (atualizar sempre)
 
+**18/10/2026 — AS02:** aquisição de trava do caso agora libera arquivo, estado da thread e RLock se criar pasta/abrir arquivo falhar ou a espera for interrompida; preserva timeout e reentrância. TDD AS02 **5/5**, regressão AS01 **5/5**. Duas rodadas completas locais **120/121**, única falha = guard de mtimes da pasta operacional; reteste **5/5**. Observação de metadados confirmou atividade em `config/plantao.sqlite` durante o guard e também por 45 s sem suíte ativa. Teste intacto; não declarar 121/121 local nem parar a Central para mudar o placar. CI isolado do candidato e integração rastreáveis no PR da branch `codex/astra-travas-recuperaveis`. AS01 já em main (`748213a`, PR #21), CI **120/120**, sem skips de testes. Próxima prioridade do operador: fluxo por O.S., preservando UN14/UN15. Evidências em `revisoes/astra-travas-as02.md`; sem atualização/migração operacional.
+
 **18/10/2026 — AS01:** correção candidata da gravação de `caso.json` após reprodução nativa do WinError 5. Troca atômica com até três tentativas para bloqueio transitório, revisão/data confirmadas somente após sucesso e limpeza de temporário na falha. Cinco testes novos aprovados; suíte completa local estrita **120/120**, com cinco skips por privilégio de links simbólicos, nenhum skip crítico de ferramenta ausente. Publicação em `codex/astra-gravacao-windows` para validação do GitHub; resultado local não substitui CI. Central em uso preservada. Evidências em `revisoes/astra-gravacao-as01.md`; histórico da falha em TL01 mantido.
 
 **18/10/2026 — TL01:** dependências de `requirements-dev.txt` instaladas em ambiente virtual de teste separado, com QuickJS 1.19.4 e Playwright Python 1.64.0; `pip check` e Edge aprovados. Suíte local estrita completa: **118/119**, sem falhas por dependências ausentes; único erro foi acesso negado do Windows ao substituir `caso.json` sintético na AST17. Reteste AST17 com regressão: **5/5**, sem alteração de código entre rodadas; intermitência observada permanece registrada, sem alegar eliminação. Cinco skips de links simbólicos por privilégio do Windows, sem skips críticos de ferramentas. Central operacional e seu `.venv` preservados; sem atualização/migração, commit ou push nesta tarefa. Evidências em `revisoes/testes-locais-tl01.md`.
@@ -290,6 +292,8 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
 **UX03 — 15/10/2026:** a lista da aba Casos destaca com fundo verde as linhas cujo status é `entregue`, mantendo realce na passagem do cursor. Os demais status e a abertura da ficha pelo clique na linha não mudam.
 
 ## Registro de mudanças
+
+- **18/10/2026 — AS02:** corrigida retenção de trava após falha de aquisição/interrupção, com cinco testes novos e reentrância preservada. Duas suítes locais completas 120/121 pela mesma interferência de mtimes do banco operacional, reteste 5/5 e observação independente confirmada. Guard preservado; candidato publicado para CI isolado. AS01 integrada pelo PR #21 com CI 120/120. Próximo ciclo: processamento por O.S. Evidências em `revisoes/astra-travas-as02.md`.
 
 - **18/10/2026 — AS01:** gravação de caso tolera bloqueio transitório Windows, preservando atomicidade/revisão e limpando temporários; reprodução real e regressão de cinco testes, suíte local completa 120/120. Candidata preparada para publicação e CI; sem atualização/migração operacional. Evidências em `revisoes/astra-gravacao-as01.md`.
 
