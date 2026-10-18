@@ -294,7 +294,10 @@ def api_fluxo(execucao_id):
 
 
 def _versao_do_corpo():
-    versao = (request.get_json(silent=True) or {}).get("versao")
+    corpo = request.get_json(silent=True)
+    if not isinstance(corpo, dict):
+        return None
+    versao = corpo.get("versao")
     if type(versao) is not int or versao < 1:
         return None
     return versao
@@ -337,7 +340,9 @@ def api_fluxo_reconciliar(execucao_id, etapa_id):
     etapa = next((e for e in exe["etapas"] if e["id"] == etapa_id), None)
     if etapa is None:
         abort(404)
-    d = request.get_json(silent=True) or {}
+    d = request.get_json(silent=True)
+    if not isinstance(d, dict):
+        return jsonify({"erro": "Informe um objeto JSON com versão, estado e motivo."}), 400
     versao, estado, motivo = d.get("versao"), d.get("estado"), d.get("motivo")
     if type(versao) is not int or versao < 1 or estado not in ("na_fila", "cancelada") \
             or not isinstance(motivo, str) or not 3 <= len(motivo.strip()) <= _LIMITE_TEXTO:
