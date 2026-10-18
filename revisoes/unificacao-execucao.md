@@ -8,7 +8,7 @@ AS01: gravação atômica tolera bloqueio transitório Windows e só confirma re
 
 AS02: falha na aquisição/interrupção libera arquivo e trava em memória, com **5/5** testes novos e regressão AS01 **5/5**. Duas completas locais **120/121**, única reprovação no guard da árvore operacional; reteste **5/5**. Observador confirmou mudança de metadados em `config/plantao.sqlite` durante o guard e por 45 s sem suíte ativa. Não atribuir o processo gravador sem evidência, enfraquecer o guard ou parar produção para obter placar verde. Publicação/CI isolado rastreáveis na branch `codex/astra-travas-recuperaveis` e em `astra-travas-as02.md`.
 
-Próximo ciclo autorizado: revisar o fluxo por O.S. nos contratos UN14/UN15, reproduzir a primeira falha com fixture e assumir a tarefa antes de editar. Preservar checkpoints, permissões, cancelamento versionado, consentimento e ausência de entrega automática. A fonte operacional continua em `codex/os-markdown-relatorio-20261014`, `66ea935`; nenhum instalador/migração/reinício foi executado. As seções abaixo são históricas.
+AS02 publicada no [PR #22](https://github.com/alandougs/central-cpj-postgres/pull/22), correção `3a0ce6e`; conferir os checks do head corrente e a integração no próprio PR. Próximo ciclo autorizado: revisar o fluxo por O.S. nos contratos UN14/UN15, reproduzir a primeira falha com fixture e assumir a tarefa antes de editar. Preservar checkpoints, permissões, cancelamento versionado, consentimento e ausência de entrega automática. A fonte operacional continua em `codex/os-markdown-relatorio-20261014`, `66ea935`; nenhum instalador/migração/reinício foi executado. As seções abaixo são históricas.
 
 ## Continuação SY04 — autorização do operador nesta sessão (histórico)
 
