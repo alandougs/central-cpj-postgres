@@ -24,6 +24,6 @@ Erros de disco distintos não são retentados. Uma recusa persistente continua s
 
 ## Publicação e limites
 
-Candidata na branch `codex/astra-gravacao-windows`, derivada de `main` em `ddee698`. Esta publicação inclui o relatório histórico TL01, antes somente local. A validação remota e a integração serão conferidas no PR da candidata, sem tratar o resultado local como resultado do CI.
+Candidata na branch `codex/astra-gravacao-windows`, derivada de `main` em `ddee698`; correção publicada em `cbd0ce1`, no [PR #21](https://github.com/alandougs/central-cpj-postgres/pull/21). Esta publicação inclui o relatório histórico TL01, antes somente local. Os checks obrigatórios e a integração ficam rastreáveis nesse PR; o resultado local não substitui a validação remota.
 
 Nenhuma atualização, migração, reinício ou troca de branch da Central operacional. A cópia principal permanece em `codex/os-markdown-relatorio-20261014`, `66ea935`; banco, configuração, credenciais, assinaturas e casos reais não integram esta alteração.
