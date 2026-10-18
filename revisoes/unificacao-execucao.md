@@ -1,5 +1,11 @@
 # Checkpoint — execução da unificação da Central CPJ (UN10–UN18)
 
+## Continuação AS04 — 18/10/2026
+
+Ações de cancelar/conferir por O.S. agora recusam corpos JSON não objeto com HTTP 400. TDD reproduziu oito exceções; API final **16/16**, 18 combinações inválidas e banco/checkpoint intactos. Código cumulativo AS03/AS04 na completa local **120/121**, única reprovação no guard de mtimes da árvore operacional; reteste sem alterar código **5/5**, cinco skips de links simbólicos. Não declarar 121/121 local final nem enfraquecer o guard. Relato em `fluxos-os-validacao-as04.md`.
+
+AS02 integrada no [PR #22](https://github.com/alandougs/central-cpj-postgres/pull/22), merge `3f6a644`, [CI 121/121](https://github.com/alandougs/central-cpj-postgres/actions/runs/39100231481), sem skips de testes. Histórico AS03 publicado no [PR #23](https://github.com/alandougs/central-cpj-postgres/pull/23), `cd53d65`; validação AS04 no [PR #24](https://github.com/alandougs/central-cpj-postgres/pull/24), correção `45becaf`. Conferir checks dos heads finais e integrar nessa ordem. Nenhuma instalação, migração, atualização ou reinicialização operacional. UN18 continua excluída. Registros abaixo são históricos.
+
 ## Continuação AS03 — 18/10/2026
 
 Prioridade vigente do operador: fluxo de processamento por O.S., dentro de UN14/UN15. AS03 corrige o aviso falso no histórico e o aceite de resposta obsoleta; revalidação pausa em aba oculta e retorna quando visível. TDD dos defeitos, navegador final **7/7**, sem skips; completa anterior à guarda final de visibilidade **121/121** com cinco skips locais de links simbólicos. Checks completos do head final acompanham o PR da branch `codex/fluxos-os-historico`; não confundir a rodada anterior com validação completa do último ajuste. Evidências em `fluxos-os-historico-as03.md`.
