@@ -129,6 +129,8 @@ Pacote de exportação: ZIP com `manifest.json` (`schema: cpj-export/1`, `modo`,
 
 ## 9. Estado atual e próximos passos (atualizar sempre)
 
+**18/10/2026 — AS03:** prioridade do operador, fluxo por O.S.: histórico sem aviso falso após HTTP 200, descarte de resposta obsoleta e revalidação ao voltar à aba visível. TDD separou os dois defeitos e a regressão de visibilidade; navegador final **7/7**, sem skips. Completa anterior à guarda final de visibilidade **121/121**, cinco skips locais de links simbólicos; validação completa do head final acompanha o PR de `codex/fluxos-os-historico`. Preservados permissões, foco, rascunhos e ações versionadas. Evidências em `revisoes/fluxos-os-historico-as03.md`. Próximo ciclo: validar corpos JSON das ações por O.S.; listas/primitivos reproduziram exceção interna sem alterar o banco fictício. Central operacional preservada.
+
 **18/10/2026 — AS02:** aquisição de trava do caso agora libera arquivo, estado da thread e RLock se criar pasta/abrir arquivo falhar ou a espera for interrompida; preserva timeout e reentrância. TDD AS02 **5/5**, regressão AS01 **5/5**. Duas rodadas completas locais **120/121**, única falha = guard de mtimes da pasta operacional; reteste **5/5**. Observação de metadados confirmou atividade em `config/plantao.sqlite` durante o guard e também por 45 s sem suíte ativa. Teste intacto; não declarar 121/121 local nem parar a Central para mudar o placar. CI isolado do candidato e integração rastreáveis no PR da branch `codex/astra-travas-recuperaveis`. AS01 já em main (`748213a`, PR #21), CI **120/120**, sem skips de testes. Próxima prioridade do operador: fluxo por O.S., preservando UN14/UN15. Evidências em `revisoes/astra-travas-as02.md`; sem atualização/migração operacional.
 
 **18/10/2026 — AS01:** correção candidata da gravação de `caso.json` após reprodução nativa do WinError 5. Troca atômica com até três tentativas para bloqueio transitório, revisão/data confirmadas somente após sucesso e limpeza de temporário na falha. Cinco testes novos aprovados; suíte completa local estrita **120/120**, com cinco skips por privilégio de links simbólicos, nenhum skip crítico de ferramenta ausente. Publicação em `codex/astra-gravacao-windows` para validação do GitHub; resultado local não substitui CI. Central em uso preservada. Evidências em `revisoes/astra-gravacao-as01.md`; histórico da falha em TL01 mantido.
@@ -292,6 +294,8 @@ Também entra o **gate de entrega** do core: hoje "Definir FINAL" não confere p
 **UX03 — 15/10/2026:** a lista da aba Casos destaca com fundo verde as linhas cujo status é `entregue`, mantendo realce na passagem do cursor. Os demais status e a abertura da ficha pelo clique na linha não mudam.
 
 ## Registro de mudanças
+
+- **18/10/2026 — AS03:** corrigidos aviso falso e resposta obsoleta no histórico por O.S., com pausa de revalidação em aba oculta; navegador final 7/7 e rodada completa anterior ao último ajuste 121/121. CI final rastreável no PR; nenhum processamento de caso real ou atualização operacional. Evidências em `revisoes/fluxos-os-historico-as03.md`.
 
 - **18/10/2026 — AS02:** corrigida retenção de trava após falha de aquisição/interrupção, com cinco testes novos e reentrância preservada. Duas suítes locais completas 120/121 pela mesma interferência de mtimes do banco operacional, reteste 5/5 e observação independente confirmada. Guard preservado; candidato publicado para CI isolado. AS01 integrada pelo PR #21 com CI 120/120. Próximo ciclo: processamento por O.S. Evidências em `revisoes/astra-travas-as02.md`.
 

@@ -107,14 +107,22 @@
   const c=cfg(),login=c.login(),atual=estado.detalhes.get(execId)||{execucao_id:execId,etapas:[],proximo_cursor:null,carregando:false,erro:""};
   if(atual.carregando)return;
   if(mais&&!atual.proximo_cursor)return;
+  const refSolicitada=referencia(execId);
   atual.carregando=true;atual.erro="";estado.detalhes.set(execId,atual);desenhar();
   try{
    const d=await c.api(`/api/fluxos/${encodeURIComponent(execId)}?limite=50${mais?`&cursor=${encodeURIComponent(atual.proximo_cursor)}`:""}`);
    if(login!==c.login()||estado.detalhes.get(execId)!==atual)return;
+   if(refSolicitada!==referencia(execId))return;     // a O.S. mudou durante a consulta: não aplicar histórico antigo
    atual.etapas=mais?atual.etapas.concat(d.etapas||[]):(d.etapas||[]);atual.proximo_cursor=d.proximo_cursor||null;
-   if(!mais)atual.ref=referencia(id);
+   if(!mais)atual.ref=refSolicitada;
   }catch(e){if(estado.detalhes.get(execId)===atual&&login===c.login()){atual.erro=e.message||String(e);atual.ref=referencia(execId)}}
-  finally{atual.carregando=false;if(estado.detalhes.get(execId)===atual)desenhar()}
+  finally{
+   atual.carregando=false;
+   if(estado.detalhes.get(execId)===atual){
+    desenhar();
+    if(!atual.erro&&login===c.login()&&!(root.document&&root.document.hidden)&&estado.abertos.has(execId)&&refSolicitada!==referencia(execId))carregarHistorico(execId,false);
+   }
+  }
  }
  async function executar(botao,execId,fazer,sucesso){
   const c=cfg();if(estado.ocupados.has(execId))return;
