@@ -4,9 +4,15 @@
 
 Pedido explícito: corrigir pendências e sincronizar a estrutura no GitHub, mantendo dados reais somente locais; não instalar nem migrar. A continuação atua sobre a revisão candidata e os metadados do repositório. UN18 operacional continua pendente: nenhuma atualização da Central em uso, migração ou restauração de dados reais integra esta entrega. Evidências atuais em `sincronizacao-github-sy04.md`; os estados anteriores abaixo são históricos.
 
+**Estado atual da fonte:** PR #20 integrado em `main` no merge `9471131`, com #18/#19 encerrados. Candidata `beef9e6`: CI Windows estrito **119/119**, 568,95 s, e job sigilo/distribuição/portáteis aprovado (run `39090064610`). Três commits de worktrees locais publicados em branches próprias; pasta principal limpa e somente iniciador/ignore alterados, sem atualização do app ativo.
+
+**Próximo passo de metadados:** operador conclui autenticação sudo no GitHub; a primeira solicitação GitHub Mobile expirou. Só então salvar checks obrigatórios de `main` e torná-la branch padrão. Nenhuma proteção é declarada ativa antes da conferência. Esse passo não autoriza instalação/migração.
+
+**Limites atuais:** suíte local 112/119 por QuickJS ausente, com skips explícitos de Playwright Python/links simbólicos; CI completo sem esse impedimento. Desempenho de abertura previamente medido permanece documentado, sem mudança de cache. Não há processo de teste local em execução. Nenhum instalador, migração ou alteração de banco operacional foi executado.
+
 Único checkpoint da execução. Plano: `docs/superpowers/plans/2026-10-16-cpj-unificado.md`. Branch de integração: `codex/unificacao-cpj` (iniciada em `782563a`, de `codex/os-markdown-relatorio-20261014`). Agente: `Claude-unificacao`. Somente dados genéricos/sintéticos neste arquivo.
 
-## Estado atual
+## Estado anterior à continuação SY04 (histórico)
 
 | Tarefa | Estado | Commit/SHA | Testes |
 |---|---|---|---|
