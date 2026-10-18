@@ -1,5 +1,11 @@
 # Checkpoint — execução da unificação da Central CPJ (UN10–UN18)
 
+## Continuação AS03 — 18/10/2026
+
+Prioridade vigente do operador: fluxo de processamento por O.S., dentro de UN14/UN15. AS03 corrige o aviso falso no histórico e o aceite de resposta obsoleta; revalidação pausa em aba oculta e retorna quando visível. TDD dos defeitos, navegador final **7/7**, sem skips; completa anterior à guarda final de visibilidade **121/121** com cinco skips locais de links simbólicos. Checks completos do head final acompanham o PR da branch `codex/fluxos-os-historico`; não confundir a rodada anterior com validação completa do último ajuste. Evidências em `fluxos-os-historico-as03.md`.
+
+Próximo ciclo: corpos JSON inválidos nas ações de cancelar/conferir reproduziram exceção interna com listas/primitivos; reservar a tarefa e corrigir a validação sem alterar permissões, versões ou checkpoints. Nenhuma instalação/migração/reinicialização operacional autorizada. AS01/AS02 e os registros históricos seguem abaixo.
+
 ## Continuação AS01–AS02 — 18/10/2026
 
 O operador autorizou corrigir a intermitência da ASTRA, testar, sincronizar e continuar melhorias em ciclos; depois priorizou explicitamente o **fluxo de processamento por O.S.**. Instalação/atualização da Central em uso e migração operacional continuam excluídas.

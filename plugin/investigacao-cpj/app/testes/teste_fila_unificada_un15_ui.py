@@ -53,10 +53,82 @@ class FilaUnificadaUI(Base):
         assert.equal(resp.status(),200);
         await art.locator('.fluxo-hist-tab tbody tr').nth(2).waitFor();
         assert.equal(await art.locator('.fluxo-hist-tab tbody tr').count(),3,'tentativas e documentos no histórico');
+        assert.ok(!(await art.innerText()).includes('Não foi possível carregar o histórico'),
+                  'HTTP 200 e etapas válidas não podem produzir erro de histórico');
         assert.equal(await art.locator('button[data-acao="cancelar"]').count(),1);
         assert.equal(await art.locator('form.fluxo-reconc').count(),1);
         assert.equal(await page.evaluate(()=>window.__xss),undefined);
         assert.deepEqual(erros,[]);
+        ''')
+
+    def test_historico_atrasado_nao_e_aplicado_como_estado_atual_da_os(self):
+        self.semear()
+        self.browser(r'''
+        await page.goto(url+'/#inicio');await page.waitForSelector('#fluxos-lista article');
+        const base=await page.evaluate(()=>fetch('/api/fluxos',{headers:{'X-CPJ':'1'}}).then(r=>r.json()));
+        let lista=base;
+        await page.route('**/api/fluxos?*',r=>r.fulfill({status:200,json:lista}));
+        let liberar,capturou,chamadas=0,indisponivel=false;
+        const preso=new Promise(r=>liberar=r),capturada=new Promise(r=>capturou=r);
+        await page.route('**/api/fluxos/*?*',async route=>{
+          chamadas++;
+          if(indisponivel){await route.fulfill({status:503,json:{erro:'HISTORICO INDISPONIVEL FICTICIO'}});return}
+          const resp=await route.fetch(),j=await resp.json();
+          j.etapas[0].detalhe=chamadas===1?'HISTORICO ANTIGO FICTICIO':'HISTORICO ATUAL FICTICIO';
+          if(chamadas===1){capturou();await preso}
+          await route.fulfill({response:resp,json:j});
+        });
+        await page.locator('details.fluxo-hist summary').click();await capturada;
+        lista=JSON.parse(JSON.stringify(base));lista.itens[0].versao++;
+        lista.itens[0].atualizado_em='2032-03-04T05:06:00';
+        await page.evaluate(n=>{const s=FilaUnificada._estado;FilaUnificada.aplicarLista(n,++s.seq)},lista);
+        liberar();
+        await page.waitForFunction(()=>document.querySelector('.fluxo-hist-corpo')?.textContent.includes('HISTORICO ATUAL FICTICIO'));
+        const texto=await page.locator('.fluxo-hist-corpo').innerText();
+        assert.ok(!texto.includes('HISTORICO ANTIGO FICTICIO'),texto);
+        assert.ok(!texto.includes('Não foi possível carregar'),texto);
+        assert.equal(chamadas,2,'revalidar uma vez após mudança da O.S.; não consultar de novo sem mudança');
+        assert.equal(await page.locator('details.fluxo-hist').evaluate(d=>d.open),true);
+        // Uma falha real de leitura continua visível e não entra em repetição automática.
+        indisponivel=true;lista.itens[0].versao++;
+        await page.evaluate(n=>{const s=FilaUnificada._estado;FilaUnificada.aplicarLista(n,++s.seq)},lista);
+        await page.waitForFunction(()=>document.querySelector('.fluxo-hist-corpo')?.textContent.includes('HISTORICO INDISPONIVEL FICTICIO'));
+        await page.evaluate(n=>{const s=FilaUnificada._estado;FilaUnificada.aplicarLista(n,++s.seq)},lista);
+        assert.equal(chamadas,3,'erro de leitura não dispara laço de novas consultas');
+        ''')
+
+    def test_historico_obsoleto_aguarda_aba_visivel_para_revalidar(self):
+        self.semear()
+        self.browser(r'''
+        await page.goto(url+'/#inicio');await page.waitForSelector('#fluxos-lista article');
+        let lista=await page.evaluate(()=>fetch('/api/fluxos',{headers:{'X-CPJ':'1'}}).then(r=>r.json()));
+        await page.route('**/api/fluxos?*',r=>r.fulfill({status:200,json:lista}));
+        let liberar,capturou,chamadas=0;
+        const preso=new Promise(r=>liberar=r),capturada=new Promise(r=>capturou=r);
+        await page.route('**/api/fluxos/*?*',async route=>{
+          chamadas++;const resp=await route.fetch(),j=await resp.json();
+          j.etapas[0].detalhe='HISTORICO VISIVEL FICTICIO';
+          if(chamadas===1){capturou();await preso}
+          await route.fulfill({response:resp,json:j});
+        });
+        await page.locator('details.fluxo-hist summary').click();await capturada;
+        lista.itens[0].versao++;
+        await page.evaluate(n=>{
+          const s=FilaUnificada._estado;FilaUnificada.aplicarLista(n,++s.seq);
+          Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});
+          document.dispatchEvent(new Event('visibilitychange'));
+        },lista);
+        liberar();
+        await page.waitForFunction(()=>[...FilaUnificada._estado.detalhes.values()].every(d=>!d.carregando));
+        assert.equal(chamadas,1,'não consultar histórico novamente com a aba oculta');
+        assert.ok(!(await page.locator('.fluxo-hist-corpo').innerText()).includes('HISTORICO VISIVEL FICTICIO'),
+                  'resposta obsoleta não deve aparecer durante a pausa');
+        await page.evaluate(()=>{
+          Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});
+          document.dispatchEvent(new Event('visibilitychange'));
+        });
+        await page.waitForFunction(()=>document.querySelector('.fluxo-hist-corpo')?.textContent.includes('HISTORICO VISIVEL FICTICIO'));
+        assert.equal(chamadas,2,'retomar a consulta do histórico ao voltar à aba');
         ''')
 
     def test_perfil_sem_trabalho_nao_ve_acoes_nem_texto_operacional(self):
