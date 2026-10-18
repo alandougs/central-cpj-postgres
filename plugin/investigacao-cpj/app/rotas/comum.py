@@ -31,6 +31,7 @@ import rag as R  # noqa: E402
 import referencias as RF  # noqa: E402
 from auth import Auth, DESCRICAO, PERFIS, TODAS  # noqa: E402
 from tarefas import SEM_JANELA, Tarefas, gerar_docx, gerar_pdf, soffice  # noqa: E402
+from fluxo_execucao import Fluxos  # noqa: E402
 
 WS = C.WS
 PY = sys.executable
@@ -211,13 +212,21 @@ def idioma_ocr(env):
 
 
 # ================================================================== autenticação e permissões
-def modo_solo():
-    """Operação solo (config\\solo.json {"ativo": true}): no próprio computador entra direto, sem senha."""
+def usuario_solo_local():
+    """Entrada direta só em loopback/Host local, pelo admin definido em config\\solo.json."""
+    if (request.remote_addr not in ("127.0.0.1", "::1")
+            or request.host.rsplit(":", 1)[0] not in ("127.0.0.1", "localhost", "[::1]")):
+        return None
     try:
         with open(os.path.join(WS, "config", "solo.json"), encoding="utf-8") as f:
-            return bool(json.load(f).get("ativo"))
+            cfg = json.load(f)
+        if not cfg.get("ativo"):
+            return None
+        if "usuario" in cfg and not isinstance(cfg["usuario"], str):
+            return None
+        return auth.usuario_solo(cfg.get("usuario"))
     except (OSError, ValueError, AttributeError):
-        return False
+        return None
 
 
 def usuario():
@@ -225,10 +234,8 @@ def usuario():
     atual = auth.obter_sessao(u, session.get("v")) if u else None
     if u and atual is None:
         session.clear()
-    # Modo solo: só loopback e só pelo endereço local (evita DNS rebinding); acesso pela rede continua com senha.
-    if (atual is None and request.remote_addr in ("127.0.0.1", "::1")
-            and request.host.rsplit(":", 1)[0] in ("127.0.0.1", "localhost", "[::1]") and modo_solo()):
-        atual = auth.usuario_solo()
+    if atual is None:
+        atual = usuario_solo_local()
     return atual
 
 
@@ -472,6 +479,17 @@ def preparar_modo(modo, usuario, pdfs, consentimento=None):
     return EL.criar_consentimento(usuario["login"], aceitos, escopo="transcricao_visual"), None, None
 
 
+def limitacao_ocr(rel):
+    """Alerta quando a extração rodou sem OCR e deixou páginas sem texto; None se não houver ou se o relatório for inválido."""
+    if not isinstance(rel, dict) or not isinstance(rel.get("ferramentas"), dict):
+        return None
+    pendentes = rel.get("pendentes_transcricao_visual") or []
+    if rel["ferramentas"].get("ocr") != "indisponível" or not pendentes:
+        return None
+    return (f"OCR indisponível (Tesseract ou idioma português não encontrado): {len(pendentes)} página(s) sem texto "
+            "ficaram pendentes. Verifique o Tesseract e o pacote de idioma e reprocesse o documento.")
+
+
 def processar(trab, app_logger=None):
     id_, doc, arq = trab["caso"], trab["doc"], trab["arquivo"]
     base = C.caminho(id_)
@@ -527,9 +545,11 @@ def processar(trab, app_logger=None):
         rodar([PY, os.path.join(S_PDF, "dados_json.py"), dest], env, log)
         etapa("registro", progresso=96)
         rel = os.path.join(dest, "relatorio_extracao.json")
+        sem_ocr = None
         if os.path.exists(rel):
             C.importar_ip(id_, rel)
             r = json.load(open(rel, encoding="utf-8"))
+            sem_ocr = limitacao_ocr(r)
             registrar_tratamento(
                 id_,
                 [
@@ -538,8 +558,10 @@ def processar(trab, app_logger=None):
                     f"- Métodos: {r.get('metodos')} · OCR: {r.get('ferramentas', {}).get('ocr')}",
                     f"- Pendentes de transcrição visual: {len(r.get('pendentes_transcricao_visual', []))} · a conferir: {len(r.get('conferir_visualmente', []))}",
                     f"- Saída: `01-extracao\\{doc}\\`",
-                ],
+                ] + ([f"- ATENÇÃO: {sem_ocr}"] if sem_ocr else []),
             )
+            if sem_ocr:
+                atualizar_trabalho(id_, doc, limitacao=" ".join(filter(None, [trab.get("limitacao"), sem_ocr])))
         else:
             c = C.carregar(id_)
             c["documentos"] = [d for d in c.get("documentos", []) if d.get("arquivo") != arq] + [{"arquivo": arq, "pasta": doc, "tipo": ext.lstrip(".")}]
@@ -575,7 +597,7 @@ def processar(trab, app_logger=None):
                     raise
             elif plano:
                 limitacao = "Inteligente concluído apenas localmente: transcrição visual pendente, sem API ativa/aceite."
-                atualizar_trabalho(id_, doc, limitacao=limitacao)
+                atualizar_trabalho(id_, doc, limitacao=" ".join(filter(None, [trab.get("limitacao"), sem_ocr, limitacao])))
                 registrar_tratamento(id_, [f"- {arq}: {limitacao}"])
         atualizar_trabalho(id_, doc, status="concluido", etapa="concluído", fim=agora(), progresso=100)
     except Exception as e:
@@ -584,11 +606,49 @@ def processar(trab, app_logger=None):
             lg.write(f"\n[{agora()}] ERRO: {e}\n")
 
 
+_fluxos_cache = {}
+
+
+def fluxos():
+    """Registro durável de fluxos do workspace (migração aplicada uma vez por processo)."""
+    if WS not in _fluxos_cache:
+        fx = Fluxos(WS)
+        fx.migrar()
+        _fluxos_cache[WS] = fx
+    return _fluxos_cache[WS]
+
+
+def _processar_coordenado(trab):
+    """Extração com reserva durável: uma única execução efetiva por etapa. Sem registro/reserva, não há despacho."""
+    etapa_id = trab.get("etapa_id")
+    if not etapa_id:                       # item sem correlação (chamada direta antiga): comportamento original
+        processar(trab)
+        return
+    id_, doc = trab["caso"], trab["doc"]
+    dono = f"extrator-{os.getpid()}-{threading.get_ident()}"
+    try:
+        fx = fluxos()
+        etapa = fx.reservar(etapa_id, dono, 12 * 3600)
+    except Exception as erro:
+        atualizar_trabalho(id_, doc, status="erro", erro=f"Coordenação de fluxos indisponível; extração não iniciada: {erro}"[:300], fim=agora())
+        return
+    if etapa is None:                      # outro executor já detém (ou concluiu) esta tentativa
+        return
+    processar(trab)
+    final = next((t for t in ler_proc(id_).get("trabalhos", []) if t.get("doc") == doc), {})
+    estado = {"concluido": "concluida", "cancelado": "cancelada"}.get(final.get("status"), "falhou")
+    try:
+        fx.atualizar_reservado(etapa_id, dono, etapa["versao"], estado, 100 if estado == "concluida" else None, final.get("erro") or "")
+    except Exception as erro:              # o checkpoint em processamento.json segue válido; o registro é realinhado depois
+        import logging
+        logging.getLogger("cpj.fluxos").warning("registro de extração desatualizado (%s/%s): %s", id_, doc, erro)
+
+
 def trabalhador():
     while True:
         trab = fila.get()
         try:
-            processar(trab)
+            _processar_coordenado(trab)
         finally:
             fila.task_done()
 
@@ -606,10 +666,26 @@ def enfileirar(id_, doc, arquivo, modo="inteligente", usuario="", consentimento=
         return d
     alterar_proc(id_, _mutar)
     registrar_tratamento(id_, [f"- Processamento {modo}: {arquivo}; usuário {usuario or 'local'}." + (f" {limitacao}" if limitacao else "")])
-    fila.put({"caso": id_, "doc": doc, "arquivo": arquivo, **dados})
+    try:
+        etapa = fluxos().registrar_extracao(id_, usuario, doc, arquivo, ler_proc_item(id_, doc).get("enfileirado", ""))
+    except Exception as erro:              # sem registro durável não há despacho; o motivo fica visível no próprio trabalho
+        atualizar_trabalho(id_, doc, status="erro", erro=f"Coordenação de fluxos indisponível; extração não despachada: {erro}"[:300], fim=agora())
+        return
+    fila.put({"caso": id_, "doc": doc, "arquivo": arquivo, "etapa_id": etapa["id"], **dados})
+
+
+def ler_proc_item(id_, doc):
+    return next((t for t in ler_proc(id_).get("trabalhos", []) if t.get("doc") == doc), {})
 
 
 def retomar_pendentes():
+    try:                                   # correlaciona o legado e reconcilia execuções interrompidas (nada é executado aqui)
+        fx = fluxos()
+        fx.importar_legado()
+        fx.reconciliar_inicializacao()
+    except Exception as erro:
+        import logging
+        logging.getLogger("cpj.fluxos").warning("reconciliação de inicialização incompleta: %s", erro)
     for c in C.listar():
         for t in ler_proc(c["id"]).get("trabalhos", []):
             if t.get("status") in ("na_fila", "processando"):

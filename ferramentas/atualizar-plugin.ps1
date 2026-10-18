@@ -53,7 +53,6 @@ foreach ($alvo in @((Join-Path $W 'plugin'), (Join-Path $W 'plugin\investigacao-
     & $claude.FullName plugin validate $alvo
     if ($LASTEXITCODE) { throw "Validacao falhou - corrija antes de instalar." }
 }
-$origemPlugin = Join-Path $W 'plugin'
 $pluginLocal = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'CPJ\plugin'))
 if (-not $pluginLocal.StartsWith('C:\', [StringComparison]::OrdinalIgnoreCase)) {
     throw 'O destino local do plugin deve estar na unidade C:.'
@@ -63,17 +62,15 @@ if (Test-Path -LiteralPath $pluginLocal) {
         throw 'Destino do plugin e um link; instalacao interrompida.'
     }
 }
-# Copia apenas o pacote generico: nunca fixtures, caches ou dados locais.
-$arquivosPlugin = @(Get-Item -LiteralPath $mj) + @(Get-ChildItem -LiteralPath (Join-Path $origemPlugin 'investigacao-cpj') -File -Recurse -Force |
-    Where-Object { $_.FullName -notmatch '[\\/](testes|__pycache__|casos|config|00-originais)[\\/]' })
+# Prepara o pacote generico em area temporaria, SEM instalar: lista fechada de extensoes, exclusoes sensiveis
+# e manifesto (revisao + SHA-256) gerados por ferramentas\pacote-plugin.py. Nunca fixtures, caches ou dados locais.
+$staging = Join-Path ([IO.Path]::GetTempPath()) ('cpj-pacote-' + [guid]::NewGuid().ToString('N'))
+$manifestoStaging = "$staging.manifesto.json"
+& $python (Join-Path $PSScriptRoot 'pacote-plugin.py') preparar --destino $staging
+if ($LASTEXITCODE) { throw 'Pacote generico recusado; corrija os itens listados antes de instalar.' }
 $relativos = @{}
-foreach ($arquivo in $arquivosPlugin) {
-    if ($arquivo.Extension -notin @('.py', '.md', '.json', '.html', '.png') -or
-        ($arquivo.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
-        throw "Arquivo fora do pacote generico: $($arquivo.Name)"
-    }
-    $relativo = $arquivo.FullName.Substring($origemPlugin.Length + 1)
-    $relativos[$relativo] = $arquivo
+foreach ($arquivo in @(Get-ChildItem -LiteralPath $staging -File -Recurse -Force)) {
+    $relativos[$arquivo.FullName.Substring($staging.Length + 1)] = $arquivo
 }
 if (Test-Path -LiteralPath $pluginLocal) {
     if (@(Get-ChildItem -LiteralPath $pluginLocal -Recurse -Force |
@@ -97,6 +94,9 @@ foreach ($relativo in $relativos.Keys) {
     }
 }
 Write-Host "Pacote generico conferido: $($relativos.Count) arquivos -> $pluginLocal"
+Copy-Item -LiteralPath $manifestoStaging -Destination (Join-Path (Split-Path -Parent $pluginLocal) 'manifesto-plugin.json') -Force
+Remove-Item -LiteralPath $staging -Recurse -Force
+Remove-Item -LiteralPath $manifestoStaging -Force
 $marketplacesJson = (& $claude.FullName plugin marketplace list --json | Out-String)
 if ($LASTEXITCODE) { throw "Nao foi possivel listar marketplaces." }
 $marketplaces = $marketplacesJson | ConvertFrom-Json

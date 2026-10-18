@@ -1,0 +1,5351 @@
+{
+  "schema": "astra-sql-api-baseline/1",
+  "revision": "f56653cb2c0081f4815d9bccbd0edc1cdfef74fb",
+  "started": "2026-10-14T17:14:38.745969+00:00",
+  "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "sqlite": "3.53.1",
+  "archiveSha256": "d9c5d513979ea9bb17ab6812608da21bba9438220f591fb640a742a2d9a843c2",
+  "codeFilesSha256": {
+    "plugin\\investigacao-cpj\\app\\rotas\\consulta.py": "8fdc393732676d1fc0a51daee13dc94ab525581363e18d77b41f19d2a4a5d3e0",
+    "plugin\\investigacao-cpj\\skills\\base-cpj\\scripts\\rag.py": "215cad59f981841c74b4a2458d4532ef0a9b9632edf2a65b6d13a1199d6d0bda"
+  },
+  "limitations": [
+    "Flask test_client GET, not TCP; includes route, case-file reads, SQL, JSON serialization, response body.",
+    "Authentication is patched to fictitious investigator; route permission decorator still runs, password/session latency excluded.",
+    "SQLite trace callback adds overhead; only counts/categories persisted, not expanded SQL values.",
+    "One warmup plus five measured repetitions; p95 nearest-rank is maximum of five.",
+    "Operating-system and SQLite caches are warm; no controlled cold-cache or concurrent load.",
+    "Each case disconnected; sparse8people/2transfer-neighbors, dense70people/4neighbors; two evidence references per transfer.",
+    "Schema has original arestas a/b indices and rotulos PK; no new SQL optimizations applied.",
+    "Partial query matches every synthetic person/name, so all fixture relations are legitimately reachable; not representative of a selective operational query.",
+    "Data generated directly into temporary SQLite and JSON; PDF/OCR/indexing excluded.",
+    "Audit/config created only under dedicated synthetic TEMP workspaces; no operational data used."
+  ],
+  "datasets": [
+    {
+      "fixture": {
+        "cases": 100,
+        "density": "sparse",
+        "peoplePerCase": 8,
+        "transferNeighbors": 2,
+        "sourceReferencesPerTransfer": 2,
+        "rawEvidenceRows": 5600,
+        "uniqueRelations": 4000,
+        "realRootsMatchingPartial": 1600,
+        "rawEvidenceRowsPerCase": 56,
+        "uniqueRelationsPerCase": 40,
+        "databaseBytes": 1671168,
+        "indices": [
+          "ix_ar_b",
+          "ix_ar_a"
+        ],
+        "queryPlans": {
+          "general": [
+            [
+              5,
+              0,
+              216,
+              "SCAN arestas"
+            ],
+            [
+              44,
+              0,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ],
+            [
+              45,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ],
+          "case-source": [
+            [
+              3,
+              0,
+              216,
+              "SCAN arestas"
+            ],
+            [
+              32,
+              0,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ]
+          ]
+        }
+      },
+      "workspace": "C:\\Users\\alan_\\AppData\\Local\\Temp\\cpj-astra-sql-baseline-f75e3828aa\\workspace-100-sparse",
+      "dbSha256Before": "ccb0061e550f208755ac2a2b84ac1c14f41899a8d88c5cbdf320ceb789870a9e",
+      "dbSha256After": "ccb0061e550f208755ac2a2b84ac1c14f41899a8d88c5cbdf320ceb789870a9e",
+      "databaseUnchanged": true,
+      "outcomes": [
+        {
+          "mode": "general",
+          "query": {},
+          "expectedUniqueRelations": 4000,
+          "expectedReferences": 5600,
+          "candidateRoots": 1600,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 837.5741999989259,
+            "httpStatus": 200,
+            "responseBytes": 68038,
+            "returnedRelations": 200,
+            "returnedNodes": 102,
+            "returnedReferences": 200,
+            "sqlStatements": 105,
+            "sqlCategories": {
+              "schema_probe_select": 2,
+              "other_select": 1,
+              "rotulo_select": 102
+            },
+            "sqliteConnections": 1,
+            "caseFilesRead": 100,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 64.46770000184188,
+              "httpStatus": 200,
+              "responseBytes": 68038,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 53.96810000092955,
+              "httpStatus": 200,
+              "responseBytes": 68038,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 53.53610000020126,
+              "httpStatus": 200,
+              "responseBytes": 68038,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 56.08550000033574,
+              "httpStatus": 200,
+              "responseBytes": 68038,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 55.27720000100089,
+              "httpStatus": 200,
+              "responseBytes": 68038,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 55.27720000100089,
+              "p95": 64.46770000184188,
+              "min": 53.53610000020126,
+              "max": 64.46770000184188
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 105,
+              "p95": 105,
+              "min": 105,
+              "max": 105
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 1,
+              "p95": 1,
+              "min": 1,
+              "max": 1
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 100,
+              "p95": 100,
+              "min": 100,
+              "max": 100
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 200,
+              "p95": 200,
+              "min": 200,
+              "max": 200
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 102,
+              "p95": 102,
+              "min": 102,
+              "max": 102
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 68038,
+              "p95": 68038,
+              "min": 68038,
+              "max": 68038
+            }
+          },
+          "omittedUniqueRelations": 3800,
+          "omittedReferences": 5400
+        },
+        {
+          "mode": "case",
+          "query": {
+            "caso": "OS-1-2099"
+          },
+          "expectedUniqueRelations": 40,
+          "expectedReferences": 56,
+          "candidateRoots": 16,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 35.27909999684198,
+            "httpStatus": 200,
+            "responseBytes": 18659,
+            "returnedRelations": 40,
+            "returnedNodes": 25,
+            "returnedReferences": 40,
+            "sqlStatements": 31,
+            "sqlCategories": {
+              "schema_probe_select": 2,
+              "other_select": 4,
+              "rotulo_select": 25
+            },
+            "sqliteConnections": 1,
+            "caseFilesRead": 100,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 40.50049999932526,
+              "httpStatus": 200,
+              "responseBytes": 18659,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 36.60020000097575,
+              "httpStatus": 200,
+              "responseBytes": 18659,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 37.527300002693664,
+              "httpStatus": 200,
+              "responseBytes": 18659,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 40.19289999996545,
+              "httpStatus": 200,
+              "responseBytes": 18659,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 33.8493999952334,
+              "httpStatus": 200,
+              "responseBytes": 18659,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 37.527300002693664,
+              "p95": 40.50049999932526,
+              "min": 33.8493999952334,
+              "max": 40.50049999932526
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 31,
+              "p95": 31,
+              "min": 31,
+              "max": 31
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 1,
+              "p95": 1,
+              "min": 1,
+              "max": 1
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 100,
+              "p95": 100,
+              "min": 100,
+              "max": 100
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 40,
+              "p95": 40,
+              "min": 40,
+              "max": 40
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 25,
+              "p95": 25,
+              "min": 25,
+              "max": 25
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 18659,
+              "p95": 18659,
+              "min": 18659,
+              "max": 18659
+            }
+          },
+          "omittedUniqueRelations": 0,
+          "omittedReferences": 16
+        },
+        {
+          "mode": "partial-global",
+          "query": {
+            "q": "pessoa ficticia"
+          },
+          "expectedUniqueRelations": 4000,
+          "expectedReferences": 5600,
+          "candidateRoots": 1600,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 92.52720000222325,
+            "httpStatus": 200,
+            "responseBytes": 38084,
+            "returnedRelations": 90,
+            "returnedNodes": 94,
+            "returnedReferences": 90,
+            "sqlStatements": 307,
+            "sqlCategories": {
+              "schema_probe_select": 32,
+              "seed_cte_select": 1,
+              "other_select": 60,
+              "rotulo_select": 214
+            },
+            "sqliteConnections": 31,
+            "caseFilesRead": 100,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 95.93299999687588,
+              "httpStatus": 200,
+              "responseBytes": 38084,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 113.27439999877242,
+              "httpStatus": 200,
+              "responseBytes": 38084,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 138.75800000096206,
+              "httpStatus": 200,
+              "responseBytes": 38084,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 110.62220000167144,
+              "httpStatus": 200,
+              "responseBytes": 38084,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 104.90500000014435,
+              "httpStatus": 200,
+              "responseBytes": 38084,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 110.62220000167144,
+              "p95": 138.75800000096206,
+              "min": 95.93299999687588,
+              "max": 138.75800000096206
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 307,
+              "p95": 307,
+              "min": 307,
+              "max": 307
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 31,
+              "p95": 31,
+              "min": 31,
+              "max": 31
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 100,
+              "p95": 100,
+              "min": 100,
+              "max": 100
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 90,
+              "p95": 90,
+              "min": 90,
+              "max": 90
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 94,
+              "p95": 94,
+              "min": 94,
+              "max": 94
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 38084,
+              "p95": 38084,
+              "min": 38084,
+              "max": 38084
+            }
+          },
+          "omittedUniqueRelations": 3910,
+          "omittedReferences": 5510
+        },
+        {
+          "mode": "partial-case",
+          "query": {
+            "q": "pessoa ficticia",
+            "caso": "OS-1-2099"
+          },
+          "expectedUniqueRelations": 40,
+          "expectedReferences": 56,
+          "candidateRoots": 16,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 77.44309999543475,
+            "httpStatus": 200,
+            "responseBytes": 18659,
+            "returnedRelations": 40,
+            "returnedNodes": 25,
+            "returnedReferences": 40,
+            "sqlStatements": 236,
+            "sqlCategories": {
+              "schema_probe_select": 18,
+              "seed_cte_select": 1,
+              "other_select": 40,
+              "rotulo_select": 177
+            },
+            "sqliteConnections": 17,
+            "caseFilesRead": 100,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 80.36939999874448,
+              "httpStatus": 200,
+              "responseBytes": 18659,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 81.65349999762839,
+              "httpStatus": 200,
+              "responseBytes": 18659,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 83.62269999634009,
+              "httpStatus": 200,
+              "responseBytes": 18659,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 83.39809999597492,
+              "httpStatus": 200,
+              "responseBytes": 18659,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 75.86629999423167,
+              "httpStatus": 200,
+              "responseBytes": 18659,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 81.65349999762839,
+              "p95": 83.62269999634009,
+              "min": 75.86629999423167,
+              "max": 83.62269999634009
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 236,
+              "p95": 236,
+              "min": 236,
+              "max": 236
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 17,
+              "p95": 17,
+              "min": 17,
+              "max": 17
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 100,
+              "p95": 100,
+              "min": 100,
+              "max": 100
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 40,
+              "p95": 40,
+              "min": 40,
+              "max": 40
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 25,
+              "p95": 25,
+              "min": 25,
+              "max": 25
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 18659,
+              "p95": 18659,
+              "min": 18659,
+              "max": 18659
+            }
+          },
+          "omittedUniqueRelations": 0,
+          "omittedReferences": 16
+        }
+      ]
+    },
+    {
+      "fixture": {
+        "cases": 100,
+        "density": "dense",
+        "peoplePerCase": 70,
+        "transferNeighbors": 4,
+        "sourceReferencesPerTransfer": 2,
+        "rawEvidenceRows": 77000,
+        "uniqueRelations": 49000,
+        "realRootsMatchingPartial": 14000,
+        "rawEvidenceRowsPerCase": 770,
+        "uniqueRelationsPerCase": 490,
+        "databaseBytes": 21463040,
+        "indices": [
+          "ix_ar_b",
+          "ix_ar_a"
+        ],
+        "queryPlans": {
+          "general": [
+            [
+              5,
+              0,
+              216,
+              "SCAN arestas"
+            ],
+            [
+              44,
+              0,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ],
+            [
+              45,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ],
+          "case-source": [
+            [
+              3,
+              0,
+              216,
+              "SCAN arestas"
+            ],
+            [
+              32,
+              0,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ]
+          ]
+        }
+      },
+      "workspace": "C:\\Users\\alan_\\AppData\\Local\\Temp\\cpj-astra-sql-baseline-f75e3828aa\\workspace-100-dense",
+      "dbSha256Before": "28dc6377ffb51a8ebe5603658872c1b0c7158a2219f92c654f9e310f35a86bd4",
+      "dbSha256After": "28dc6377ffb51a8ebe5603658872c1b0c7158a2219f92c654f9e310f35a86bd4",
+      "databaseUnchanged": true,
+      "outcomes": [
+        {
+          "mode": "general",
+          "query": {},
+          "expectedUniqueRelations": 49000,
+          "expectedReferences": 77000,
+          "candidateRoots": 14000,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 338.9482999991742,
+            "httpStatus": 200,
+            "responseBytes": 63364,
+            "returnedRelations": 200,
+            "returnedNodes": 54,
+            "returnedReferences": 200,
+            "sqlStatements": 57,
+            "sqlCategories": {
+              "schema_probe_select": 2,
+              "other_select": 1,
+              "rotulo_select": 54
+            },
+            "sqliteConnections": 1,
+            "caseFilesRead": 100,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 255.56769999820972,
+              "httpStatus": 200,
+              "responseBytes": 63364,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 325.336599998991,
+              "httpStatus": 200,
+              "responseBytes": 63364,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 307.6694999981555,
+              "httpStatus": 200,
+              "responseBytes": 63364,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 423.2375999999931,
+              "httpStatus": 200,
+              "responseBytes": 63364,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 334.61569999781204,
+              "httpStatus": 200,
+              "responseBytes": 63364,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 325.336599998991,
+              "p95": 423.2375999999931,
+              "min": 255.56769999820972,
+              "max": 423.2375999999931
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 57,
+              "p95": 57,
+              "min": 57,
+              "max": 57
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 1,
+              "p95": 1,
+              "min": 1,
+              "max": 1
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 100,
+              "p95": 100,
+              "min": 100,
+              "max": 100
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 200,
+              "p95": 200,
+              "min": 200,
+              "max": 200
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 54,
+              "p95": 54,
+              "min": 54,
+              "max": 54
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 63364,
+              "p95": 63364,
+              "min": 63364,
+              "max": 63364
+            }
+          },
+          "omittedUniqueRelations": 48800,
+          "omittedReferences": 76800
+        },
+        {
+          "mode": "case",
+          "query": {
+            "caso": "OS-1-2099"
+          },
+          "expectedUniqueRelations": 490,
+          "expectedReferences": 770,
+          "candidateRoots": 140,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 157.2913000054541,
+            "httpStatus": 200,
+            "responseBytes": 146973,
+            "returnedRelations": 470,
+            "returnedNodes": 201,
+            "returnedReferences": 470,
+            "sqlStatements": 207,
+            "sqlCategories": {
+              "schema_probe_select": 2,
+              "other_select": 4,
+              "rotulo_select": 201
+            },
+            "sqliteConnections": 1,
+            "caseFilesRead": 100,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 123.41809999634279,
+              "httpStatus": 200,
+              "responseBytes": 146973,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 136.6626000017277,
+              "httpStatus": 200,
+              "responseBytes": 146973,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 110.19419999502134,
+              "httpStatus": 200,
+              "responseBytes": 146973,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 112.39399999612942,
+              "httpStatus": 200,
+              "responseBytes": 146973,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 120.97040000662673,
+              "httpStatus": 200,
+              "responseBytes": 146973,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 120.97040000662673,
+              "p95": 136.6626000017277,
+              "min": 110.19419999502134,
+              "max": 136.6626000017277
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 207,
+              "p95": 207,
+              "min": 207,
+              "max": 207
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 1,
+              "p95": 1,
+              "min": 1,
+              "max": 1
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 100,
+              "p95": 100,
+              "min": 100,
+              "max": 100
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 470,
+              "p95": 470,
+              "min": 470,
+              "max": 470
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 201,
+              "p95": 201,
+              "min": 201,
+              "max": 201
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 146973,
+              "p95": 146973,
+              "min": 146973,
+              "max": 146973
+            }
+          },
+          "omittedUniqueRelations": 20,
+          "omittedReferences": 300
+        },
+        {
+          "mode": "partial-global",
+          "query": {
+            "q": "pessoa ficticia"
+          },
+          "expectedUniqueRelations": 49000,
+          "expectedReferences": 77000,
+          "candidateRoots": 14000,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 188.4550000031595,
+            "httpStatus": 200,
+            "responseBytes": 37855,
+            "returnedRelations": 90,
+            "returnedNodes": 91,
+            "returnedReferences": 90,
+            "sqlStatements": 304,
+            "sqlCategories": {
+              "schema_probe_select": 32,
+              "seed_cte_select": 1,
+              "other_select": 60,
+              "rotulo_select": 211
+            },
+            "sqliteConnections": 31,
+            "caseFilesRead": 100,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 137.57459999760613,
+              "httpStatus": 200,
+              "responseBytes": 37855,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 147.94789999723434,
+              "httpStatus": 200,
+              "responseBytes": 37855,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 142.5567000042065,
+              "httpStatus": 200,
+              "responseBytes": 37855,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 132.6656000019284,
+              "httpStatus": 200,
+              "responseBytes": 37855,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 167.85220000019763,
+              "httpStatus": 200,
+              "responseBytes": 37855,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 142.5567000042065,
+              "p95": 167.85220000019763,
+              "min": 132.6656000019284,
+              "max": 167.85220000019763
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 304,
+              "p95": 304,
+              "min": 304,
+              "max": 304
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 31,
+              "p95": 31,
+              "min": 31,
+              "max": 31
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 100,
+              "p95": 100,
+              "min": 100,
+              "max": 100
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 90,
+              "p95": 90,
+              "min": 90,
+              "max": 90
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 91,
+              "p95": 91,
+              "min": 91,
+              "max": 91
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 37855,
+              "p95": 37855,
+              "min": 37855,
+              "max": 37855
+            }
+          },
+          "omittedUniqueRelations": 48910,
+          "omittedReferences": 76910
+        },
+        {
+          "mode": "partial-case",
+          "query": {
+            "q": "pessoa ficticia",
+            "caso": "OS-1-2099"
+          },
+          "expectedUniqueRelations": 490,
+          "expectedReferences": 770,
+          "candidateRoots": 140,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 254.8538999981247,
+            "httpStatus": 200,
+            "responseBytes": 37855,
+            "returnedRelations": 90,
+            "returnedNodes": 91,
+            "returnedReferences": 90,
+            "sqlStatements": 304,
+            "sqlCategories": {
+              "schema_probe_select": 32,
+              "seed_cte_select": 1,
+              "other_select": 60,
+              "rotulo_select": 211
+            },
+            "sqliteConnections": 31,
+            "caseFilesRead": 100,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 562.2455000047921,
+              "httpStatus": 200,
+              "responseBytes": 37855,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 488.6077000046498,
+              "httpStatus": 200,
+              "responseBytes": 37855,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 629.8013999985415,
+              "httpStatus": 200,
+              "responseBytes": 37855,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 609.1234999985318,
+              "httpStatus": 200,
+              "responseBytes": 37855,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 284.8861000020406,
+              "httpStatus": 200,
+              "responseBytes": 37855,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 100,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 562.2455000047921,
+              "p95": 629.8013999985415,
+              "min": 284.8861000020406,
+              "max": 629.8013999985415
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 304,
+              "p95": 304,
+              "min": 304,
+              "max": 304
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 31,
+              "p95": 31,
+              "min": 31,
+              "max": 31
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 100,
+              "p95": 100,
+              "min": 100,
+              "max": 100
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 90,
+              "p95": 90,
+              "min": 90,
+              "max": 90
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 91,
+              "p95": 91,
+              "min": 91,
+              "max": 91
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 37855,
+              "p95": 37855,
+              "min": 37855,
+              "max": 37855
+            }
+          },
+          "omittedUniqueRelations": 400,
+          "omittedReferences": 680
+        }
+      ]
+    },
+    {
+      "fixture": {
+        "cases": 500,
+        "density": "sparse",
+        "peoplePerCase": 8,
+        "transferNeighbors": 2,
+        "sourceReferencesPerTransfer": 2,
+        "rawEvidenceRows": 28000,
+        "uniqueRelations": 20000,
+        "realRootsMatchingPartial": 8000,
+        "rawEvidenceRowsPerCase": 56,
+        "uniqueRelationsPerCase": 40,
+        "databaseBytes": 8290304,
+        "indices": [
+          "ix_ar_b",
+          "ix_ar_a"
+        ],
+        "queryPlans": {
+          "general": [
+            [
+              5,
+              0,
+              216,
+              "SCAN arestas"
+            ],
+            [
+              44,
+              0,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ],
+            [
+              45,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ],
+          "case-source": [
+            [
+              3,
+              0,
+              216,
+              "SCAN arestas"
+            ],
+            [
+              32,
+              0,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ]
+          ]
+        }
+      },
+      "workspace": "C:\\Users\\alan_\\AppData\\Local\\Temp\\cpj-astra-sql-baseline-f75e3828aa\\workspace-500-sparse",
+      "dbSha256Before": "4b8c8d9f7086e9b520a852465a4d7dc94c7f15d5e05c47562b78436112e94051",
+      "dbSha256After": "4b8c8d9f7086e9b520a852465a4d7dc94c7f15d5e05c47562b78436112e94051",
+      "databaseUnchanged": true,
+      "outcomes": [
+        {
+          "mode": "general",
+          "query": {},
+          "expectedUniqueRelations": 20000,
+          "expectedReferences": 28000,
+          "candidateRoots": 8000,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 8481.87070000131,
+            "httpStatus": 200,
+            "responseBytes": 92838,
+            "returnedRelations": 200,
+            "returnedNodes": 102,
+            "returnedReferences": 200,
+            "sqlStatements": 105,
+            "sqlCategories": {
+              "schema_probe_select": 2,
+              "other_select": 1,
+              "rotulo_select": 102
+            },
+            "sqliteConnections": 1,
+            "caseFilesRead": 500,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 575.9268000037991,
+              "httpStatus": 200,
+              "responseBytes": 92838,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 397.8054000035627,
+              "httpStatus": 200,
+              "responseBytes": 92838,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 286.675399998785,
+              "httpStatus": 200,
+              "responseBytes": 92838,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 454.84390000638086,
+              "httpStatus": 200,
+              "responseBytes": 92838,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 331.2707000004593,
+              "httpStatus": 200,
+              "responseBytes": 92838,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 397.8054000035627,
+              "p95": 575.9268000037991,
+              "min": 286.675399998785,
+              "max": 575.9268000037991
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 105,
+              "p95": 105,
+              "min": 105,
+              "max": 105
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 1,
+              "p95": 1,
+              "min": 1,
+              "max": 1
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 500,
+              "p95": 500,
+              "min": 500,
+              "max": 500
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 200,
+              "p95": 200,
+              "min": 200,
+              "max": 200
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 102,
+              "p95": 102,
+              "min": 102,
+              "max": 102
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 92838,
+              "p95": 92838,
+              "min": 92838,
+              "max": 92838
+            }
+          },
+          "omittedUniqueRelations": 19800,
+          "omittedReferences": 27800
+        },
+        {
+          "mode": "case",
+          "query": {
+            "caso": "OS-1-2099"
+          },
+          "expectedUniqueRelations": 40,
+          "expectedReferences": 56,
+          "candidateRoots": 16,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 246.27670000336366,
+            "httpStatus": 200,
+            "responseBytes": 43459,
+            "returnedRelations": 40,
+            "returnedNodes": 25,
+            "returnedReferences": 40,
+            "sqlStatements": 31,
+            "sqlCategories": {
+              "schema_probe_select": 2,
+              "other_select": 4,
+              "rotulo_select": 25
+            },
+            "sqliteConnections": 1,
+            "caseFilesRead": 500,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 249.5984999986831,
+              "httpStatus": 200,
+              "responseBytes": 43459,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 231.37609999685083,
+              "httpStatus": 200,
+              "responseBytes": 43459,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 183.34479999612086,
+              "httpStatus": 200,
+              "responseBytes": 43459,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 211.76089999789838,
+              "httpStatus": 200,
+              "responseBytes": 43459,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 232.111100005568,
+              "httpStatus": 200,
+              "responseBytes": 43459,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 231.37609999685083,
+              "p95": 249.5984999986831,
+              "min": 183.34479999612086,
+              "max": 249.5984999986831
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 31,
+              "p95": 31,
+              "min": 31,
+              "max": 31
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 1,
+              "p95": 1,
+              "min": 1,
+              "max": 1
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 500,
+              "p95": 500,
+              "min": 500,
+              "max": 500
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 40,
+              "p95": 40,
+              "min": 40,
+              "max": 40
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 25,
+              "p95": 25,
+              "min": 25,
+              "max": 25
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 43459,
+              "p95": 43459,
+              "min": 43459,
+              "max": 43459
+            }
+          },
+          "omittedUniqueRelations": 0,
+          "omittedReferences": 16
+        },
+        {
+          "mode": "partial-global",
+          "query": {
+            "q": "pessoa ficticia"
+          },
+          "expectedUniqueRelations": 20000,
+          "expectedReferences": 28000,
+          "candidateRoots": 8000,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 711.6960000057588,
+            "httpStatus": 200,
+            "responseBytes": 62884,
+            "returnedRelations": 90,
+            "returnedNodes": 94,
+            "returnedReferences": 90,
+            "sqlStatements": 307,
+            "sqlCategories": {
+              "schema_probe_select": 32,
+              "seed_cte_select": 1,
+              "other_select": 60,
+              "rotulo_select": 214
+            },
+            "sqliteConnections": 31,
+            "caseFilesRead": 500,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 578.5408000010648,
+              "httpStatus": 200,
+              "responseBytes": 62884,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 617.4902000057045,
+              "httpStatus": 200,
+              "responseBytes": 62884,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 459.99540000048,
+              "httpStatus": 200,
+              "responseBytes": 62884,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 340.74410000175703,
+              "httpStatus": 200,
+              "responseBytes": 62884,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 305.0963999994565,
+              "httpStatus": 200,
+              "responseBytes": 62884,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 459.99540000048,
+              "p95": 617.4902000057045,
+              "min": 305.0963999994565,
+              "max": 617.4902000057045
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 307,
+              "p95": 307,
+              "min": 307,
+              "max": 307
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 31,
+              "p95": 31,
+              "min": 31,
+              "max": 31
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 500,
+              "p95": 500,
+              "min": 500,
+              "max": 500
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 90,
+              "p95": 90,
+              "min": 90,
+              "max": 90
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 94,
+              "p95": 94,
+              "min": 94,
+              "max": 94
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 62884,
+              "p95": 62884,
+              "min": 62884,
+              "max": 62884
+            }
+          },
+          "omittedUniqueRelations": 19910,
+          "omittedReferences": 27910
+        },
+        {
+          "mode": "partial-case",
+          "query": {
+            "q": "pessoa ficticia",
+            "caso": "OS-1-2099"
+          },
+          "expectedUniqueRelations": 40,
+          "expectedReferences": 56,
+          "candidateRoots": 16,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 299.28149999614106,
+            "httpStatus": 200,
+            "responseBytes": 43459,
+            "returnedRelations": 40,
+            "returnedNodes": 25,
+            "returnedReferences": 40,
+            "sqlStatements": 236,
+            "sqlCategories": {
+              "schema_probe_select": 18,
+              "seed_cte_select": 1,
+              "other_select": 40,
+              "rotulo_select": 177
+            },
+            "sqliteConnections": 17,
+            "caseFilesRead": 500,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 256.84650000039255,
+              "httpStatus": 200,
+              "responseBytes": 43459,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 271.6145999947912,
+              "httpStatus": 200,
+              "responseBytes": 43459,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 287.4205999978585,
+              "httpStatus": 200,
+              "responseBytes": 43459,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 356.28670000005513,
+              "httpStatus": 200,
+              "responseBytes": 43459,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 261.08409999869764,
+              "httpStatus": 200,
+              "responseBytes": 43459,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 271.6145999947912,
+              "p95": 356.28670000005513,
+              "min": 256.84650000039255,
+              "max": 356.28670000005513
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 236,
+              "p95": 236,
+              "min": 236,
+              "max": 236
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 17,
+              "p95": 17,
+              "min": 17,
+              "max": 17
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 500,
+              "p95": 500,
+              "min": 500,
+              "max": 500
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 40,
+              "p95": 40,
+              "min": 40,
+              "max": 40
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 25,
+              "p95": 25,
+              "min": 25,
+              "max": 25
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 43459,
+              "p95": 43459,
+              "min": 43459,
+              "max": 43459
+            }
+          },
+          "omittedUniqueRelations": 0,
+          "omittedReferences": 16
+        }
+      ]
+    },
+    {
+      "fixture": {
+        "cases": 500,
+        "density": "dense",
+        "peoplePerCase": 70,
+        "transferNeighbors": 4,
+        "sourceReferencesPerTransfer": 2,
+        "rawEvidenceRows": 385000,
+        "uniqueRelations": 245000,
+        "realRootsMatchingPartial": 70000,
+        "rawEvidenceRowsPerCase": 770,
+        "uniqueRelationsPerCase": 490,
+        "databaseBytes": 107847680,
+        "indices": [
+          "ix_ar_b",
+          "ix_ar_a"
+        ],
+        "queryPlans": {
+          "general": [
+            [
+              5,
+              0,
+              216,
+              "SCAN arestas"
+            ],
+            [
+              44,
+              0,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ],
+            [
+              45,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ],
+          "case-source": [
+            [
+              3,
+              0,
+              216,
+              "SCAN arestas"
+            ],
+            [
+              32,
+              0,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ]
+          ]
+        }
+      },
+      "workspace": "C:\\Users\\alan_\\AppData\\Local\\Temp\\cpj-astra-sql-baseline-f75e3828aa\\workspace-500-dense",
+      "dbSha256Before": "6fb9bba65e4d3e40f5d4762e768be6ff1672943515c2ce44e9471dbe2d75c9e9",
+      "dbSha256After": "6fb9bba65e4d3e40f5d4762e768be6ff1672943515c2ce44e9471dbe2d75c9e9",
+      "databaseUnchanged": true,
+      "outcomes": [
+        {
+          "mode": "general",
+          "query": {},
+          "expectedUniqueRelations": 245000,
+          "expectedReferences": 385000,
+          "candidateRoots": 70000,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 2551.6174000003957,
+            "httpStatus": 200,
+            "responseBytes": 88164,
+            "returnedRelations": 200,
+            "returnedNodes": 54,
+            "returnedReferences": 200,
+            "sqlStatements": 57,
+            "sqlCategories": {
+              "schema_probe_select": 2,
+              "other_select": 1,
+              "rotulo_select": 54
+            },
+            "sqliteConnections": 1,
+            "caseFilesRead": 500,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 1230.3412999972352,
+              "httpStatus": 200,
+              "responseBytes": 88164,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 1138.099499999953,
+              "httpStatus": 200,
+              "responseBytes": 88164,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 1451.1541000028956,
+              "httpStatus": 200,
+              "responseBytes": 88164,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 1364.0157000045292,
+              "httpStatus": 200,
+              "responseBytes": 88164,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 1357.6075000019046,
+              "httpStatus": 200,
+              "responseBytes": 88164,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 1357.6075000019046,
+              "p95": 1451.1541000028956,
+              "min": 1138.099499999953,
+              "max": 1451.1541000028956
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 57,
+              "p95": 57,
+              "min": 57,
+              "max": 57
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 1,
+              "p95": 1,
+              "min": 1,
+              "max": 1
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 500,
+              "p95": 500,
+              "min": 500,
+              "max": 500
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 200,
+              "p95": 200,
+              "min": 200,
+              "max": 200
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 54,
+              "p95": 54,
+              "min": 54,
+              "max": 54
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 88164,
+              "p95": 88164,
+              "min": 88164,
+              "max": 88164
+            }
+          },
+          "omittedUniqueRelations": 244800,
+          "omittedReferences": 384800
+        },
+        {
+          "mode": "case",
+          "query": {
+            "caso": "OS-1-2099"
+          },
+          "expectedUniqueRelations": 490,
+          "expectedReferences": 770,
+          "candidateRoots": 140,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 440.62610000401037,
+            "httpStatus": 200,
+            "responseBytes": 171773,
+            "returnedRelations": 470,
+            "returnedNodes": 201,
+            "returnedReferences": 470,
+            "sqlStatements": 207,
+            "sqlCategories": {
+              "schema_probe_select": 2,
+              "other_select": 4,
+              "rotulo_select": 201
+            },
+            "sqliteConnections": 1,
+            "caseFilesRead": 500,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 461.4741000041249,
+              "httpStatus": 200,
+              "responseBytes": 171773,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 388.40450000134297,
+              "httpStatus": 200,
+              "responseBytes": 171773,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 403.18000000115717,
+              "httpStatus": 200,
+              "responseBytes": 171773,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 354.6499000003678,
+              "httpStatus": 200,
+              "responseBytes": 171773,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 419.29679999884684,
+              "httpStatus": 200,
+              "responseBytes": 171773,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 403.18000000115717,
+              "p95": 461.4741000041249,
+              "min": 354.6499000003678,
+              "max": 461.4741000041249
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 207,
+              "p95": 207,
+              "min": 207,
+              "max": 207
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 1,
+              "p95": 1,
+              "min": 1,
+              "max": 1
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 500,
+              "p95": 500,
+              "min": 500,
+              "max": 500
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 470,
+              "p95": 470,
+              "min": 470,
+              "max": 470
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 201,
+              "p95": 201,
+              "min": 201,
+              "max": 201
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 171773,
+              "p95": 171773,
+              "min": 171773,
+              "max": 171773
+            }
+          },
+          "omittedUniqueRelations": 20,
+          "omittedReferences": 300
+        },
+        {
+          "mode": "partial-global",
+          "query": {
+            "q": "pessoa ficticia"
+          },
+          "expectedUniqueRelations": 245000,
+          "expectedReferences": 385000,
+          "candidateRoots": 70000,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 498.86870000045747,
+            "httpStatus": 200,
+            "responseBytes": 62655,
+            "returnedRelations": 90,
+            "returnedNodes": 91,
+            "returnedReferences": 90,
+            "sqlStatements": 304,
+            "sqlCategories": {
+              "schema_probe_select": 32,
+              "seed_cte_select": 1,
+              "other_select": 60,
+              "rotulo_select": 211
+            },
+            "sqliteConnections": 31,
+            "caseFilesRead": 500,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 373.78119999630144,
+              "httpStatus": 200,
+              "responseBytes": 62655,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 382.2299999956158,
+              "httpStatus": 200,
+              "responseBytes": 62655,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 381.9306000004872,
+              "httpStatus": 200,
+              "responseBytes": 62655,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 397.4253999986104,
+              "httpStatus": 200,
+              "responseBytes": 62655,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 447.8250999964075,
+              "httpStatus": 200,
+              "responseBytes": 62655,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 382.2299999956158,
+              "p95": 447.8250999964075,
+              "min": 373.78119999630144,
+              "max": 447.8250999964075
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 304,
+              "p95": 304,
+              "min": 304,
+              "max": 304
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 31,
+              "p95": 31,
+              "min": 31,
+              "max": 31
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 500,
+              "p95": 500,
+              "min": 500,
+              "max": 500
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 90,
+              "p95": 90,
+              "min": 90,
+              "max": 90
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 91,
+              "p95": 91,
+              "min": 91,
+              "max": 91
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 62655,
+              "p95": 62655,
+              "min": 62655,
+              "max": 62655
+            }
+          },
+          "omittedUniqueRelations": 244910,
+          "omittedReferences": 384910
+        },
+        {
+          "mode": "partial-case",
+          "query": {
+            "q": "pessoa ficticia",
+            "caso": "OS-1-2099"
+          },
+          "expectedUniqueRelations": 490,
+          "expectedReferences": 770,
+          "candidateRoots": 140,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 616.5506000033929,
+            "httpStatus": 200,
+            "responseBytes": 62655,
+            "returnedRelations": 90,
+            "returnedNodes": 91,
+            "returnedReferences": 90,
+            "sqlStatements": 304,
+            "sqlCategories": {
+              "schema_probe_select": 32,
+              "seed_cte_select": 1,
+              "other_select": 60,
+              "rotulo_select": 211
+            },
+            "sqliteConnections": 31,
+            "caseFilesRead": 500,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 721.207399998093,
+              "httpStatus": 200,
+              "responseBytes": 62655,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 665.8214999988559,
+              "httpStatus": 200,
+              "responseBytes": 62655,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 955.1460000002407,
+              "httpStatus": 200,
+              "responseBytes": 62655,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 1007.869799999753,
+              "httpStatus": 200,
+              "responseBytes": 62655,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 1631.5377999999328,
+              "httpStatus": 200,
+              "responseBytes": 62655,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 500,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 955.1460000002407,
+              "p95": 1631.5377999999328,
+              "min": 665.8214999988559,
+              "max": 1631.5377999999328
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 304,
+              "p95": 304,
+              "min": 304,
+              "max": 304
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 31,
+              "p95": 31,
+              "min": 31,
+              "max": 31
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 500,
+              "p95": 500,
+              "min": 500,
+              "max": 500
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 90,
+              "p95": 90,
+              "min": 90,
+              "max": 90
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 91,
+              "p95": 91,
+              "min": 91,
+              "max": 91
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 62655,
+              "p95": 62655,
+              "min": 62655,
+              "max": 62655
+            }
+          },
+          "omittedUniqueRelations": 400,
+          "omittedReferences": 680
+        }
+      ]
+    },
+    {
+      "fixture": {
+        "cases": 1000,
+        "density": "sparse",
+        "peoplePerCase": 8,
+        "transferNeighbors": 2,
+        "sourceReferencesPerTransfer": 2,
+        "rawEvidenceRows": 56000,
+        "uniqueRelations": 40000,
+        "realRootsMatchingPartial": 16000,
+        "rawEvidenceRowsPerCase": 56,
+        "uniqueRelationsPerCase": 40,
+        "databaseBytes": 16527360,
+        "indices": [
+          "ix_ar_b",
+          "ix_ar_a"
+        ],
+        "queryPlans": {
+          "general": [
+            [
+              5,
+              0,
+              216,
+              "SCAN arestas"
+            ],
+            [
+              44,
+              0,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ],
+            [
+              45,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ],
+          "case-source": [
+            [
+              3,
+              0,
+              216,
+              "SCAN arestas"
+            ],
+            [
+              32,
+              0,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ]
+          ]
+        }
+      },
+      "workspace": "C:\\Users\\alan_\\AppData\\Local\\Temp\\cpj-astra-sql-baseline-f75e3828aa\\workspace-1000-sparse",
+      "dbSha256Before": "1b7f3d815cb5eddf0a721131cdf76ba80ded1929f91c9754da56a66ce025b6a3",
+      "dbSha256After": "1b7f3d815cb5eddf0a721131cdf76ba80ded1929f91c9754da56a66ce025b6a3",
+      "databaseUnchanged": true,
+      "outcomes": [
+        {
+          "mode": "general",
+          "query": {},
+          "expectedUniqueRelations": 40000,
+          "expectedReferences": 56000,
+          "candidateRoots": 16000,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 9102.427799996804,
+            "httpStatus": 200,
+            "responseBytes": 123841,
+            "returnedRelations": 200,
+            "returnedNodes": 102,
+            "returnedReferences": 200,
+            "sqlStatements": 105,
+            "sqlCategories": {
+              "schema_probe_select": 2,
+              "other_select": 1,
+              "rotulo_select": 102
+            },
+            "sqliteConnections": 1,
+            "caseFilesRead": 1000,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 563.7586000011652,
+              "httpStatus": 200,
+              "responseBytes": 123841,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 2136.4583000031416,
+              "httpStatus": 200,
+              "responseBytes": 123841,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 698.3228999961284,
+              "httpStatus": 200,
+              "responseBytes": 123841,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 645.7154000017908,
+              "httpStatus": 200,
+              "responseBytes": 123841,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 739.0482000046177,
+              "httpStatus": 200,
+              "responseBytes": 123841,
+              "returnedRelations": 200,
+              "returnedNodes": 102,
+              "returnedReferences": 200,
+              "sqlStatements": 105,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 102
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 698.3228999961284,
+              "p95": 2136.4583000031416,
+              "min": 563.7586000011652,
+              "max": 2136.4583000031416
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 105,
+              "p95": 105,
+              "min": 105,
+              "max": 105
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 1,
+              "p95": 1,
+              "min": 1,
+              "max": 1
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 1000,
+              "p95": 1000,
+              "min": 1000,
+              "max": 1000
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 200,
+              "p95": 200,
+              "min": 200,
+              "max": 200
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 102,
+              "p95": 102,
+              "min": 102,
+              "max": 102
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 123841,
+              "p95": 123841,
+              "min": 123841,
+              "max": 123841
+            }
+          },
+          "omittedUniqueRelations": 39800,
+          "omittedReferences": 55800
+        },
+        {
+          "mode": "case",
+          "query": {
+            "caso": "OS-1-2099"
+          },
+          "expectedUniqueRelations": 40,
+          "expectedReferences": 56,
+          "candidateRoots": 16,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 502.6916999995592,
+            "httpStatus": 200,
+            "responseBytes": 74462,
+            "returnedRelations": 40,
+            "returnedNodes": 25,
+            "returnedReferences": 40,
+            "sqlStatements": 31,
+            "sqlCategories": {
+              "schema_probe_select": 2,
+              "other_select": 4,
+              "rotulo_select": 25
+            },
+            "sqliteConnections": 1,
+            "caseFilesRead": 1000,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 396.84480000141775,
+              "httpStatus": 200,
+              "responseBytes": 74462,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 408.56999999959953,
+              "httpStatus": 200,
+              "responseBytes": 74462,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 380.4406999988714,
+              "httpStatus": 200,
+              "responseBytes": 74462,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 358.0653999961214,
+              "httpStatus": 200,
+              "responseBytes": 74462,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 318.8137999968603,
+              "httpStatus": 200,
+              "responseBytes": 74462,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 31,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 25
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 380.4406999988714,
+              "p95": 408.56999999959953,
+              "min": 318.8137999968603,
+              "max": 408.56999999959953
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 31,
+              "p95": 31,
+              "min": 31,
+              "max": 31
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 1,
+              "p95": 1,
+              "min": 1,
+              "max": 1
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 1000,
+              "p95": 1000,
+              "min": 1000,
+              "max": 1000
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 40,
+              "p95": 40,
+              "min": 40,
+              "max": 40
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 25,
+              "p95": 25,
+              "min": 25,
+              "max": 25
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 74462,
+              "p95": 74462,
+              "min": 74462,
+              "max": 74462
+            }
+          },
+          "omittedUniqueRelations": 0,
+          "omittedReferences": 16
+        },
+        {
+          "mode": "partial-global",
+          "query": {
+            "q": "pessoa ficticia"
+          },
+          "expectedUniqueRelations": 40000,
+          "expectedReferences": 56000,
+          "candidateRoots": 16000,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 392.14609999908134,
+            "httpStatus": 200,
+            "responseBytes": 93887,
+            "returnedRelations": 90,
+            "returnedNodes": 94,
+            "returnedReferences": 90,
+            "sqlStatements": 307,
+            "sqlCategories": {
+              "schema_probe_select": 32,
+              "seed_cte_select": 1,
+              "other_select": 60,
+              "rotulo_select": 214
+            },
+            "sqliteConnections": 31,
+            "caseFilesRead": 1000,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 376.822500002163,
+              "httpStatus": 200,
+              "responseBytes": 93887,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 373.9181999990251,
+              "httpStatus": 200,
+              "responseBytes": 93887,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 409.9729000008665,
+              "httpStatus": 200,
+              "responseBytes": 93887,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 713.1583000009414,
+              "httpStatus": 200,
+              "responseBytes": 93887,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 535.4506000003312,
+              "httpStatus": 200,
+              "responseBytes": 93887,
+              "returnedRelations": 90,
+              "returnedNodes": 94,
+              "returnedReferences": 90,
+              "sqlStatements": 307,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 214
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 409.9729000008665,
+              "p95": 713.1583000009414,
+              "min": 373.9181999990251,
+              "max": 713.1583000009414
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 307,
+              "p95": 307,
+              "min": 307,
+              "max": 307
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 31,
+              "p95": 31,
+              "min": 31,
+              "max": 31
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 1000,
+              "p95": 1000,
+              "min": 1000,
+              "max": 1000
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 90,
+              "p95": 90,
+              "min": 90,
+              "max": 90
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 94,
+              "p95": 94,
+              "min": 94,
+              "max": 94
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 93887,
+              "p95": 93887,
+              "min": 93887,
+              "max": 93887
+            }
+          },
+          "omittedUniqueRelations": 39910,
+          "omittedReferences": 55910
+        },
+        {
+          "mode": "partial-case",
+          "query": {
+            "q": "pessoa ficticia",
+            "caso": "OS-1-2099"
+          },
+          "expectedUniqueRelations": 40,
+          "expectedReferences": 56,
+          "candidateRoots": 16,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 461.35310000681784,
+            "httpStatus": 200,
+            "responseBytes": 74462,
+            "returnedRelations": 40,
+            "returnedNodes": 25,
+            "returnedReferences": 40,
+            "sqlStatements": 236,
+            "sqlCategories": {
+              "schema_probe_select": 18,
+              "seed_cte_select": 1,
+              "other_select": 40,
+              "rotulo_select": 177
+            },
+            "sqliteConnections": 17,
+            "caseFilesRead": 1000,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 519.2966000031447,
+              "httpStatus": 200,
+              "responseBytes": 74462,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 494.4294000015361,
+              "httpStatus": 200,
+              "responseBytes": 74462,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 584.3292999998084,
+              "httpStatus": 200,
+              "responseBytes": 74462,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 402.01069999602623,
+              "httpStatus": 200,
+              "responseBytes": 74462,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 412.1536000020569,
+              "httpStatus": 200,
+              "responseBytes": 74462,
+              "returnedRelations": 40,
+              "returnedNodes": 25,
+              "returnedReferences": 40,
+              "sqlStatements": 236,
+              "sqlCategories": {
+                "schema_probe_select": 18,
+                "seed_cte_select": 1,
+                "other_select": 40,
+                "rotulo_select": 177
+              },
+              "sqliteConnections": 17,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 494.4294000015361,
+              "p95": 584.3292999998084,
+              "min": 402.01069999602623,
+              "max": 584.3292999998084
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 236,
+              "p95": 236,
+              "min": 236,
+              "max": 236
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 17,
+              "p95": 17,
+              "min": 17,
+              "max": 17
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 1000,
+              "p95": 1000,
+              "min": 1000,
+              "max": 1000
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 40,
+              "p95": 40,
+              "min": 40,
+              "max": 40
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 25,
+              "p95": 25,
+              "min": 25,
+              "max": 25
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 74462,
+              "p95": 74462,
+              "min": 74462,
+              "max": 74462
+            }
+          },
+          "omittedUniqueRelations": 0,
+          "omittedReferences": 16
+        }
+      ]
+    },
+    {
+      "fixture": {
+        "cases": 1000,
+        "density": "dense",
+        "peoplePerCase": 70,
+        "transferNeighbors": 4,
+        "sourceReferencesPerTransfer": 2,
+        "rawEvidenceRows": 770000,
+        "uniqueRelations": 490000,
+        "realRootsMatchingPartial": 140000,
+        "rawEvidenceRowsPerCase": 770,
+        "uniqueRelationsPerCase": 490,
+        "databaseBytes": 215851008,
+        "indices": [
+          "ix_ar_b",
+          "ix_ar_a"
+        ],
+        "queryPlans": {
+          "general": [
+            [
+              5,
+              0,
+              216,
+              "SCAN arestas"
+            ],
+            [
+              44,
+              0,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ],
+            [
+              45,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ],
+          "case-source": [
+            [
+              3,
+              0,
+              216,
+              "SCAN arestas"
+            ],
+            [
+              32,
+              0,
+              0,
+              "USE TEMP B-TREE FOR DISTINCT"
+            ]
+          ]
+        }
+      },
+      "workspace": "C:\\Users\\alan_\\AppData\\Local\\Temp\\cpj-astra-sql-baseline-f75e3828aa\\workspace-1000-dense",
+      "dbSha256Before": "619a4938e1ed9ec599c4d1de494ba0185d6a7345a9abcd69c18ee749892b5dd6",
+      "dbSha256After": "619a4938e1ed9ec599c4d1de494ba0185d6a7345a9abcd69c18ee749892b5dd6",
+      "databaseUnchanged": true,
+      "outcomes": [
+        {
+          "mode": "general",
+          "query": {},
+          "expectedUniqueRelations": 490000,
+          "expectedReferences": 770000,
+          "candidateRoots": 140000,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 4994.1949999993085,
+            "httpStatus": 200,
+            "responseBytes": 119167,
+            "returnedRelations": 200,
+            "returnedNodes": 54,
+            "returnedReferences": 200,
+            "sqlStatements": 57,
+            "sqlCategories": {
+              "schema_probe_select": 2,
+              "other_select": 1,
+              "rotulo_select": 54
+            },
+            "sqliteConnections": 1,
+            "caseFilesRead": 1000,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 2813.191500004905,
+              "httpStatus": 200,
+              "responseBytes": 119167,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 2379.6314999999595,
+              "httpStatus": 200,
+              "responseBytes": 119167,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 2362.5048999965657,
+              "httpStatus": 200,
+              "responseBytes": 119167,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 2345.9741000042413,
+              "httpStatus": 200,
+              "responseBytes": 119167,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 2537.4917999943136,
+              "httpStatus": 200,
+              "responseBytes": 119167,
+              "returnedRelations": 200,
+              "returnedNodes": 54,
+              "returnedReferences": 200,
+              "sqlStatements": 57,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 1,
+                "rotulo_select": 54
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 2379.6314999999595,
+              "p95": 2813.191500004905,
+              "min": 2345.9741000042413,
+              "max": 2813.191500004905
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 57,
+              "p95": 57,
+              "min": 57,
+              "max": 57
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 1,
+              "p95": 1,
+              "min": 1,
+              "max": 1
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 1000,
+              "p95": 1000,
+              "min": 1000,
+              "max": 1000
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 200,
+              "p95": 200,
+              "min": 200,
+              "max": 200
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 54,
+              "p95": 54,
+              "min": 54,
+              "max": 54
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 119167,
+              "p95": 119167,
+              "min": 119167,
+              "max": 119167
+            }
+          },
+          "omittedUniqueRelations": 489800,
+          "omittedReferences": 769800
+        },
+        {
+          "mode": "case",
+          "query": {
+            "caso": "OS-1-2099"
+          },
+          "expectedUniqueRelations": 490,
+          "expectedReferences": 770,
+          "candidateRoots": 140,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 836.6387000060058,
+            "httpStatus": 200,
+            "responseBytes": 202776,
+            "returnedRelations": 470,
+            "returnedNodes": 201,
+            "returnedReferences": 470,
+            "sqlStatements": 207,
+            "sqlCategories": {
+              "schema_probe_select": 2,
+              "other_select": 4,
+              "rotulo_select": 201
+            },
+            "sqliteConnections": 1,
+            "caseFilesRead": 1000,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 687.1997999987798,
+              "httpStatus": 200,
+              "responseBytes": 202776,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 804.5008000044618,
+              "httpStatus": 200,
+              "responseBytes": 202776,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 729.7010000038426,
+              "httpStatus": 200,
+              "responseBytes": 202776,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 676.2632000027224,
+              "httpStatus": 200,
+              "responseBytes": 202776,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 690.7824000008986,
+              "httpStatus": 200,
+              "responseBytes": 202776,
+              "returnedRelations": 470,
+              "returnedNodes": 201,
+              "returnedReferences": 470,
+              "sqlStatements": 207,
+              "sqlCategories": {
+                "schema_probe_select": 2,
+                "other_select": 4,
+                "rotulo_select": 201
+              },
+              "sqliteConnections": 1,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 690.7824000008986,
+              "p95": 804.5008000044618,
+              "min": 676.2632000027224,
+              "max": 804.5008000044618
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 207,
+              "p95": 207,
+              "min": 207,
+              "max": 207
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 1,
+              "p95": 1,
+              "min": 1,
+              "max": 1
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 1000,
+              "p95": 1000,
+              "min": 1000,
+              "max": 1000
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 470,
+              "p95": 470,
+              "min": 470,
+              "max": 470
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 201,
+              "p95": 201,
+              "min": 201,
+              "max": 201
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 202776,
+              "p95": 202776,
+              "min": 202776,
+              "max": 202776
+            }
+          },
+          "omittedUniqueRelations": 20,
+          "omittedReferences": 300
+        },
+        {
+          "mode": "partial-global",
+          "query": {
+            "q": "pessoa ficticia"
+          },
+          "expectedUniqueRelations": 490000,
+          "expectedReferences": 770000,
+          "candidateRoots": 140000,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 721.1972000004607,
+            "httpStatus": 200,
+            "responseBytes": 93658,
+            "returnedRelations": 90,
+            "returnedNodes": 91,
+            "returnedReferences": 90,
+            "sqlStatements": 304,
+            "sqlCategories": {
+              "schema_probe_select": 32,
+              "seed_cte_select": 1,
+              "other_select": 60,
+              "rotulo_select": 211
+            },
+            "sqliteConnections": 31,
+            "caseFilesRead": 1000,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 703.4695999973337,
+              "httpStatus": 200,
+              "responseBytes": 93658,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 709.6274000068661,
+              "httpStatus": 200,
+              "responseBytes": 93658,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 717.6145999983419,
+              "httpStatus": 200,
+              "responseBytes": 93658,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 682.3478999940562,
+              "httpStatus": 200,
+              "responseBytes": 93658,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 703.1301999959396,
+              "httpStatus": 200,
+              "responseBytes": 93658,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 703.4695999973337,
+              "p95": 717.6145999983419,
+              "min": 682.3478999940562,
+              "max": 717.6145999983419
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 304,
+              "p95": 304,
+              "min": 304,
+              "max": 304
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 31,
+              "p95": 31,
+              "min": 31,
+              "max": 31
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 1000,
+              "p95": 1000,
+              "min": 1000,
+              "max": 1000
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 90,
+              "p95": 90,
+              "min": 90,
+              "max": 90
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 91,
+              "p95": 91,
+              "min": 91,
+              "max": 91
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 93658,
+              "p95": 93658,
+              "min": 93658,
+              "max": 93658
+            }
+          },
+          "omittedUniqueRelations": 489910,
+          "omittedReferences": 769910
+        },
+        {
+          "mode": "partial-case",
+          "query": {
+            "q": "pessoa ficticia",
+            "caso": "OS-1-2099"
+          },
+          "expectedUniqueRelations": 490,
+          "expectedReferences": 770,
+          "candidateRoots": 140,
+          "oracle": "Every synthetic person matches the partial query; every relation is within two hops of a matching person. Cases are disconnected.",
+          "warmup": {
+            "repeat": 0,
+            "durationMs": 1144.0325000003213,
+            "httpStatus": 200,
+            "responseBytes": 93658,
+            "returnedRelations": 90,
+            "returnedNodes": 91,
+            "returnedReferences": 90,
+            "sqlStatements": 304,
+            "sqlCategories": {
+              "schema_probe_select": 32,
+              "seed_cte_select": 1,
+              "other_select": 60,
+              "rotulo_select": 211
+            },
+            "sqliteConnections": 31,
+            "caseFilesRead": 1000,
+            "reportedCompletenessFields": {
+              "total": "ABSENT",
+              "limite": "ABSENT",
+              "truncado": "ABSENT",
+              "proxima_pagina": "ABSENT"
+            }
+          },
+          "samples": [
+            {
+              "repeat": 1,
+              "durationMs": 1133.4271000014269,
+              "httpStatus": 200,
+              "responseBytes": 93658,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 2,
+              "durationMs": 1174.5074999998906,
+              "httpStatus": 200,
+              "responseBytes": 93658,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 3,
+              "durationMs": 1187.6049999991665,
+              "httpStatus": 200,
+              "responseBytes": 93658,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 4,
+              "durationMs": 1261.2383000014233,
+              "httpStatus": 200,
+              "responseBytes": 93658,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            },
+            {
+              "repeat": 5,
+              "durationMs": 1137.4305000063032,
+              "httpStatus": 200,
+              "responseBytes": 93658,
+              "returnedRelations": 90,
+              "returnedNodes": 91,
+              "returnedReferences": 90,
+              "sqlStatements": 304,
+              "sqlCategories": {
+                "schema_probe_select": 32,
+                "seed_cte_select": 1,
+                "other_select": 60,
+                "rotulo_select": 211
+              },
+              "sqliteConnections": 31,
+              "caseFilesRead": 1000,
+              "reportedCompletenessFields": {
+                "total": "ABSENT",
+                "limite": "ABSENT",
+                "truncado": "ABSENT",
+                "proxima_pagina": "ABSENT"
+              }
+            }
+          ],
+          "summary": {
+            "durationMs": {
+              "n": 5,
+              "p50": 1174.5074999998906,
+              "p95": 1261.2383000014233,
+              "min": 1133.4271000014269,
+              "max": 1261.2383000014233
+            },
+            "sqlStatements": {
+              "n": 5,
+              "p50": 304,
+              "p95": 304,
+              "min": 304,
+              "max": 304
+            },
+            "sqliteConnections": {
+              "n": 5,
+              "p50": 31,
+              "p95": 31,
+              "min": 31,
+              "max": 31
+            },
+            "caseFilesRead": {
+              "n": 5,
+              "p50": 1000,
+              "p95": 1000,
+              "min": 1000,
+              "max": 1000
+            },
+            "returnedRelations": {
+              "n": 5,
+              "p50": 90,
+              "p95": 90,
+              "min": 90,
+              "max": 90
+            },
+            "returnedNodes": {
+              "n": 5,
+              "p50": 91,
+              "p95": 91,
+              "min": 91,
+              "max": 91
+            },
+            "responseBytes": {
+              "n": 5,
+              "p50": 93658,
+              "p95": 93658,
+              "min": 93658,
+              "max": 93658
+            }
+          },
+          "omittedUniqueRelations": 400,
+          "omittedReferences": 680
+        }
+      ]
+    }
+  ],
+  "finished": "2026-10-14T17:16:44.928909+00:00",
+  "measuredRequests": 120,
+  "status": "complete",
+  "sourceRevisionVerification": {
+    "method": "git cat-file blob compared after CRLF to LF normalization; git archive applies Windows EOL attributes",
+    "files": [
+      {
+        "path": "plugin/investigacao-cpj/app/rotas/consulta.py",
+        "gitBlobSha256": "25d141daa22cc89f36339abd2e42c1028bff92c407633dd955a9e9e1e60e31bc",
+        "archiveFileSha256": "8fdc393732676d1fc0a51daee13dc94ab525581363e18d77b41f19d2a4a5d3e0",
+        "equalAfterCRLFNormalization": true
+      },
+      {
+        "path": "plugin/investigacao-cpj/skills/base-cpj/scripts/rag.py",
+        "gitBlobSha256": "295fea2d4d2ae2f44507146b653202fdfef6504d9ca97ccf783d5d5eb76ae7fa",
+        "archiveFileSha256": "215cad59f981841c74b4a2458d4532ef0a9b9632edf2a65b6d13a1199d6d0bda",
+        "equalAfterCRLFNormalization": true
+      }
+    ]
+  }
+}

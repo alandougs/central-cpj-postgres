@@ -1,4 +1,5 @@
 """UX01: ordenação numérica e visualizador sob demanda, com DOM fictício."""
+from fonte_interface import ler_interface, javascript
 import json
 import re
 import unittest
@@ -12,7 +13,7 @@ HTML = Path(__file__).resolve().parents[1] / "static" / "index.html"
 
 class RelatoriosInterface(unittest.TestCase):
     def setUp(self):
-        self.html = HTML.read_text(encoding="utf-8")
+        self.html = ler_interface(HTML)
         self.ctx = quickjs.Context()
         self.ctx.eval("""
             const elementos={};
@@ -81,9 +82,9 @@ class RelatoriosInterface(unittest.TestCase):
         self.assertIn('data-visualizar="', self.html)
 
     def test_sintaxe_javascript_completa(self):
-        scripts = re.findall(r"<script(?:[^>]*)>(.*?)</script>", self.html, re.S)
-        for script in scripts:
-            self.ctx.eval("new Function(" + json.dumps(script) + ")")
+        programa = javascript(self.html)
+        self.assertTrue(programa)
+        self.ctx.eval("new Function(" + json.dumps(programa) + ")")
 
 
 if __name__ == "__main__":

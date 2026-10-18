@@ -3,6 +3,7 @@
 
 Uso: python -X utf8 plugin/investigacao-cpj/app/testes/teste_painel_plantao_claude.py
 """
+from fonte_interface import expandir_http
 import http.cookiejar, json, os, secrets, shutil, socket, string, subprocess, sys, tempfile, time
 import urllib.error, urllib.parse, urllib.request
 
@@ -62,6 +63,8 @@ try:
     print("D02.1 Página")
     adm = Cli(URL)
     st, html = adm.req("GET", "/", bruto=True)
+    html_bruto = html
+    html = expandir_http(html, URL, adm.op)
     for e in ('id="plantao-agentes"', 'id="ia-agente"', "/api/plantao/agentes", "/aprovacao", "PROMPT-AGENTE-PLANTAO.md"):
         ok(e in html, f"index.html contém {e}")
 

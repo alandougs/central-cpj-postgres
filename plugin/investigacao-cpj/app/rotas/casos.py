@@ -6,6 +6,7 @@ import html
 import json
 import os
 import re
+import subprocess
 import tempfile
 import time
 import zipfile
@@ -28,6 +29,7 @@ from rotas.comum import (
     enfileirar,
     idioma_ocr,
     ler_proc,
+    limitacao_ocr,
     nome_seguro,
     pode_alterar_os,
     preparar_modo,
@@ -138,6 +140,7 @@ def api_caso(id_):
         "processamento": ler_proc(id_),
         "relatorios": rels if trabalho else [r for r in rels if r["tipo"] == "final"],
         "trabalho": trabalho,
+        "local": eh_local(),
     }
     if trabalho:
         out["arquivos"] = arvore(C.caminho(id_))
@@ -449,10 +452,22 @@ def api_baixa(id_):
 def api_abrir(id_):
     if not eh_local():
         return jsonify({"erro": "Disponível apenas no computador da Central."}), 403
-    sub = (request.get_json(silent=True) or {}).get("sub", "")
+    d = request.get_json(silent=True) or {}
+    sub = d.get("sub", "")
     alvo = _caminho_do_caso(id_, sub)
     if not os.path.exists(alvo):
         abort(404)
+    if d.get("selecionar") is True:
+        if not os.path.isfile(alvo):
+            return jsonify({"erro": "Selecione um arquivo para abrir na pasta."}), 400
+        if not hasattr(os, "startfile"):
+            return jsonify({"erro": "O Explorador de Arquivos requer Windows."}), 400
+        try:
+            subprocess.Popen(["explorer.exe", "/select,", alvo])
+        except OSError:
+            return jsonify({"erro": "Não foi possível abrir o Explorador de Arquivos."}), 400
+        auditar("abrir_na_pasta", f"{id_}/{sub}")
+        return jsonify({"ok": True})
     if hasattr(os, "startfile"):
         os.startfile(alvo)
     return jsonify({"ok": True})
@@ -795,12 +810,15 @@ def api_caso_esteira(id_):
         tid = tarefas.enfileirar_ia(id_, "esteira", request.usuario["login"], obs, agente)
     except ValueError as e:
         return jsonify({"erro": str(e)}), 400
+    except RuntimeError as e:
+        return jsonify({"erro": str(e)}), 503
 
     auditar("esteira_completa_acionada", f"{id_}: 1-clique" + (f" → {agente}" if agente else ""))
     return jsonify({
         "ok": True,
         "caso": id_,
         "tarefa": tid,
+        "execucao_id": tarefas.plantao.execucao_id(tid),
         "etapas": ["extração/ocr", "análise documental", "caminho do dinheiro", "minuta docx", "revisão independente"],
         "mensagem": "Esteira Completa 1-Clique iniciada com sucesso."
     })
@@ -892,8 +910,15 @@ def api_pendencias_ocr():
             ext_dir = os.path.join(C.caminho(c["id"]), "01-extracao", doc_nome)
             tem_md = os.path.isfile(os.path.join(ext_dir, "transcricao.md"))
             tem_csv = arq.lower().endswith(".csv") and os.path.isfile(os.path.join(ext_dir, "tabelas", arq))
-            
-            if tem_md or tem_csv:
+            motivo = None
+            if tem_md:
+                try:
+                    with open(os.path.join(ext_dir, "relatorio_extracao.json"), encoding="utf-8") as f:
+                        motivo = limitacao_ocr(json.load(f))
+                except (OSError, ValueError):
+                    pass
+
+            if (tem_md and not motivo) or tem_csv:
                 continue
                 
             trab_atual = next((t for t in trabalhos if t.get("doc") == doc_nome and t.get("arquivo") == arq), None)
@@ -907,7 +932,8 @@ def api_pendencias_ocr():
                 "doc": doc_nome,
                 "caminho_relativo": f"00-originais/{arq}",
                 "status": trab_atual.get("status") if trab_atual else None,
-                "erro": trab_atual.get("erro") if trab_atual else None
+                "erro": trab_atual.get("erro") if trab_atual else None,
+                "motivo": motivo
             })
             
     return jsonify({"pendentes": pendentes})

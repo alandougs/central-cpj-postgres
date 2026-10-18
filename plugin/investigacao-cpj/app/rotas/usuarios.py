@@ -13,11 +13,11 @@ from rotas.comum import (
     auth,
     eh_local,
     ips_locais,
-    modo_solo,
     pasta_usuario,
     rede_cfg,
     requer,
     usuario,
+    usuario_solo_local,
     vincular_sessao,
 )
 
@@ -27,13 +27,7 @@ bp_usuarios = Blueprint("usuarios", __name__)
 @bp_usuarios.get("/api/sessao")
 def api_sessao():
     u = usuario()
-    solo_ativo = bool(
-        u
-        and modo_solo()
-        and request.remote_addr in ("127.0.0.1", "::1")
-        and request.host.rsplit(":", 1)[0] in ("127.0.0.1", "localhost", "[::1]")
-        and auth.usuario_solo()
-    )
+    solo_ativo = bool(u and usuario_solo_local())
     return jsonify({
         "usuario": u,
         "permissoes": auth.permissoes(u["perfil"]) if u else [],

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Teste focado para a tarefa E02: modo solo na API de sessão e na interface."""
+from fonte_interface import ler_interface
 import json
 import os
 from pathlib import Path
@@ -74,7 +75,7 @@ class TesteInterfaceSoloE02(unittest.TestCase):
 
     def test_interface_html_contem_ids_e_regras_do_modo_solo(self):
         html_p = Path(APP) / "static" / "index.html"
-        conteudo = html_p.read_text(encoding="utf-8")
+        conteudo = ler_interface(html_p)
 
         # Verifica ids dos cards ocultáveis
         self.assertIn('id="card-usuarios"', conteudo)

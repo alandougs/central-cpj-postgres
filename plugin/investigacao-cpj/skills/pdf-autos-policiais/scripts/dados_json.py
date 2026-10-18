@@ -10,6 +10,8 @@ import os
 import re
 import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from ordens_servico import extrair_ordens
 
 
 def ler_json(caminho):
@@ -98,6 +100,7 @@ def main(argv):
         "paginas": ler_paginas(pasta / "transcricao.md"),
         "tabelas": ler_tabelas(pasta),
         "entidades": ler_csv(pasta / "entidades.csv"),
+        "ordens_servico": extrair_ordens(pasta),
     }
     destino = pasta / "dados_extraidos.json"
     gravar_json(destino, dados)

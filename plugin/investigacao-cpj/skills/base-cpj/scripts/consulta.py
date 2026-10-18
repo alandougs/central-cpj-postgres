@@ -357,6 +357,10 @@ def listar():
 
 def remover(base_id):
     d = os.path.normpath(os.path.join(BASES, base_id))
+    interna = os.path.normcase(os.path.abspath(os.path.join(BASES, '_grafo-manual')))
+    destino = os.path.normcase(os.path.abspath(d))
+    if destino == interna or destino.startswith(interna + os.sep):
+        raise FileNotFoundError(base_id)
     if not d.startswith(os.path.normpath(BASES) + os.sep) or not os.path.isdir(d): raise FileNotFoundError(base_id)
     shutil.rmtree(d)
 

@@ -1,0 +1,91 @@
+{
+  "schema": "astra-windows-working-set/1",
+  "started": "2026-10-14T19:47:50.121Z",
+  "host": {
+    "platform": "win32",
+    "release": "10.0.26200",
+    "arch": "x64",
+    "node": "v24.19.0"
+  },
+  "method": {
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "dpr": 1,
+    "nodes": [
+      50,
+      100,
+      500,
+      1000
+    ],
+    "density": 10,
+    "repetitions": 3,
+    "pairOrder": "repeat 1 and 3 before/after; repeat 2 after/before, per node count",
+    "freshBrowserPerSample": true,
+    "networkIdleBeforeMount": true,
+    "physicsIterations": 23,
+    "fixedWaitAfterMountMs": 1000,
+    "rafSuppressed": true,
+    "gcForced": false
+  },
+  "sources": {
+    "before": {
+      "sha256": "5763aa11d30773986793694394bef1c66af7c895e2e9bf24e942e4131188933f",
+      "gzipSha256": "2b96b9e434e57cfeeb7a3d67f691ef92ef5b7fa43b15bca7346ae6560b147cff",
+      "adaptedSha256": "0f0ee9a2c5175c2e0a86cd1f07d2bb91856b00c8506fb48e6fd9bdb2ea020520",
+      "assets": {
+        "source": "C:\\Users\\alan_\\AppData\\Local\\Temp\\cpj-astra-baseline-5f2d3d0885\\index-before.html",
+        "assets": {
+          "C:\\Users\\alan_\\AppData\\Local\\Temp\\cpj-astra-baseline-5f2d3d0885\\index-before.html": "5763aa11d30773986793694394bef1c66af7c895e2e9bf24e942e4131188933f"
+        },
+        "expanded_sha256": "66eca109574c202e3e2b0d81fd55aa3dc10d5e20f9480383480be91b3a4d3443"
+      }
+    },
+    "after": {
+      "sha256": "7839418c48885281d5c18ac5f08d9efb1c1cfe5dacdb2e60ea0cbc9be9d629fd",
+      "gzipSha256": "9633ebd0899ffa6c89baef5a2d0a6e83f91dc01f901a7f8cba01b2cbaa088fe9",
+      "adaptedSha256": "cf7be2c89522490ddf7f3892054ae79b6e9f0dad3ea0ef72776c015c21d56988",
+      "assets": {
+        "source": "C:\\Users\\alan_\\.codex\\worktrees\\astra-evolucao\\CPJ - TRABALHO\\plugin\\investigacao-cpj\\app\\static",
+        "assets": {
+          "C:\\Users\\alan_\\.codex\\worktrees\\astra-evolucao\\CPJ - TRABALHO\\plugin\\investigacao-cpj\\app\\static\\index.html": "d3e31ea63b8b0f8d6eff911136df7778de159bdcacdb5738e3392b5c5890dc22",
+          "/static/js/core.js": "d2cbd6586d7e6b9a369d901b50d2a689131771fdb693dd32d2b483421a52f33a",
+          "/static/js/sessao.js": "3349385e1032af55e44147eaa9d250feba7bb769809347a528bc446f9f433f5b",
+          "/static/js/polling.js": "dfd914a37a3aa9a340843c03c06e3a15d1633ce11df69e1a787d931b66e36aa8",
+          "/static/js/inicio.js": "1d6b03b847859add76b9371dbe189c3be32ace86f04838214a31d16efb259d2d",
+          "/static/js/recebimento.js": "efb19103cf562237ffcb62bf26b45b72e219568c624554511958ef9a9517d2f6",
+          "/static/js/casos.js": "07a0a6761b9a953225f02dc80d530219873abb40ffabbdc0f657aa3c9ac600cd",
+          "/static/js/editor.js": "3d7a84770e3154eb68fb6e54e4e9fb30e4fcd8b49f9a3207c7fe29cc9be14d49",
+          "/static/js/pesquisa.js": "f4d6f49b18728108dbb3c51c923e13ea716d3bc644194c05715025afd76adaaf",
+          "/static/js/grafo.js": "11cabe61d640a6e3697cd2b701620605733a0d914f08ed0b6d8fb1e5f6a3b882",
+          "/static/js/estatisticas.js": "bcde28125f7f96faa04b5b0721f1f750f4e1361dbe497a5e38b55fe570543c35",
+          "/static/js/sistema.js": "8e3c61bc4446cd1f07369a6d2ab8491d129a9faa54279fb49dcda046793630ef",
+          "/static/js/ia-config.js": "2fb057cf05303bd5464ff9c8f666544c1019e4e580c475c1c9a19416b046e271",
+          "/static/js/llm.js": "5a639518a72afc627cde16b63fbf472632061cdcb0bf515bdfb29f35cc20d252",
+          "/static/js/fluxograma.js": "02c18d2a2015b351ed0c58cc9926d385a57106466460295745a960b5dadd11e3",
+          "/static/js/vinculos.js": "72fd6c9c632d3169f44f28fc7859881b41e83b1192817ee1d98a95fc9d096c92",
+          "/static/js/astra.js": "7e2232ebfc40976d41f6c5010e3e549c9c1e14cf37632533a2983a0224cc8009",
+          "/static/js/bootstrap.js": "aa15594246cb87f49aae1f7500343e21485434ce87d3cab93cb488d75898f7f3",
+          "/static/css/central.css": "84b1e2ff309d4a0a0b3558583370b4e79ec8e829bf92d2a21b4e87df28b6aae0"
+        },
+        "expanded_sha256": "46a11ddf18158fa1eedd40083d1ce00b66ccd9f52b953eb11e2ba3d624908f1a"
+      }
+    }
+  },
+  "samples": [],
+  "errors": [],
+  "externalRequests": [],
+  "limits": [
+    "Sum of per-process Windows working sets can double-count shared pages; it is not private RAM or total system memory.",
+    "CDP SystemInfo.getProcessInfo identifies only this fresh browser instance; helper Node/PowerShell and other applications are excluded.",
+    "Each process is read sequentially, not in an atomic OS snapshot. Processes may exit between CDP enumeration and Get-Process; missing reads are recorded and invalidate the sample.",
+    "Point-in-time measurement after fixed mounting workload and wait, not peak memory, long-running convergence, leak test or operational workload.",
+    "No forced garbage collection; fresh browser each sample, existing OS/file caches and host noise remain.",
+    "Three paired samples per node count; p95 is nearest-rank maximum, not a reliable tail estimate.",
+    "JS heap from the page Performance CDP session is separate from process working set; never add them.",
+    "Before has random layout, after deterministic layout and adaptive text; all original nodes/edges remain expanded."
+  ],
+  "browser": "155.0.4283.45",
+  "fatal": "Error: Command failed: powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File C:\\Users\\alan_\\.codex\\worktrees\\astra-evolucao\\CPJ - TRABALHO\\revisoes\\metricas-astra\\memoria\\working-set.ps1\nPID must be an integer.\r\nNo C:\\Users\\alan_\\.codex\\worktrees\\astra-evolucao\\CPJ - TRABALHO\\revisoes\\metricas-astra\\memoria\\working-set.ps1:4 \r\ncaractere:76\r\n+ ... and $processIdAstra -isnot [int]) { throw 'PID must be an integer.' }\r\n+                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : OperationStopped: (PID must be an integer.:String) [], RuntimeException\r\n    + FullyQualifiedErrorId : PID must be an integer.\r\n \r\n\n    at genericNodeError (node:internal/errors:985:15)\n    at wrappedFn (node:internal/errors:539:14)\n    at checkExecSyncError (node:child_process:942:11)\n    at execFileSync (node:child_process:978:15)\n    at sample (C:\\Users\\alan_\\.codex\\worktrees\\astra-evolucao\\CPJ - TRABALHO\\revisoes\\metricas-astra\\memoria\\measure-memory.cjs:54:27)\n    at async main (C:\\Users\\alan_\\.codex\\worktrees\\astra-evolucao\\CPJ - TRABALHO\\revisoes\\metricas-astra\\memoria\\measure-memory.cjs:71:143)"
+}

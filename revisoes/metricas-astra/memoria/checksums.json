@@ -1,0 +1,37 @@
+{
+  "schema": "astra-working-set-checksums/1",
+  "files": {
+    "attempt-1-reader-array.json": {
+      "sha256": "c3b5d77a5f501b4774009b589c1a8592180b475b80ce5e399cdfcc2b51787bfb",
+      "bytes": 6422
+    },
+    "attempt-2-process-exit.json": {
+      "sha256": "1688deac7985e5bd019d1b54cc4f36e11b188bd2e783bb1fd097021f4f53acd9",
+      "bytes": 42695
+    },
+    "measure-memory.cjs": {
+      "sha256": "032f089ddc405024d903faae864219db0248fd0f3768c379c690c22b75e3292b",
+      "bytes": 10202
+    },
+    "README.md": {
+      "sha256": "81f3da0587081d24fc1164baee7458e34cc189606cc92054ce34160f1fa58ac4",
+      "bytes": 6627
+    },
+    "results-working-set-complete.json": {
+      "sha256": "33e7ca9209eab43eab498a5ff609fd2a915bfd59b032b521a6380b11d97623ff",
+      "bytes": 98805
+    },
+    "verification.json": {
+      "sha256": "6f9c99e317be597bde2ce17df2fdd61dc73877782f015d9d2f9704891db9f20f",
+      "bytes": 409
+    },
+    "verify-results.py": {
+      "sha256": "72443bdca29a227e3fdb3ebe2cc840401579a0448475532d2bc646f6ee772cd9",
+      "bytes": 3304
+    },
+    "working-set.ps1": {
+      "sha256": "e2db930dfb821f6a00ef4d48a11201f1d03f3486e2d5bbe4afa1d22f252453e9",
+      "bytes": 784
+    }
+  }
+}

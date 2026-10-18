@@ -112,12 +112,15 @@ class TesteDocxF04(unittest.TestCase):
                 self.assertEqual(run.font.name, "Arial")
                 self.assertEqual(run.font.size.pt, 9)
 
-    def test_quebra_de_pagina_precede_assinatura_e_bloco_e_preservado(self):
+    def test_assinatura_acompanha_subscritor_sem_quebra_forcada_e_bloco_preservado(self):
         paragrafos_assinatura = [
             p for p in self.documento.paragraphs if p._p.xpath(".//pic:pic")
         ]
         self.assertEqual(len(paragrafos_assinatura), 1)
-        self.assertTrue(paragrafos_assinatura[0].paragraph_format.page_break_before)
+        self.assertFalse(paragrafos_assinatura[0].paragraph_format.page_break_before)
+        self.assertTrue(paragrafos_assinatura[0].paragraph_format.keep_with_next)
+        subscritor = next(p for p in self.documento.paragraphs if p.text == "Alan Douglas Silva")
+        self.assertTrue(subscritor.paragraph_format.keep_with_next)
         textos = [p.text for p in self.documento.paragraphs]
         self.assertIn("Alan Douglas Silva", textos)
         self.assertIn("Investigador de Polícia", textos)
@@ -129,8 +132,9 @@ class TesteDocxF04(unittest.TestCase):
 
     def test_citacoes_lista_e_estilos_do_modelo_sao_preservados(self):
         textos = [p.text for p in self.documento.paragraphs]
-        self.assertTrue(any("pág. 2 do PDF; fls. 14" in texto for texto in textos))
-        self.assertTrue(any("pág. 2 do PDF; fls. 15" in texto for texto in textos))
+        self.assertTrue(any("(fls. 14)" in texto for texto in textos))
+        self.assertTrue(any("(fls. 15)" in texto for texto in textos))
+        self.assertFalse(any("pág. 2 do PDF" in texto for texto in textos))
         self.assertTrue(any(texto.startswith("- Conferência") for texto in textos))
         for nome in ("RESUMO DOS FATOS", "DILIGÊNCIAS REALIZADAS", "CONCLUSÃO"):
             modelo = next(p for p in self.modelo.paragraphs if p.text == nome)

@@ -1,4 +1,5 @@
 """N01: prévia, OCR, IA local e edição manual em workspace fictício."""
+from fonte_interface import ler_interface
 import io
 import gc
 import json
@@ -273,7 +274,7 @@ class DadosOS(unittest.TestCase):
         self.assertEqual(r.status_code, 400)
 
     def test_botoes_salvar_e_processar_preservam_formulario_e_reabilitam_apos_falha(self):
-        html = (Path(__file__).resolve().parents[1] / "static" / "index.html").read_text(encoding="utf-8")
+        html = ler_interface(Path(__file__).resolve().parents[1] / "static" / "index.html")
         self.assertIn('id="b-salvar-os">Salvar dados', html)
         self.assertIn('id="b-enviar">Processar PDF', html)
         funcao = re.search(r'(async function salvarRecebimento\(processar\).*?)\n\$\("#f-os"\)\.onsubmit', html, re.S)[1]

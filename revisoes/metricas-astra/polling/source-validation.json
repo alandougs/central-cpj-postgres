@@ -1,0 +1,19 @@
+{
+  "checked_utc": "2026-10-14T19:34:04.108681+00:00",
+  "snapshot": "C:\\Users\\alan_\\AppData\\Local\\Temp\\cpj-astra15-pair-n977fpvl",
+  "snapshot_changed_files": [],
+  "live_five_modules_match": {
+    "polling": true,
+    "sistema": true,
+    "casos": true,
+    "recebimento": true,
+    "sessao": true
+  },
+  "live_hashes": {
+    "polling": "5343be45a86dfaf25cc95e49538979713cef6d9f7e7a7d7fdee6585802329294",
+    "sistema": "6bfdc8672cc6ccadad260d5f13e5edd678cb56a0730a1641d8dec5d54a53735d",
+    "casos": "e83ed66e93ad456312328467869a0a9f40af8ce0da51bc6d4b848716893916e4",
+    "recebimento": "847d295f827cc101cebfc265ac81c92d33fc4f59873b98e9a3913aaed6d56cf3",
+    "sessao": "212078385ae76a5cb9b353b7304c3d452dd75780a63593c66a88f632e53d02c9"
+  }
+}

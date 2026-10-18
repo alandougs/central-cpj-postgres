@@ -50,3 +50,33 @@ Imagens/
 # IDE e ferramentas locais
 .claude/
 .gemini/
+
+# Configurações de assinatura e variantes locais de credenciais
+/modelos/assinaturas/
+/ferramentas/icones/
+.env.*
+!.env.example
+
+# Artefatos locais de sincronização, pilotos e correções avulsas
+*.ffs_db
+/PILOTO-2026-runner.py
+/check_fin.py
+/fix.py
+/fix2.py
+/patch.py
+/patch[2-6].py
+/patch_executores_llm.py
+/patch_llm.py
+/process_cases.py
+/scratch.py
+/scratch/
+/teste-escrita-temporaria/
+
+# Cópias locais do experimento congelado, já versionado em legado/
+/.dockerignore
+/Dockerfile
+/README-DOCKER.md
+/compose.yaml
+/deploy/
+/ferramentas/migrar-json-postgres.py
+/plugin/investigacao-cpj/app/db.py

@@ -1,4 +1,5 @@
 """AI03: catálogos e escolha de modelo, somente mocks/workspace fictício."""
+from fonte_interface import ler_interface, javascript
 import importlib
 import json
 import os
@@ -127,8 +128,8 @@ class Catalogos(unittest.TestCase):
 
 class Interface(unittest.TestCase):
     def setUp(self):
-        self.html = (APP / "static/index.html").read_text(encoding="utf-8")
-        bloco = self.html.split("// ---------------- chaves LLM", 1)[1].split("// ---------------- fluxograma financeiro", 1)[0]
+        self.html = ler_interface(APP / "static/index.html")
+        bloco = javascript(self.html).split("// ---------------- chaves LLM", 1)[1].split("// ---------------- fluxograma financeiro", 1)[0]
         self.ctx = quickjs.Context()
         self.ctx.eval('''
         var chamadas=[], cfg={}, resposta={modelos:[{id:'gpt-6.1-sol',nome:'Sol ficticio'}],modelo_equilibrado:'gpt-6.1-sol',dinamico:true};
@@ -187,8 +188,7 @@ class Interface(unittest.TestCase):
         self.ctx.eval("cfg={openai:{modelo:'salvo-antigo',ativo:false}};els['#llm-openai-modelo'].value='edicao-manual';els['#llm-openai-modelo'].dataset.manual='1';carregarLLM()")
         self.jobs()
         self.assertEqual(self.valor("els['#llm-openai-modelo'].value"), "edicao-manual")
-        for script in re.findall(r"<script[^>]*>([\s\S]*?)</script>", self.html):
-            quickjs.Context().eval("new Function(" + json.dumps(script) + ")")
+        quickjs.Context().eval("new Function(" + json.dumps(javascript(self.html)) + ")")
 
     def test_13_limpeza_manual_durante_consulta_preserva_vazio(self):
         self.ctx.eval("els['#llm-openai-modelo'].value='salvo-ficticio';adiar=true")

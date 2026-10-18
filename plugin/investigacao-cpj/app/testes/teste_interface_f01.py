@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Teste focado na tarefa F01: visual e usabilidade da Central (index.html)."""
+from fonte_interface import ler_interface
 import os
 import re
 import unittest
@@ -13,16 +14,17 @@ class TesteInterfaceF01(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(INDEX, encoding="utf-8") as f:
-            cls.html = f.read()
+            cls.raw = f.read()
+        cls.html = ler_interface(INDEX)
 
     # ---- sem dependência externa (regra 6 do AGENTS.md / HTML-CSS-JS puros) ----
     def test_sem_url_externa(self):
-        urls = re.findall(r'(?:href|src)=["\']https?://[^"\']+["\']', self.html)
+        urls = re.findall(r'(?:href|src)=["\']https?://[^"\']+["\']', self.raw + self.html)
         self.assertFalse(urls, f"URLs externas encontradas: {urls}")
 
     def test_sem_cdn_nem_fonte_externa(self):
         for termo in ("cdn.", "googleapis.com", "fonts.google", "unpkg.com", "jsdelivr.net"):
-            self.assertNotIn(termo, self.html, f"referência externa detectada: {termo}")
+            self.assertNotIn(termo, self.raw + self.html, f"referência externa detectada: {termo}")
 
     def test_sem_framework(self):
         for termo in ("react", "vue.", "angular", "jquery"):
@@ -91,12 +93,15 @@ class TesteInterfaceF01(unittest.TestCase):
 
     # ---- teto de tamanho (CL01, 02/10/2026) ----
     # O limite antigo (+15% sobre 85 881 bytes, da tarefa F01) ficou obsoleto: a Central ganhou abas
-    # (configurações, esteira etc.). A proteção que importa é o arquivo único, sem dependência externa
+    # (configurações, esteira etc.). A proteção que importa é a interface sem dependência externa
     # (testes acima); aqui fica só um teto folgado contra inchaço acidental (ex.: dado embutido).
+    # UN17 (17/10/2026): 300 000 -> 350 000. A integração do PR19 (módulos ASTRA/grafo/editor/paginação) levou a
+    # interface agregada de 240 KB para 297 KB e o painel da fila unificada (UN15) acrescentou 15 KB; crescimento
+    # deliberado e conferido, sem dado embutido. O teto continua existindo para barrar inchaço acidental.
     def test_tamanho_dentro_do_limite(self):
         tamanho = len(self.html.encode("utf-8"))
-        limite = 300_000
-        self.assertLessEqual(tamanho, limite, f"index.html acima do teto: {tamanho} bytes (limite {limite})")
+        limite = 350_000
+        self.assertLessEqual(tamanho, limite, f"Interface agregada acima do teto: {tamanho} bytes (limite {limite})")
 
 
 if __name__ == "__main__":

@@ -1,12 +1,18 @@
 # Checagem de saude do ambiente CPJ. Uso: .\verificar-ambiente.ps1
 $W = Split-Path -Parent $PSScriptRoot
 $env:PATH = [Environment]::GetEnvironmentVariable('PATH','Machine') + ';' + [Environment]::GetEnvironmentVariable('PATH','User')
+$PY = Join-Path $W '.venv\Scripts\python.exe'
+if (-not (Test-Path -LiteralPath $PY -PathType Leaf)) { $PY = 'python' }
 $falhas = 0
 function Item($nome, [scriptblock]$teste, $dica) {
     try { $r = & $teste; if ($r) { Write-Host ("[ OK ] {0} {1}" -f $nome, $r) -ForegroundColor Green; return } } catch {}
     Write-Host ("[FALHA] {0} -> {1}" -f $nome, $dica) -ForegroundColor Red; $script:falhas++
 }
-Item 'Python' { (python --version) 2>&1 } 'instale Python 3.12'
+Item 'Python' {
+    $versao = & $PY --version 2>&1
+    if ($LASTEXITCODE -ne 0) { throw 'Python indisponivel' }
+    $versao
+} 'instale Python 3.12'
 Item 'Bibliotecas (requirements.txt)' {
     $req = Join-Path $W 'requirements.txt'
     # nome do pacote -> modulo importavel, quando diferem
@@ -17,7 +23,7 @@ Item 'Bibliotecas (requirements.txt)' {
     $faltando = @()
     foreach ($pkg in $pacotes) {
         $mod = if ($mapa.ContainsKey($pkg)) { $mapa[$pkg] } else { $pkg.Replace('-', '_') }
-        python -c "import $mod" 2>$null
+        & $PY -c "import $mod" 2>$null
         if ($LASTEXITCODE -ne 0) { $faltando += $pkg }
     }
     if ($faltando.Count -gt 0) { throw "Faltando: $($faltando -join ', ')" }

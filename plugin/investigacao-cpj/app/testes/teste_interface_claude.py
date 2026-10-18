@@ -4,6 +4,7 @@ Sobe um servidor isolado (workspace temporário, porta livre), usa só dados fic
 
 Uso: python -X utf8 plugin/investigacao-cpj/app/testes/teste_interface_claude.py
 """
+from fonte_interface import expandir_http
 import http.cookiejar, json, os, re, secrets, shutil, socket, string, subprocess, sys, tempfile, time
 import urllib.error, urllib.parse, urllib.request
 
@@ -61,12 +62,14 @@ try:
     print("L03.1 Página contém os controles novos")
     adm = Cli(URL)
     st, html = adm.req("GET", "/", bruto=True)
+    html_bruto = html
+    html = expandir_http(html, URL, adm.op)
     for elem in ('name="mandado_sel"', 'name="cautelar_sel"', 'name="processo"', 'name="bo"', 'name="placa"', 'id="r-vinc"',
                  'id="bc-texto"', 'id="b-bc-colar"', 'accept=".xlsx,.xls,.xlsm,.csv,.docx,.pdf,.txt"', 'name="temporaria"',
                  'name="cpf"', 'name="email"', 'name="cargo"', 'id="f-conta"', 'id="tela-trocar"', "/api/vinculos?tipo=",
                  "/api/consulta/colar", "/api/minha-conta", "mandado_estado", "antecedentes_itens", "no_id"):
         ok(elem in html, f"index.html contém {elem}")
-    ok(html.count("<script>") == 1 and html.count("</script>") == 1, "um único bloco de script")
+    ok(len(re.findall(r'<script src="/static/js/[^\"]+"', html_bruto)) > 1 and not re.search(r'<script[^>]*(?:async|defer|type=)', html_bruto), "scripts locais clássicos carregados em ordem, com HTTP 200 e MIME correto")
     ok(not re.search(r"https?://(?!127\.0\.0\.1|localhost|github\.com|learn\.)", re.sub(r"<!--.*?-->", "", html, flags=re.S)),
        "interface sem recursos externos (CDN)")
 

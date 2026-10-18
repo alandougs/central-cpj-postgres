@@ -98,6 +98,9 @@ def testar():
             ped = c.execute("SELECT consentimento FROM pedidos WHERE id=?", (tid,)).fetchone()
             cons = json.loads(ped["consentimento"]) if ped and ped["consentimento"] else None
             ok(cons and "openai" in cons["destinos"], "Consentimento gravado no banco")
+            fluxo = c.execute("SELECT acao,consentimento FROM pedidos WHERE grupo=(SELECT grupo FROM pedidos WHERE id=?) ORDER BY ordem", (tid,)).fetchall()
+            ok([p['acao'] for p in fluxo] == ['analisar','financeiro','relatorio','revisar'], 'Análise inclui relatório e revisão')
+            ok(all(json.loads(p['consentimento']) == cons for p in fluxo), 'Todo o fluxo preserva os destinos aceitos')
             
         print("c) Execução respeita o consentimento (fallback não aceito é pulado)")
         # Para simular, vamos usar o EL.executar_com_fallback diretamente
@@ -127,7 +130,7 @@ def testar():
             
         print("e) Modo agente local/scripts -> sem aviso")
         with plant._c() as c:
-            c.execute("UPDATE pedidos SET estado='concluida' WHERE id=?", (tid,))
+            c.execute("UPDATE pedidos SET estado='concluida' WHERE grupo=(SELECT grupo FROM pedidos WHERE id=?)", (tid,))
         # Criar agente fictício aprovado
         plant.registrar("Local-1", "simulado", "chat", aprovado=True)
         r = cliente.post("/api/casos/OS-999-2026/ia", json={"acao": "analisar", "agente": "Local-1"}, headers={"X-CPJ": "1"})

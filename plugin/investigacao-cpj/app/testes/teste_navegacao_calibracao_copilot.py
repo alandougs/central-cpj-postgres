@@ -2,6 +2,7 @@
 """U01: seleção de O.S. em CASOS abre e rola até a ficha/IA; painel de calibração (upload do FINAL, comparação local,
 aprovação por lição) e uso da área de referências para exemplos de estilo. Verificações estáticas do index.html
 (+ sintaxe do JavaScript, se o módulo quickjs estiver instalado)."""
+from fonte_interface import ler_interface, javascript
 import json
 import re
 import sys
@@ -14,7 +15,7 @@ HTML = Path(__file__).resolve().parents[1] / "static" / "index.html"
 class NavegacaoCalibracaoU01(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.t = HTML.read_text(encoding="utf-8")
+        cls.t = ler_interface(HTML)
 
     def test_01_selecao_de_os_rola_ate_o_detalhe(self):
         self.assertIn("async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;", self.t)
@@ -55,10 +56,9 @@ class NavegacaoCalibracaoU01(unittest.TestCase):
         except ImportError:
             self.skipTest("quickjs não instalado (pip install quickjs)")
         ctx = quickjs.Context()
-        blocos = [b for b in re.findall(r"<script(?:[^>]*)>(.*?)</script>", self.t, flags=re.S) if len(b) > 200]
-        self.assertTrue(blocos)
-        for b in blocos:
-            ctx.eval("new Function(" + json.dumps(b) + "); 1")
+        programa = javascript(self.t)
+        self.assertTrue(programa)
+        ctx.eval("new Function(" + json.dumps(programa) + "); 1")
 
 
 if __name__ == "__main__":
