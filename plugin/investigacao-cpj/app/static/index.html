@@ -32,13 +32,13 @@
 
 <p class="sub">Crie o usuário administrador. Depois, em Sistema → Usuários, cadastre delegados, escrivães e investigadores.</p>
 
-<label>Nome completo</label><input name="nome" required><div style="height:8px"></div>
+<label>Nome completo</label><input name="nome" required autocomplete="name"><div style="height:8px"></div>
 
 <label>Usuário (login)</label><input name="login" required placeholder="ex.: alan.silva"><div style="height:8px"></div>
 
-<label>Cargo</label><input name="cargo" placeholder="ex.: Investigador de Polícia"><div style="height:8px"></div>
+<label>Cargo</label><select name="cargo" data-cargo-select><option value="">Selecione</option><option>Delegado de Polícia</option><option>Escrivão de Polícia</option><option>Investigador de Polícia</option><option>Agente de Polícia</option><option value="outro">Outro</option></select><input name="cargo_outro" data-cargo-outro aria-label="Outro cargo" placeholder="Informe o cargo" hidden disabled><div style="height:8px"></div>
 
-<label>CPF (para entrar também pelo CPF)</label><input name="cpf" inputmode="numeric"><div style="height:8px"></div>
+<label>CPF (para entrar também pelo CPF)</label><input name="cpf" inputmode="numeric" data-cpf-format maxlength="14"><div style="height:8px"></div>
 
 <label>E-mail institucional</label><input name="email" type="email"><div style="height:8px"></div>
 
@@ -514,13 +514,13 @@
 
 <div class="card" id="card-usuarios" data-perm="usuarios"><h3>Usuários</h3><div id="lista-usuarios"></div>
 
- <form id="f-usuario" style="margin-top:12px"><div class="campos"><div><label>Login</label><input name="login" required></div><div><label>Nome</label><input name="nome" required></div>
+ <form id="f-usuario" style="margin-top:12px"><div class="campos"><div><label>Login</label><input name="login" required></div><div><label>Nome</label><input name="nome" required autocomplete="name"></div>
 
  <div><label>Perfil</label><select name="perfil"><option value="investigador">Investigador de Polícia</option><option value="delegado">Delegado de Polícia</option><option value="escrivao">Escrivão de Polícia</option><option value="admin">Administrador</option></select></div>
 
- <div><label>Cargo</label><input name="cargo" placeholder="ex.: Investigador de Polícia"></div>
+ <div><label>Cargo</label><select name="cargo" data-cargo-select><option value="">Selecione</option><option>Delegado de Polícia</option><option>Escrivão de Polícia</option><option>Investigador de Polícia</option><option>Agente de Polícia</option><option value="outro">Outro</option></select><input name="cargo_outro" data-cargo-outro aria-label="Outro cargo" placeholder="Informe o cargo" hidden disabled></div>
 
- <div><label>CPF (em branco = manter)</label><input name="cpf" inputmode="numeric" autocomplete="off"></div><div><label>E-mail institucional</label><input name="email" type="email" autocomplete="off"></div>
+ <div><label>CPF (em branco = manter)</label><input name="cpf" inputmode="numeric" data-cpf-format maxlength="14" autocomplete="off"></div><div><label>E-mail institucional</label><input name="email" type="email" autocomplete="off"></div>
 
  <div><label>Senha (em branco = manter)</label><input name="senha" type="password" autocomplete="new-password"></div><div><label>Situação</label><select name="ativo"><option value="1">ativo</option><option value="0">desativado</option></select></div></div>
 
@@ -548,7 +548,7 @@
 
 <div class="card"><h3>Minha conta</h3><div class="muted" id="conta-info" style="margin-bottom:8px"></div>
 
-<form id="f-conta"><div class="campos"><div><label>E-mail institucional (também serve para entrar)</label><input name="email" type="email" autocomplete="email"></div><div><label>Cargo</label><input name="cargo"></div></div>
+<form id="f-conta"><div class="campos"><div><label>E-mail institucional (também serve para entrar)</label><input name="email" type="email" autocomplete="email"></div><div><label>Cargo</label><select name="cargo" data-cargo-select><option value="">Selecione</option><option>Delegado de Polícia</option><option>Escrivão de Polícia</option><option>Investigador de Polícia</option><option>Agente de Polícia</option><option value="outro">Outro</option></select><input name="cargo_outro" data-cargo-outro aria-label="Outro cargo" placeholder="Informe o cargo" hidden disabled></div></div>
 
 <div class="acoes" style="margin:0 0 14px"><button class="btn">Salvar dados</button><span class="muted" id="msg-conta"></span></div></form>
 

@@ -48,7 +48,7 @@ async function carregarSistema(leve){atualizarTarefas();preencherConta();carrega
 
   <td>${u.ativo?"ativo":"desativado"}${u.trocar_senha?' <span class="badge b-wait"><i aria-hidden="true"></i>senha temporária</span>':""}</td><td class="muted">${esc((u.ultimo_acesso||"").replace("T"," "))}</td><td><button class="btn sm" data-edu='${esc(JSON.stringify(u))}'>editar</button> <button class="btn sm dan" data-rmu="${esc(u.login)}">remover</button></td></tr>`).join("")}</tbody></table></div>`;
 
-  $$("[data-edu]").forEach(b=>b.onclick=()=>{const u=JSON.parse(b.dataset.edu),f=$("#f-usuario");f.reset();f.login.value=u.login;f.login.readOnly=true;f.nome.value=u.nome;f.perfil.value=u.perfil;f.ativo.value=u.ativo?"1":"0";f.cargo.value=u.cargo||"";f.email.value=u.email||"";f.cpf.placeholder=u.cpf_mascarado||"";f.senha.value="";f.nome.focus()});
+  $$("[data-edu]").forEach(b=>b.onclick=()=>{const u=JSON.parse(b.dataset.edu),f=$("#f-usuario");f.reset();f.login.value=u.login;f.login.readOnly=true;f.nome.value=u.nome;f.perfil.value=u.perfil;f.ativo.value=u.ativo?"1":"0";selecionarCargo(f,u.cargo);f.email.value=u.email||"";f.cpf.placeholder=u.cpf_mascarado||"";f.senha.value="";f.nome.focus()});
 
   $$("[data-rmu]").forEach(b=>b.onclick=async()=>{if(!confirm(`Remover o usuário ${b.dataset.rmu}?`))return;try{await api(`/api/usuarios/${enc(b.dataset.rmu)}/remover`,{method:"POST"});carregarSistema()}catch(x){toast(x.message)}});
 
@@ -150,7 +150,7 @@ $("#f-usuario").onsubmit=async e=>{e.preventDefault();const f=e.target;
 
  // CPF só é enviado quando preenchido (em branco = manter o atual); e-mail e cargo sempre refletem o formulário
 
- const d={login:f.login.value,nome:f.nome.value,perfil:f.perfil.value,senha:f.senha.value,ativo:f.ativo.value==="1",cargo:f.cargo.value,email:f.email.value,temporaria:f.temporaria.checked};
+ const d={login:f.login.value,nome:f.nome.value,perfil:f.perfil.value,senha:f.senha.value,ativo:f.ativo.value==="1",cargo:valorCargo(f),email:f.email.value,temporaria:f.temporaria.checked};
 
  if(f.cpf.value.trim())d.cpf=f.cpf.value.trim();
 
@@ -162,9 +162,9 @@ $("#b-usr-novo").onclick=()=>{const f=$("#f-usuario");f.reset();f.login.readOnly
 
 function preencherConta(){const u=S.usuario;if(!u)return;$("#conta-info").textContent=`${u.nome} · ${u.cargo||u.perfil_nome} · login ${u.login}${u.cpf_mascarado?" · CPF "+u.cpf_mascarado:""}`;
 
- const f=$("#f-conta");f.email.value=u.email||"";f.cargo.value=u.cargo||""}
+ const f=$("#f-conta");f.email.value=u.email||"";selecionarCargo(f,u.cargo)}
 
-$("#f-conta").onsubmit=async e=>{e.preventDefault();const f=e.target;try{const u=await api("/api/minha-conta",{json:{email:f.email.value,cargo:f.cargo.value}});S.usuario=Object.assign(S.usuario,u);preencherConta();$("#msg-conta").textContent="Dados salvos"}catch(x){$("#msg-conta").textContent=x.message}};
+$("#f-conta").onsubmit=async e=>{e.preventDefault();const f=e.target;try{const u=await api("/api/minha-conta",{json:{email:f.email.value,cargo:valorCargo(f)}});S.usuario=Object.assign(S.usuario,u);preencherConta();$("#msg-conta").textContent="Dados salvos"}catch(x){$("#msg-conta").textContent=x.message}};
 
 $("#b-rede").onclick=async()=>{try{await api("/api/rede",{json:{compartilhar:$("#rede-on").checked,https:$("#rede-https").checked}});$("#msg-rede").textContent="Salvo. Feche e abra a Central para aplicar."}catch(x){$("#msg-rede").textContent=x.message}};
 

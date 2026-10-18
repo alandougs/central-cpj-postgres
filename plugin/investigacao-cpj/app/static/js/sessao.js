@@ -1,5 +1,14 @@
 // ---------------- sessão
 
+function formatarCpf(valor){const d=String(valor||"").replace(/\D/g,"").slice(0,11);return d.slice(0,3)+(d.length>3?"."+d.slice(3,6):"")+(d.length>6?"."+d.slice(6,9):"")+(d.length>9?"-"+d.slice(9):"")}
+
+function valorCargo(form){const s=form.querySelector('[data-cargo-select]');return s.value==='outro'?form.querySelector('[data-cargo-outro]').value.trim():s.value}
+
+function selecionarCargo(form,valor){const s=form.querySelector('[data-cargo-select]'),o=form.querySelector('[data-cargo-outro]');valor=valor||"";s.value=Array.from(s.options).some(v=>v.value===valor&&v.value!=='outro')?valor:'outro';o.value=s.value==='outro'?valor:"";o.hidden=o.disabled=s.value!=='outro'}
+
+$$('[data-cpf-format]').forEach(c=>c.addEventListener('input',()=>{c.value=formatarCpf(c.value)}));
+$$('[data-cargo-select]').forEach(s=>{const f=s.form,o=f.querySelector('[data-cargo-outro]');s.addEventListener('change',()=>{o.hidden=o.disabled=s.value!=='outro'});f.addEventListener('reset',()=>selecionarCargo(f,""))});
+
 async function iniciar(){reiniciarPolling(true);atualizarTarefas.vistos.clear();carregarPendencias.assinatura=null;const s=await api("/api/sessao");S={usuario:s.usuario,perms:s.permissoes,solo:!!s.solo};
 
  $("#tela-login").hidden=!!s.usuario;$("#tela-setup").hidden=s.configurado||s.usuario||!s.local;$("#b-ir-setup").hidden=s.configurado||!s.local;$("#app").hidden=!s.usuario;
@@ -26,7 +35,7 @@ $("#b-voltar-login").onclick=()=>{$("#tela-setup").hidden=true;$("#tela-login").
 
 $("#f-setup").onsubmit=async e=>{e.preventDefault();const f=e.target;if(f.senha.value!==f.senha2.value){$("#msg-setup").textContent="As senhas não conferem.";return}
 
- try{await api("/api/configurar",{json:{nome:f.nome.value,login:f.login.value,senha:f.senha.value,cargo:f.cargo.value,cpf:f.cpf.value,email:f.email.value}});iniciar()}catch(x){$("#msg-setup").textContent=x.message}};
+ try{await api("/api/configurar",{json:{nome:f.nome.value,login:f.login.value,senha:f.senha.value,cargo:valorCargo(f),cpf:f.cpf.value,email:f.email.value}});iniciar()}catch(x){$("#msg-setup").textContent=x.message}};
 
 $("#b-sair").onclick=async()=>{if(!confirmarSaidaEditor())return;reiniciarPolling(true);await api("/api/sair",{method:"POST"});location.hash="";iniciar()};
 

@@ -53,6 +53,7 @@ Imagens/
 
 # Configurações de assinatura e variantes locais de credenciais
 /modelos/assinaturas/
+/ferramentas/icones/
 .env.*
 !.env.example
 

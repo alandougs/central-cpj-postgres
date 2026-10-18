@@ -1,5 +1,9 @@
 # Checkpoint — execução da unificação da Central CPJ (UN10–UN18)
 
+## Continuação SY04 — autorização do operador nesta sessão
+
+Pedido explícito: corrigir pendências e sincronizar a estrutura no GitHub, mantendo dados reais somente locais; não instalar nem migrar. A continuação atua sobre a revisão candidata e os metadados do repositório. UN18 operacional continua pendente: nenhuma atualização da Central em uso, migração ou restauração de dados reais integra esta entrega. Evidências atuais em `sincronizacao-github-sy04.md`; os estados anteriores abaixo são históricos.
+
 Único checkpoint da execução. Plano: `docs/superpowers/plans/2026-10-16-cpj-unificado.md`. Branch de integração: `codex/unificacao-cpj` (iniciada em `782563a`, de `codex/os-markdown-relatorio-20261014`). Agente: `Claude-unificacao`. Somente dados genéricos/sintéticos neste arquivo.
 
 ## Estado atual
