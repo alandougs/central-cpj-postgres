@@ -25,9 +25,20 @@ _modelo = None
 
 
 def ws_padrao():
+    """Workspace CPJ: CPJ_WORKSPACE > 1ª pasta acima deste script com casos/ e modelos/ > 5 níveis acima.
+
+    Mesma regra de `rag.ws_padrao()` (replicada, não importada: `rag` importa este módulo).
+    """
     v = os.environ.get("CPJ_WORKSPACE")
     if v:
         return v
+    d = os.path.dirname(os.path.abspath(__file__))
+    while True:
+        if os.path.isdir(os.path.join(d, "casos")) and os.path.isdir(os.path.join(d, "modelos")):
+            return d
+        if os.path.dirname(d) == d:
+            break
+        d = os.path.dirname(d)
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
 
 
@@ -47,6 +58,30 @@ def disponivel():
     except Exception:
         return False
     return True
+
+
+def modelo_em_cache(ws=None):
+    """True se `cache_dir(ws)` já tem a pasta do modelo com algum arquivo .onnx dentro.
+
+    "Em cache" = existe em `cache_dir(ws)` uma subpasta cujo nome contém o nome do modelo e que
+    contém, em qualquer nível, pelo menos um arquivo `.onnx`. Só olha o disco: não baixa nada, não
+    instancia o modelo e devolve False em qualquer erro de leitura.
+    """
+    alvo = MODELO.rsplit("/", 1)[-1].lower()
+    try:
+        base = cache_dir(ws)
+        for nome in os.listdir(base):
+            if alvo not in nome.lower():
+                continue
+            pasta = os.path.join(base, nome)
+            if not os.path.isdir(pasta):
+                continue
+            for _, _, arquivos in os.walk(pasta):
+                if any(f.lower().endswith(".onnx") for f in arquivos):
+                    return True
+    except Exception:
+        return False
+    return False
 
 
 def modelo(ws=None):

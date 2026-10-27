@@ -137,7 +137,7 @@ CREATE INDEX IF NOT EXISTS ix_ent_caso ON entidades(caso);
 """)
 
 
-for col, tipo_col in (("autor", "TEXT"), ("peso", "INTEGER")):
+for col, tipo_col in (("autor", "TEXT"), ("peso", "INTEGER"), ("embedding", "BLOB")):
     try: db.execute(f"ALTER TABLE trechos ADD COLUMN {col} {tipo_col}")
     except sqlite3.OperationalError: pass
 

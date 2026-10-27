@@ -47,6 +47,14 @@ def norm(v, tipo=None):
 
 MODOS = ("auto", "lexical", "semantico", "hibrido")
 RRF_K = 60  # constante usual da fusão por posto recíproco; amortece o topo de cada lista
+# Fração mínima de trechos com vetor para o modo `auto` usar a híbrida. Abaixo disso a parte
+# semântica cobriria só um pedaço da base e desordenaria o resultado textual, que cobre tudo.
+COBERTURA_MINIMA = 0.90
+# Cosseno mínimo para um trecho entrar no pool semântico. Medido com o modelo do projeto em
+# frases sintéticas em português: trecho do mesmo assunto da consulta 0,56 a 0,87 (0,69 no par
+# do teste LC01); assunto diferente -0,11 a 0,09; mesmo domínio e outro assunto 0,14 a 0,17.
+# 0,30 fica 0,13 acima do maior irrelevante medido e 0,26 abaixo do menor relevante medido.
+SIMILARIDADE_MINIMA = 0.30
 
 
 def _filtros(caso, tipo, modalidade):
@@ -82,66 +90,181 @@ def _lexical(db, q, caso, tipo, modalidade, n, fts):
     return [r[0] for r in res], {r[0]: r[1] for r in res}, aviso
 
 
-def tem_vetores(db):
-    try:
-        return bool(db.execute("SELECT 1 FROM trechos WHERE embedding IS NOT NULL LIMIT 1").fetchone())
-    except sqlite3.OperationalError:
-        return False
+# Cache por processo: uma única matriz de vetores e uma única contagem de cobertura, válidas
+# enquanto os arquivos do banco não mudarem. O COUNT de cobertura varre a tabela (~0,5 s na base
+# real) e a leitura dos vetores custa ~1,2 s; sem isso cada requisição da Pesquisa pagaria de novo.
+_CACHE = {"chave": None, "cobertura": None, "ids": None, "mat": None}
+
+
+def _chave_base():
+    """Assinatura dos arquivos do banco (banco, -wal e -shm): em WAL o commit vai para o -wal antes
+    do checkpoint, então os três entram. Qualquer gravação muda a chave e força recarga — erra para
+    o lado de recarregar, nunca de servir matriz velha."""
+    marcas = []
+    for sufixo in ("", "-wal", "-shm"):
+        try:
+            s = os.stat(DB + sufixo)
+            marcas.append((s.st_mtime_ns, s.st_size))
+        except OSError:
+            marcas.append(None)
+    return tuple(marcas)
+
+
+def _cache_atual():
+    """Zera o cache se o banco mudou desde a última carga."""
+    chave = _chave_base()
+    if _CACHE["chave"] != chave:
+        _CACHE.update(chave=chave, cobertura=None, ids=None, mat=None)
+
+
+def cobertura_vetores(db):
+    """(trechos com vetor, total de trechos). (0, 0) em índice legado, sem a coluna `embedding`.
+
+    Memorizado por processo enquanto o banco não muda: o COUNT de não-nulos não tem índice e
+    varre a tabela inteira."""
+    _cache_atual()
+    if _CACHE["cobertura"] is None:
+        try:
+            com_vetor, total = db.execute("SELECT COUNT(embedding), COUNT(*) FROM trechos").fetchone()
+        except sqlite3.OperationalError:
+            return 0, 0
+        _CACHE["cobertura"] = (int(com_vetor or 0), int(total or 0))
+    return _CACHE["cobertura"]
+
+
+def _modulo_embeddings():
+    """Importa `embeddings` inserindo a pasta dos scripts em sys.path no máximo uma vez.
+
+    Rodado como script a pasta já é sys.path[0]; importado pelo app ela entra uma só vez, para a
+    lista não crescer por busca (e esta pasta tem homônimos de módulos do app)."""
+    d = os.path.dirname(os.path.abspath(__file__))
+    if d not in sys.path:
+        sys.path.insert(0, d)
+    import embeddings as EMB
+    return EMB
+
+
+def _empilhar(db, EMB, np, extra, filtros):
+    """(ids, matriz empilhada|None) dos vetores que casam com o filtro SQL recebido.
+
+    Pula linha cujo BLOB esteja corrompido: uma linha ruim não derruba a busca."""
+    ids, vetores = [], []
+    for ident, blob in db.execute(
+            "SELECT t.id, t.embedding FROM trechos t WHERE t.embedding IS NOT NULL" + extra, filtros):
+        try:
+            v = EMB.desempacotar(blob)
+        except (ValueError, TypeError):
+            continue
+        if v.size == EMB.DIM:
+            ids.append(ident); vetores.append(v)
+    return ids, (np.vstack(vetores) if vetores else None)
+
+
+def _matriz(db, EMB, np):
+    """Matriz de TODOS os vetores da base, carregada uma vez por processo (uma por processo, não
+    por consulta). Vale só para consulta SEM filtro: com filtro de caso/tipo/modalidade a leitura
+    continua indo ao SQL com o filtro, para o filtro não sair do banco."""
+    _cache_atual()
+    if _CACHE["ids"] is None:
+        _CACHE["ids"], _CACHE["mat"] = _empilhar(db, EMB, np, "", [])
+    return _CACHE["ids"], _CACHE["mat"]
 
 
 def _semantico(db, q, caso, tipo, modalidade, n):
-    """[(id, similaridade)] por cosseno. Lista vazia se o recurso não estiver disponível."""
+    """([(id, similaridade)] por cosseno, causa de indisponibilidade|None).
+
+    Causa: `ambiente` (fastembed/numpy ausentes), `modelo` (modelo local ainda não baixado — a
+    consulta não dispara download), `sem_vetores` (nenhum trecho vetorizado no escopo) ou
+    `leitura` (falha ao ler/montar os vetores). Descarta candidatos abaixo de SIMILARIDADE_MINIMA."""
     try:
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        import embeddings as EMB
+        EMB = _modulo_embeddings()
         import numpy as np
     except Exception:
-        return []
-    if not EMB.disponivel(): return []
-    alvo = EMB.vetor(q)
-    if alvo is None: return []
+        return [], "ambiente"
+    if not EMB.disponivel(): return [], "ambiente"
+    em_cache = getattr(EMB, "modelo_em_cache", None)
+    if em_cache is not None and not em_cache(): return [], "modelo"
     extra, filtros = _filtros(caso, tipo, modalidade)
-    ids, mat = [], []
-    for ident, blob in db.execute(
-            "SELECT t.id, t.embedding FROM trechos t WHERE t.embedding IS NOT NULL" + extra, filtros):
-        v = EMB.desempacotar(blob)
-        if v.size == EMB.DIM:
-            ids.append(ident); mat.append(v)
-    if not ids: return []
-    sims = np.vstack(mat) @ EMB.desempacotar(alvo)
-    return [(ids[k], float(sims[k])) for k in np.argsort(-sims)[:n]]
+    try:
+        ids, mat = _empilhar(db, EMB, np, extra, filtros) if extra else _matriz(db, EMB, np)
+    except Exception:
+        return [], "leitura"  # consulta nunca cai por causa da leitura dos vetores
+    if not ids or mat is None: return [], "sem_vetores"
+    alvo = EMB.vetor(q)
+    if alvo is None: return [], None
+    sims = mat @ EMB.desempacotar(alvo)
+    return [(ids[k], float(sims[k])) for k in np.argsort(-sims)[:n]
+            if float(sims[k]) >= SIMILARIDADE_MINIMA], None
 
 
 def buscar(q, caso=None, tipo=None, modalidade=None, n=10, fts=False, modo="auto"):
     """Retorna (lista de dicts, aviso|None).
 
-    `auto` usa a busca híbrida quando a base tem vetores e cai para a textual
-    quando não tem; `--fts` (expressão FTS crua) continua estritamente textual.
+    Modos: `auto` (padrão) usa a híbrida só quando a base tem vetor em pelo menos
+    COBERTURA_MINIMA dos trechos e cai para a textual abaixo disso; `lexical` só FTS;
+    `semantico` só vetores; `hibrido` funde as duas listas por RRF.
+    `fts=True` (expressão FTS crua) impõe a busca textual em QUALQUER modo — se `hibrido` ou
+    `semantico` foi pedido junto, o modo é ignorado e o aviso diz isso.
+    O `aviso` informa ainda: resultado exibido que entrou só por semântica, cobertura parcial de
+    vetores quando o chamador pediu semântica, modo semântico indisponível (ambiente sem
+    fastembed/numpy, modelo local não baixado, base sem vetores ou falha de leitura dos vetores)
+    e o recuo para OR do FTS.
     """
     db = conectar()
     try:
         modo = (modo or "auto").lower()
         if modo not in MODOS: raise ValueError(f"Modo inválido: {modo}")
-        if modo == "auto": modo = "lexical" if fts else ("hibrido" if tem_vetores(db) else "lexical")
+        pedido, avisos = modo, []
+        if fts:
+            if pedido in ("hibrido", "semantico"):
+                avisos.append(f"A expressão FTS crua impõe busca textual: o modo {pedido} pedido foi ignorado.")
+            modo = "lexical"
+        elif modo != "lexical":  # a cobertura varre a tabela: só é lida onde o modo depende dela
+            com_vetor, total = cobertura_vetores(db)
+            cobertura = com_vetor / total if total else 0.0
+            if modo == "auto":
+                modo = "hibrido" if total and cobertura >= COBERTURA_MINIMA else "lexical"
+            elif 0 < cobertura < COBERTURA_MINIMA:
+                avisos.append(f"A base tem vetor em {cobertura * 100:.0f}% dos trechos; "
+                              "o resultado semântico cobre só essa parte.")
         candidatos = max(n * 4, 20)
 
-        ids_lex, snippets, aviso = [], {}, None
+        ids_lex, snippets = [], {}
         if modo in ("lexical", "hibrido"):
-            ids_lex, snippets, aviso = _lexical(
+            ids_lex, snippets, aviso_lex = _lexical(
                 db, q, caso, tipo, modalidade, n if modo == "lexical" else candidatos, fts)
-        sem = _semantico(db, q, caso, tipo, modalidade, candidatos) if modo in ("semantico", "hibrido") else []
+            if aviso_lex: avisos.append(aviso_lex)
+        sem, causa = _semantico(db, q, caso, tipo, modalidade, candidatos) \
+            if modo in ("semantico", "hibrido") else ([], None)
 
         if modo == "lexical":
             ordem = ids_lex[:n]
         elif modo == "semantico":
             ordem = [i for i, _ in sem][:n]
+            if causa == "ambiente":
+                avisos.append("Busca semântica indisponível neste ambiente: fastembed/numpy não estão "
+                              "instalados. Use --modo lexical.")
+            elif causa == "modelo":
+                avisos.append("Busca semântica indisponível: o modelo local de embedding ainda não foi "
+                              "baixado. A geração é feita por indexar.py --embeddings.")
+            elif causa == "sem_vetores":
+                avisos.append("Busca semântica indisponível: a base não tem vetores gerados neste escopo. "
+                              "Gere-os com indexar.py --embeddings.")
+            elif causa == "leitura":
+                avisos.append("Busca semântica indisponível: falha ao ler os vetores da base. "
+                              "Use --modo lexical.")
         else:
             pontos = {}
             for posto, i in enumerate(ids_lex): pontos[i] = pontos.get(i, 0.0) + 1.0 / (RRF_K + posto + 1)
             for posto, (i, _) in enumerate(sem): pontos[i] = pontos.get(i, 0.0) + 1.0 / (RRF_K + posto + 1)
             ordem = [i for i, _ in sorted(pontos.items(), key=lambda kv: -kv[1])][:n]
             if ordem and not ids_lex:
-                aviso = "Nenhum trecho contém os termos; resultado por proximidade de sentido. Confira o texto nos autos."
+                avisos.append("Nenhum trecho contém os termos; resultado por proximidade de sentido. "
+                              "Confira o texto nos autos.")
+            elif any(i in ordem for i, _ in sem if i not in ids_lex):
+                avisos.append("Parte dos resultados exibidos entrou só por proximidade de sentido, sem "
+                              "conter os termos. Confira o texto nos autos.")
+        aviso = " ".join(avisos) or None
         if not ordem: return [], aviso
 
         marcas = ",".join("?" * len(ordem))
@@ -512,7 +635,8 @@ if __name__ == "__main__":
     s = sub.add_parser("buscar"); s.add_argument("q"); s.add_argument("--caso"); s.add_argument("--tipo")
     s.add_argument("--modalidade"); s.add_argument("-n", type=int, default=10); s.add_argument("--fts", action="store_true")
     s.add_argument("--modo", choices=MODOS, default="auto",
-                   help="auto: híbrida se a base tiver vetores; lexical: só FTS; semantico: só vetores")
+                   help="auto: híbrida se a base estiver vetorizada (>= 90%% dos trechos); lexical: só FTS; "
+                        "semantico: só vetores. Com --fts a busca é sempre textual")
     s = sub.add_parser("entidade"); s.add_argument("valor"); s.add_argument("--tipo")
     s = sub.add_parser("cruzar"); s.add_argument("id")
     s = sub.add_parser("exemplos"); s.add_argument("modalidade", nargs="?"); s.add_argument("-n", type=int, default=3)

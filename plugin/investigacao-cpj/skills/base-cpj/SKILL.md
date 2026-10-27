@@ -63,7 +63,7 @@ Regras de uso do RAG:
 - Resultado de busca é **ponteiro**, não fonte: abra o arquivo/página indicado e confira antes de afirmar qualquer coisa.
 - Conexão entre casos (mesma chave Pix, conta, CPF, telefone) é **indício de vinculação a verificar**, nunca conclusão; cite os dois casos e páginas.
 - Relatórios de outros casos servem de exemplo de **estilo/estrutura**; nunca transporte fatos de um caso para outro.
-- Busca semântica (embeddings) está prevista na coluna `trechos.embedding`; ativar depois com modelo local (ex.: Ollama), sem mudar o resto.
+- Busca híbrida disponível: `rag.py buscar --modo auto|lexical|semantico|hibrido` (`auto` é o padrão e usa a híbrida quando a base tem vetor na maior parte dos trechos (90%), caindo para a textual abaixo disso); os vetores vêm de `indexar.py --embeddings` (`--reembeddings` regera) com modelo local, sem rede após o primeiro download, e a dependência é opcional — sem ela a busca textual continua inteira (detalhes em `rag/README.md`). Trecho achado só por proximidade de sentido não contém os termos pesquisados e não prova nada: a busca avisa quando isso ocorre e, como em qualquer resultado, confira o arquivo e a página antes de afirmar.
 
 ## 4. Central CPJ e painel
 
