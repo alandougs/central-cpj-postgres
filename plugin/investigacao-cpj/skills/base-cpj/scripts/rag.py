@@ -10,7 +10,7 @@ Uso (CLI):
   rag.py stats
 Cada resultado traz caso, arquivo, página e fls. para citação e conferência no original.
 """
-import argparse, json, os, re, sqlite3, sys
+import argparse, json, os, re, sqlite3, sys, threading
 
 def ws_padrao():
     """Workspace CPJ: CPJ_WORKSPACE > 1ª pasta acima deste script com casos/ e modelos/ > cwd com casos/ > erro."""
@@ -93,28 +93,57 @@ def _lexical(db, q, caso, tipo, modalidade, n, fts):
 # Cache por processo: uma única matriz de vetores e uma única contagem de cobertura, válidas
 # enquanto os arquivos do banco não mudarem. O COUNT de cobertura varre a tabela (~0,5 s na base
 # real) e a leitura dos vetores custa ~1,2 s; sem isso cada requisição da Pesquisa pagaria de novo.
-_CACHE = {"chave": None, "cobertura": None, "ids": None, "mat": None}
+_CACHE = {"chave": None, "cobertura": None, "ids": None, "mat": None, "sentinela": None}
+_TRAVA = threading.RLock()  # a Central é multi-thread; o cache e a sentinela são compartilhados
+
+
+def _sentinela():
+    """Conexão só-leitura de vida longa, usada apenas para ler `PRAGMA data_version`.
+
+    Precisa ser de vida longa: numa conexão nova o `data_version` não acusa commit de outra
+    conexão (medido: fica no mesmo valor). Numa conexão viva, ele incrementa a cada commit
+    alheio e custa 0,003 ms."""
+    c = _CACHE.get("sentinela")
+    if c is None:
+        try:
+            c = sqlite3.connect("file:" + DB + "?mode=ro", uri=True, check_same_thread=False)
+        except sqlite3.Error:
+            return None
+        _CACHE["sentinela"] = c
+    return c
 
 
 def _chave_base():
-    """Assinatura dos arquivos do banco (banco, -wal e -shm): em WAL o commit vai para o -wal antes
-    do checkpoint, então os três entram. Qualquer gravação muda a chave e força recarga — erra para
-    o lado de recarregar, nunca de servir matriz velha."""
-    marcas = []
-    for sufixo in ("", "-wal", "-shm"):
+    """Assinatura do estado do banco: (mtime e tamanho do arquivo, `data_version`).
+
+    NÃO usa `-wal`/`-shm`: eles são criados ao abrir a conexão e apagados ao fechar a última, e
+    `buscar` abre e fecha uma por chamada — a chave oscilava entre ausente e presente e descartava
+    o cache em toda consulta. `data_version` cobre o commit que ainda está no WAL, sem checkpoint;
+    o stat do arquivo cobre a troca do banco inteiro (restauração de backup, reindexação)."""
+    try:
+        s = os.stat(DB)
+        arquivo = (s.st_mtime_ns, s.st_size)
+    except OSError:
+        arquivo = None
+    versao = None
+    c = _sentinela()
+    if c is not None:
         try:
-            s = os.stat(DB + sufixo)
-            marcas.append((s.st_mtime_ns, s.st_size))
-        except OSError:
-            marcas.append(None)
-    return tuple(marcas)
+            versao = c.execute("PRAGMA data_version").fetchone()[0]
+        except sqlite3.Error:
+            try: c.close()
+            except Exception: pass
+            _CACHE["sentinela"] = None
+            return (arquivo, None, os.urandom(8))  # sem sentinela, não arrisca servir matriz velha
+    return (arquivo, versao)
 
 
 def _cache_atual():
     """Zera o cache se o banco mudou desde a última carga."""
-    chave = _chave_base()
-    if _CACHE["chave"] != chave:
-        _CACHE.update(chave=chave, cobertura=None, ids=None, mat=None)
+    with _TRAVA:
+        chave = _chave_base()
+        if _CACHE["chave"] != chave:
+            _CACHE.update(chave=chave, cobertura=None, ids=None, mat=None)
 
 
 def cobertura_vetores(db):
@@ -122,14 +151,15 @@ def cobertura_vetores(db):
 
     Memorizado por processo enquanto o banco não muda: o COUNT de não-nulos não tem índice e
     varre a tabela inteira."""
-    _cache_atual()
-    if _CACHE["cobertura"] is None:
-        try:
-            com_vetor, total = db.execute("SELECT COUNT(embedding), COUNT(*) FROM trechos").fetchone()
-        except sqlite3.OperationalError:
-            return 0, 0
-        _CACHE["cobertura"] = (int(com_vetor or 0), int(total or 0))
-    return _CACHE["cobertura"]
+    with _TRAVA:
+        _cache_atual()
+        if _CACHE["cobertura"] is None:
+            try:
+                com_vetor, total = db.execute("SELECT COUNT(embedding), COUNT(*) FROM trechos").fetchone()
+            except sqlite3.OperationalError:
+                return 0, 0
+            _CACHE["cobertura"] = (int(com_vetor or 0), int(total or 0))
+        return _CACHE["cobertura"]
 
 
 def _modulo_embeddings():
@@ -164,10 +194,11 @@ def _matriz(db, EMB, np):
     """Matriz de TODOS os vetores da base, carregada uma vez por processo (uma por processo, não
     por consulta). Vale só para consulta SEM filtro: com filtro de caso/tipo/modalidade a leitura
     continua indo ao SQL com o filtro, para o filtro não sair do banco."""
-    _cache_atual()
-    if _CACHE["ids"] is None:
-        _CACHE["ids"], _CACHE["mat"] = _empilhar(db, EMB, np, "", [])
-    return _CACHE["ids"], _CACHE["mat"]
+    with _TRAVA:  # serializa a carga: dois pedidos simultâneos não montam 74 MB cada
+        _cache_atual()
+        if _CACHE["ids"] is None:
+            _CACHE["ids"], _CACHE["mat"] = _empilhar(db, EMB, np, "", [])
+        return _CACHE["ids"], _CACHE["mat"]
 
 
 def _semantico(db, q, caso, tipo, modalidade, n):

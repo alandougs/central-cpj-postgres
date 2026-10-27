@@ -356,6 +356,33 @@ class RegressaoDefeitosLC01(unittest.TestCase):
 
     # ------------------------------------------------- cache da matriz
     @unittest.skipUnless(TEM_EMBEDDING, "fastembed/numpy ausentes no ambiente")
+    def test_cache_se_mantem_entre_consultas_sem_escrita(self):
+        """O teste que faltava. A primeira versão do cache invalidava corretamente, mas
+        era descartada em TODA consulta: a chave incluía -wal/-shm, que o SQLite cria ao
+        abrir a conexão e apaga ao fechar. Verificar só a invalidação não pega isso."""
+        self.vetorizar()
+        codigo = (
+            "import importlib.util, sys, json\n"
+            f"spec = importlib.util.spec_from_file_location('ragmod', r'{BASE / 'rag.py'}')\n"
+            "m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)\n"
+            "cargas = {'n': 0}\n"
+            "orig = m._empilhar\n"
+            "def espiao(*a, **k):\n"
+            "    cargas['n'] += 1\n"
+            "    return orig(*a, **k)\n"
+            "m._empilhar = espiao\n"
+            "for i in range(4): m.buscar('transferência bancária', n=3, modo='hibrido')\n"
+            "print(json.dumps({'cargas': cargas['n']}))\n"
+        )
+        r = subprocess.run([sys.executable, "-c", codigo], cwd=self.ws, env=self.env,
+                           capture_output=True, text=True, encoding="utf-8", timeout=600)
+        self.assertEqual(r.returncode, 0, f"{r.stdout}\n{r.stderr}")
+        medida = json.loads(r.stdout.strip().splitlines()[-1])
+        self.assertEqual(medida["cargas"], 1,
+                         f"a matriz foi montada {medida['cargas']}x em 4 consultas sem escrita; "
+                         "o cache não está se mantendo")
+
+    @unittest.skipUnless(TEM_EMBEDDING, "fastembed/numpy ausentes no ambiente")
     def test_cache_invalida_quando_o_banco_muda(self):
         """Servir matriz velha num instrumento de investigação é pior que recarregar."""
         self.vetorizar()
