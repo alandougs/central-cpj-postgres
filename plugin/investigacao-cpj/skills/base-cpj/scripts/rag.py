@@ -9,6 +9,7 @@ Uso (CLI):
   rag.py exemplos MODALIDADE [-n 3]  -> relatórios FINAL de casos da mesma modalidade
   rag.py stats
 Cada resultado traz caso, arquivo, página e fls. para citação e conferência no original.
+No terminal o termo casado sai entre » «; colchete no trecho é conteúdo dos autos, não marcador.
 """
 import argparse, json, os, re, sqlite3, sys, threading
 
@@ -55,6 +56,11 @@ COBERTURA_MINIMA = 0.90
 # do teste LC01); assunto diferente -0,11 a 0,09; mesmo domínio e outro assunto 0,14 a 0,17.
 # 0,30 fica 0,13 acima do maior irrelevante medido e 0,26 abaixo do menor relevante medido.
 SIMILARIDADE_MINIMA = 0.30
+# Sentinelas do snippet do FTS. Não podem ser colchete: colchete em trecho de autos é
+# determinação das regras 3 e 17 (`[dígito incerto]`, `[PESQUISAR: CNPJ]`) e não é termo casado —
+# quem lê o resultado não tem como distinguir um do outro. Nunca saem de `buscar`: `_desmarcar`
+# troca a sentinela por posição antes de devolver o trecho.
+MARCA_I, MARCA_F = "\x02", "\x03"
 
 
 def _filtros(caso, tipo, modalidade):
@@ -69,12 +75,48 @@ def _resumo(texto, limite=240):
     return t[:limite] + (" …" if len(t) > limite else "")
 
 
+def _desmarcar(s):
+    """(texto sem sentinela, [[inicio, fim], ...]) — o protocolo de marcação da busca.
+
+    O destaque vai em posições, separado do texto, para quem exibe não precisar interpretar o
+    próprio conteúdo: nada no trecho é marcador, então colchete dos autos chega literal e não
+    vira destaque. Sentinela sem par é descartada sem gerar marca.
+
+    As posições contam unidades UTF-16, que é como o navegador fatia a string. Em caractere fora
+    do plano básico (emoji) isso difere do índice de ponto de código do Python, e usar o do Python
+    deslocaria todo destaque seguinte."""
+    texto, marcas, aberto, tam = [], [], None, 0
+    for ch in (s or ""):
+        if ch == MARCA_I:
+            if aberto is None: aberto = tam
+        elif ch == MARCA_F:
+            if aberto is not None and tam > aberto: marcas.append([aberto, tam])
+            aberto = None
+        else:
+            texto.append(ch); tam += 1 if ch <= "￿" else 2
+    return "".join(texto), marcas
+
+
+def _realcar(trecho, marcas, abre="»", fecha="«"):
+    """Reaplica as marcas para leitura no terminal, com delimitador próprio em vez de colchete.
+
+    Corta em unidade UTF-16, a mesma de `_desmarcar`."""
+    u = (trecho or "").encode("utf-16-le")
+    partes, fim = [], 0
+    for i, j in marcas or []:
+        partes += [u[fim * 2:i * 2], abre.encode("utf-16-le"),
+                   u[i * 2:j * 2], fecha.encode("utf-16-le")]
+        fim = j
+    partes.append(u[fim * 2:])
+    return b"".join(partes).decode("utf-16-le")
+
+
 def _lexical(db, q, caso, tipo, modalidade, n, fts):
-    """(ids por bm25, {id: snippet}, aviso)."""
+    """(ids por bm25, {id: snippet com sentinela}, aviso)."""
     termos = ['"' + t.replace('"', "") + '"' for t in re.findall(r"[\w@.\-/]+", q)]
     if not termos and not fts: return [], {}, None
     extra, filtros = _filtros(caso, tipo, modalidade)
-    sql = ("SELECT trechos_fts.rowid, snippet(trechos_fts, 0, '[', ']', ' … ', 24) "
+    sql = ("SELECT trechos_fts.rowid, snippet(trechos_fts, 0, char(2), char(3), ' … ', 24) "
            "FROM trechos_fts JOIN trechos t ON t.id = trechos_fts.rowid "
            "WHERE trechos_fts MATCH ?" + extra + " ORDER BY bm25(trechos_fts) LIMIT ?")
 
@@ -298,15 +340,20 @@ def buscar(q, caso=None, tipo=None, modalidade=None, n=10, fts=False, modo="auto
         aviso = " ".join(avisos) or None
         if not ordem: return [], aviso
 
-        marcas = ",".join("?" * len(ordem))
+        lugares = ",".join("?" * len(ordem))
         linhas = {r[0]: r for r in db.execute(
-            f"SELECT id, caso, arquivo, tipo, pagina, fls, secao, texto FROM trechos WHERE id IN ({marcas})", ordem)}
+            f"SELECT id, caso, arquivo, tipo, pagina, fls, secao, texto FROM trechos WHERE id IN ({lugares})", ordem)}
         saida = []
         for i in ordem:
             r = linhas.get(i)
             if not r: continue
-            saida.append(dict(zip(("caso", "arquivo", "tipo", "pagina", "fls", "secao", "trecho"),
-                                  (r[1], r[2], r[3], r[4], r[5], r[6], snippets.get(i) or _resumo(r[7])))))
+            bruto = snippets.get(i)
+            if bruto:
+                trecho, marcas = _desmarcar(bruto)
+            else:  # entrou só por semântica: excerto cru, sem termo casado para destacar
+                trecho, marcas = _desmarcar(_resumo(r[7]))[0], []
+            saida.append(dict(zip(("caso", "arquivo", "tipo", "pagina", "fls", "secao", "trecho", "marcas"),
+                                  (r[1], r[2], r[3], r[4], r[5], r[6], trecho, marcas))))
         return saida, aviso
     finally:
         db.close()
@@ -684,7 +731,8 @@ if __name__ == "__main__":
             for r in res:
                 loc = f"pág. {r['pagina']}" if r["pagina"] else (r["secao"] or "")
                 loc += f"; fls. {r['fls']}" if r["fls"] else ""
-                print(f"\n■ {r['caso'] or '-'} | {r['tipo']} | {loc}\n  {r['arquivo']}\n  {r['trecho'].strip()}")
+                texto = _realcar(r["trecho"], r["marcas"]).strip()
+                print(f"\n■ {r['caso'] or '-'} | {r['tipo']} | {loc}\n  {r['arquivo']}\n  {texto}")
         elif a.cmd == "entidade":
             res = entidade(a.valor, a.tipo)
             print(f"{len(res)} ocorrência(s) em {len({r['caso'] for r in res})} caso(s)")
