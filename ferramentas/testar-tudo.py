@@ -72,20 +72,21 @@ def clonar_codigo(destino: Path) -> Path:
     """Cria snapshot descartável para que testes não escrevam no workspace real."""
     raiz_teste = destino / "codigo"
     (raiz_teste / "plugin").mkdir(parents=True)
-    shutil.copytree(PLUGIN, raiz_teste / "plugin" / "investigacao-cpj")
-    shutil.copytree(ROOT / "plugin" / ".claude-plugin", raiz_teste / "plugin" / ".claude-plugin")   # marketplace.json faz parte do pacote
-    if (ROOT / ".github").is_dir():      # o teste de CI fiscaliza o workflow
+    shutil.copytree(PLUGIN, raiz_teste / "plugin" / "investigacao-cpj",
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo", ".pytest_cache"))
+    shutil.copytree(ROOT / "plugin" / ".claude-plugin", raiz_teste / "plugin" / ".claude-plugin")
+    if (ROOT / ".github").is_dir():
         shutil.copytree(ROOT / ".github", raiz_teste / ".github")
-    shutil.copytree(ROOT / "modelos", raiz_teste / "modelos")
-    # Um clone não contém o modelo oficial ignorado pelo Git. Gere somente na sandbox.
+    # Modelos, assinaturas e dados do operador não entram na sandbox.
+    # Gere o modelo geométrico exclusivamente para esta execução de testes.
     spec = importlib.util.spec_from_file_location("fixtures_docx", TESTES / "fixtures_docx.py")
     fixture = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(fixture)
     fixture.criar_modelo(raiz_teste / "modelos")
     shutil.copytree(ROOT / "calibracao", raiz_teste / "calibracao",
-                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo", ".pytest_cache"))
     shutil.copytree(ROOT / "ferramentas", raiz_teste / "ferramentas",
-                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo", ".pytest_cache"))
     shutil.copytree(ROOT / "portatil", raiz_teste / "portatil")
     agentes = raiz_teste / ".agents" / "skills"
     agentes.mkdir(parents=True)
@@ -95,7 +96,7 @@ def clonar_codigo(destino: Path) -> Path:
             shutil.copytree(skill, destino_skill)
         else:
             shutil.copy2(skill, destino_skill)
-    for nome in ("AGENTS.md", "CLAUDE.md", "GEMINI.md", "PRD.md", "TAREFAS-COMPARTILHADAS.md", "Central CPJ.bat"):
+    for nome in ("MEMORIA.md", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "PRD.md", "TAREFAS-COMPARTILHADAS.md", "Central CPJ.bat"):
         origem = ROOT / nome
         if origem.is_file():
             shutil.copy2(origem, raiz_teste / nome)

@@ -73,6 +73,13 @@ def selecionar(workspace: Path) -> tuple[dict[str, Path], list[dict], list[str]]
             recusados.append(f"extensão fora do pacote genérico: {relativo.as_posix()}")
         else:
             incluidos[relativo.as_posix()] = caminho
+    # Documento de raiz do pacote; a fonte autoritativa continua no workspace.
+    # Não copie uma memória independente para cada skill/agente instalado.
+    memoria = workspace / "MEMORIA.md"
+    if memoria.is_symlink() or getattr(memoria, "is_junction", lambda: False)():
+        recusados.append("link na memória central: MEMORIA.md")
+    elif memoria.is_file():
+        incluidos["MEMORIA.md"] = memoria
     return incluidos, excluidos, recusados
 
 

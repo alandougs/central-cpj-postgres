@@ -23,7 +23,7 @@ DESCRICAO = {
     "usuarios": "Gerenciar usuários e auditoria (só admin)", "rede": "Configurar rede (só admin)",
 }
 ITERACOES = 240_000
-_trava = threading.Lock()
+_trava = threading.RLock()
 _falhas = {}  # login -> [contagem, bloqueado_ate]
 
 
@@ -231,11 +231,99 @@ class Auth:
         return [u for u in self.listar() if u["ativo"] and self.pode(u["perfil"], perm)]
 
     def auditar(self, usuario, ip, acao, alvo=""):
-        with _trava, open(self.log, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"ts": datetime.datetime.now().isoformat(timespec="seconds"), "usuario": usuario,
-                                "ip": ip, "acao": acao, "alvo": alvo}, ensure_ascii=False) + "\n")
+        self.auditar_registro({"ts": datetime.datetime.now().isoformat(timespec="seconds"), "usuario": usuario,
+                              "ip": ip, "acao": acao, "alvo": alvo})
+
+    def _estado_auditoria(self, criar=False, estado_importado=None):
+        import seguranca_local as S
+        from pathlib import Path
+        ancora = S.caminho_ancora_auditoria(os.path.dirname(self.dir))
+        raw = Path(self.log).read_bytes() if os.path.exists(self.log) else b""
+        if estado_importado is not None:
+            estado = estado_importado
+        elif ancora.exists():
+            estado = json.loads(S.desproteger(json.loads(ancora.read_text(encoding="utf-8"))))
+        else:
+            registros = [json.loads(x) for x in raw.splitlines() if x.strip()]
+            if any("_integridade" in x for x in registros):
+                raise RuntimeError("Âncora de auditoria ausente; não reiniciar a cadeia.")
+            if not criar:
+                if raw: raise RuntimeError("Histórico legado ainda não ancorado.")
+                return None
+            if raw and not raw.endswith(b"\n"):
+                raise RuntimeError("Histórico legado incompleto; arquivo preservado.")
+            estado = {"schema": "cpj-auditoria/1", "chave": secrets.token_hex(32), "seq": 0,
+                      "cabeca": "0" * 64, "legado_bytes": len(raw), "legado_sha256": hashlib.sha256(raw).hexdigest(),
+                      "legado_registros": len(registros)}
+            S.gravar_atomico_restrito(ancora, json.dumps(S.proteger(json.dumps(estado).encode())).encode())
+        if estado.get("schema") != "cpj-auditoria/1": raise RuntimeError("Âncora de auditoria inválida.")
+        legado = raw[:estado["legado_bytes"]]
+        if len(legado) != estado["legado_bytes"] or hashlib.sha256(legado).hexdigest() != estado["legado_sha256"]:
+            raise RuntimeError("Histórico legado alterado ou removido.")
+        anterior, seq = "0" * 64, 0
+        resto = raw[estado["legado_bytes"]:]
+        if resto and not resto.endswith(b"\n"): raise RuntimeError("Auditoria truncada.")
+        for linha in resto.splitlines():
+            registro = json.loads(linha)
+            assinatura = registro.pop("_integridade")
+            seq += 1
+            if assinatura.get("seq") != seq or assinatura.get("anterior") != anterior:
+                raise RuntimeError("Sequência da auditoria alterada.")
+            payload = json.dumps({"registro": registro, "seq": seq, "anterior": anterior}, ensure_ascii=False,
+                                 sort_keys=True, separators=(",", ":")).encode("utf-8")
+            mac = hmac.new(bytes.fromhex(estado["chave"]), payload, hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(mac, assinatura.get("hmac", "")):
+                raise RuntimeError("Registro de auditoria alterado.")
+            anterior = mac
+        if seq != estado["seq"] or anterior != estado["cabeca"]:
+            raise RuntimeError("Auditoria removida ou truncada em relação à âncora.")
+        return estado
+
+    def verificar_auditoria(self):
+        import seguranca_local as S
+        with _trava:
+            try:
+                with S.trava_auditoria(os.path.dirname(self.dir)):
+                    estado = self._estado_auditoria()
+                return {"integra": True, "registros_protegidos": estado["seq"] if estado else 0,
+                        "legado_sem_assinatura": bool(estado and estado["legado_bytes"]),
+                        "limite": "Proteção local; não resiste a quem controla a conta ou o computador inteiro."}
+            except Exception:
+                return {"integra": False, "erro": "Integridade da auditoria não confirmada; preserve o log e a âncora."}
+
+    def auditar_registro(self, registro):
+        """Registros extras (uso de IA) também pertencem à mesma cadeia HMAC."""
+        import seguranca_local as S
+        with _trava, S.trava_auditoria(os.path.dirname(self.dir)):
+            try:
+                estado = self._estado_auditoria(criar=True)
+                registro = dict(registro)
+                registro.pop("_integridade", None)
+                seq, anterior = estado["seq"] + 1, estado["cabeca"]
+                payload = json.dumps({"registro": registro, "seq": seq, "anterior": anterior}, ensure_ascii=False,
+                                     sort_keys=True, separators=(",", ":")).encode("utf-8")
+                mac = hmac.new(bytes.fromhex(estado["chave"]), payload, hashlib.sha256).hexdigest()
+                registro["_integridade"] = {"seq": seq, "anterior": anterior, "hmac": mac}
+                fd = os.open(self.log, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+                try:
+                    S.restringir_arquivo(self.log)
+                    with os.fdopen(fd, "ab") as f:
+                        fd = None
+                        f.write((json.dumps(registro, ensure_ascii=False) + "\n").encode("utf-8"))
+                        f.flush(); os.fsync(f.fileno())
+                finally:
+                    if fd is not None: os.close(fd)
+                estado.update(seq=seq, cabeca=mac)
+                S.gravar_atomico_restrito(S.caminho_ancora_auditoria(os.path.dirname(self.dir)),
+                                         json.dumps(S.proteger(json.dumps(estado).encode())).encode())
+            except Exception:
+                raise RuntimeError("Falha na integridade/persistência da auditoria; log e âncora preservados para conferência.") from None
 
     def auditoria(self, n=200):
-        if not os.path.exists(self.log): return []
-        linhas = open(self.log, encoding="utf-8").read().splitlines()[-n:]
-        return [json.loads(x) for x in reversed(linhas)]
+        import seguranca_local as S
+        with _trava, S.trava_auditoria(os.path.dirname(self.dir)):
+            if not self.verificar_auditoria()["integra"]:
+                raise RuntimeError("Integridade da auditoria não confirmada.")
+            if not os.path.exists(self.log): return []
+            with open(self.log, encoding="utf-8") as f: linhas = f.read().splitlines()[-n:]
+            return [json.loads(x) for x in reversed(linhas)]

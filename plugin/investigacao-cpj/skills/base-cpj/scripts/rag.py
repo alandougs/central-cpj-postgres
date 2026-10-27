@@ -45,18 +45,30 @@ def norm(v, tipo=None):
     return v.lower()
 
 
-def buscar(q, caso=None, tipo=None, modalidade=None, n=10, fts=False):
-    """Retorna (lista de dicts, aviso|None)."""
-    db = conectar()
-    termos = ['"' + t.replace('"', "") + '"' for t in re.findall(r"[\w@.\-/]+", q)]
-    if not termos and not fts: return [], None
-    sql = ("SELECT t.caso, t.arquivo, t.tipo, t.pagina, t.fls, t.secao, "
-           "snippet(trechos_fts, 0, '[', ']', ' … ', 24) FROM trechos_fts JOIN trechos t ON t.id = trechos_fts.rowid "
-           "WHERE trechos_fts MATCH ?")
-    filtros = []
+MODOS = ("auto", "lexical", "semantico", "hibrido")
+RRF_K = 60  # constante usual da fusão por posto recíproco; amortece o topo de cada lista
+
+
+def _filtros(caso, tipo, modalidade):
+    sql, vals = "", []
     for campo, v in (("t.caso", caso), ("t.tipo", tipo), ("t.modalidade", modalidade)):
-        if v: sql += f" AND {campo} = ?"; filtros.append(v)
-    sql += " ORDER BY bm25(trechos_fts) LIMIT ?"
+        if v: sql += f" AND {campo} = ?"; vals.append(v)
+    return sql, vals
+
+
+def _resumo(texto, limite=240):
+    t = re.sub(r"\s+", " ", texto or "").strip()
+    return t[:limite] + (" …" if len(t) > limite else "")
+
+
+def _lexical(db, q, caso, tipo, modalidade, n, fts):
+    """(ids por bm25, {id: snippet}, aviso)."""
+    termos = ['"' + t.replace('"', "") + '"' for t in re.findall(r"[\w@.\-/]+", q)]
+    if not termos and not fts: return [], {}, None
+    extra, filtros = _filtros(caso, tipo, modalidade)
+    sql = ("SELECT trechos_fts.rowid, snippet(trechos_fts, 0, '[', ']', ' … ', 24) "
+           "FROM trechos_fts JOIN trechos t ON t.id = trechos_fts.rowid "
+           "WHERE trechos_fts MATCH ?" + extra + " ORDER BY bm25(trechos_fts) LIMIT ?")
 
     def roda(expr):
         try: return db.execute(sql, [expr] + filtros + [n]).fetchall()
@@ -67,8 +79,83 @@ def buscar(q, caso=None, tipo=None, modalidade=None, n=10, fts=False):
     if not res and not fts and len(termos) > 1:
         res = roda(" OR ".join(termos))
         if res: aviso = "Nenhum trecho contém todos os termos; mostrando trechos com parte deles (o OCR pode ter unido/alterado palavras)."
-    db.close()
-    return [dict(zip(("caso", "arquivo", "tipo", "pagina", "fls", "secao", "trecho"), r)) for r in res], aviso
+    return [r[0] for r in res], {r[0]: r[1] for r in res}, aviso
+
+
+def tem_vetores(db):
+    try:
+        return bool(db.execute("SELECT 1 FROM trechos WHERE embedding IS NOT NULL LIMIT 1").fetchone())
+    except sqlite3.OperationalError:
+        return False
+
+
+def _semantico(db, q, caso, tipo, modalidade, n):
+    """[(id, similaridade)] por cosseno. Lista vazia se o recurso não estiver disponível."""
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import embeddings as EMB
+        import numpy as np
+    except Exception:
+        return []
+    if not EMB.disponivel(): return []
+    alvo = EMB.vetor(q)
+    if alvo is None: return []
+    extra, filtros = _filtros(caso, tipo, modalidade)
+    ids, mat = [], []
+    for ident, blob in db.execute(
+            "SELECT t.id, t.embedding FROM trechos t WHERE t.embedding IS NOT NULL" + extra, filtros):
+        v = EMB.desempacotar(blob)
+        if v.size == EMB.DIM:
+            ids.append(ident); mat.append(v)
+    if not ids: return []
+    sims = np.vstack(mat) @ EMB.desempacotar(alvo)
+    return [(ids[k], float(sims[k])) for k in np.argsort(-sims)[:n]]
+
+
+def buscar(q, caso=None, tipo=None, modalidade=None, n=10, fts=False, modo="auto"):
+    """Retorna (lista de dicts, aviso|None).
+
+    `auto` usa a busca híbrida quando a base tem vetores e cai para a textual
+    quando não tem; `--fts` (expressão FTS crua) continua estritamente textual.
+    """
+    db = conectar()
+    try:
+        modo = (modo or "auto").lower()
+        if modo not in MODOS: raise ValueError(f"Modo inválido: {modo}")
+        if modo == "auto": modo = "lexical" if fts else ("hibrido" if tem_vetores(db) else "lexical")
+        candidatos = max(n * 4, 20)
+
+        ids_lex, snippets, aviso = [], {}, None
+        if modo in ("lexical", "hibrido"):
+            ids_lex, snippets, aviso = _lexical(
+                db, q, caso, tipo, modalidade, n if modo == "lexical" else candidatos, fts)
+        sem = _semantico(db, q, caso, tipo, modalidade, candidatos) if modo in ("semantico", "hibrido") else []
+
+        if modo == "lexical":
+            ordem = ids_lex[:n]
+        elif modo == "semantico":
+            ordem = [i for i, _ in sem][:n]
+        else:
+            pontos = {}
+            for posto, i in enumerate(ids_lex): pontos[i] = pontos.get(i, 0.0) + 1.0 / (RRF_K + posto + 1)
+            for posto, (i, _) in enumerate(sem): pontos[i] = pontos.get(i, 0.0) + 1.0 / (RRF_K + posto + 1)
+            ordem = [i for i, _ in sorted(pontos.items(), key=lambda kv: -kv[1])][:n]
+            if ordem and not ids_lex:
+                aviso = "Nenhum trecho contém os termos; resultado por proximidade de sentido. Confira o texto nos autos."
+        if not ordem: return [], aviso
+
+        marcas = ",".join("?" * len(ordem))
+        linhas = {r[0]: r for r in db.execute(
+            f"SELECT id, caso, arquivo, tipo, pagina, fls, secao, texto FROM trechos WHERE id IN ({marcas})", ordem)}
+        saida = []
+        for i in ordem:
+            r = linhas.get(i)
+            if not r: continue
+            saida.append(dict(zip(("caso", "arquivo", "tipo", "pagina", "fls", "secao", "trecho"),
+                                  (r[1], r[2], r[3], r[4], r[5], r[6], snippets.get(i) or _resumo(r[7])))))
+        return saida, aviso
+    finally:
+        db.close()
 
 
 def entidade(valor, tipo=None):
@@ -86,7 +173,7 @@ def cruzar(id_):
     db = conectar()
     res = db.execute("""
       SELECT e.tipo, e.valor, o.caso, group_concat(DISTINCT o.pagina)
-      FROM entidades e JOIN entidades o ON o.valor_norm = e.valor_norm AND o.caso <> e.caso
+      FROM entidades e JOIN entidades o ON o.valor_norm = e.valor_norm AND upper(o.tipo) = upper(e.tipo) AND o.caso <> e.caso
       WHERE e.caso = ? AND length(e.valor_norm) >= 6 AND e.tipo NOT IN ('DATA','FLS','VALOR')
       GROUP BY e.tipo, e.valor_norm, o.caso ORDER BY e.tipo""", (id_,)).fetchall(); db.close()
     return [dict(zip(("tipo", "valor", "outro_caso", "paginas"), r)) for r in res]
@@ -411,6 +498,10 @@ def stats():
            "documentos": db.execute("SELECT COUNT(*) FROM docs").fetchone()[0],
            "entidades": db.execute("SELECT COUNT(*) FROM entidades").fetchone()[0],
            "casos": db.execute("SELECT COUNT(DISTINCT caso) FROM trechos WHERE caso IS NOT NULL").fetchone()[0]}
+    try:
+        out["vetores"] = db.execute("SELECT COUNT(*) FROM trechos WHERE embedding IS NOT NULL").fetchone()[0]
+    except sqlite3.OperationalError:
+        out["vetores"] = 0
     db.close(); return out
 
 
@@ -420,6 +511,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(); sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("buscar"); s.add_argument("q"); s.add_argument("--caso"); s.add_argument("--tipo")
     s.add_argument("--modalidade"); s.add_argument("-n", type=int, default=10); s.add_argument("--fts", action="store_true")
+    s.add_argument("--modo", choices=MODOS, default="auto",
+                   help="auto: híbrida se a base tiver vetores; lexical: só FTS; semantico: só vetores")
     s = sub.add_parser("entidade"); s.add_argument("valor"); s.add_argument("--tipo")
     s = sub.add_parser("cruzar"); s.add_argument("id")
     s = sub.add_parser("exemplos"); s.add_argument("modalidade", nargs="?"); s.add_argument("-n", type=int, default=3)
@@ -430,7 +523,7 @@ if __name__ == "__main__":
     a = ap.parse_args()
     try:
         if a.cmd == "buscar":
-            res, aviso = buscar(a.q, a.caso, a.tipo, a.modalidade, a.n, a.fts)
+            res, aviso = buscar(a.q, a.caso, a.tipo, a.modalidade, a.n, a.fts, a.modo)
             if aviso: print(f"({aviso})")
             if not res: print("Nada encontrado.")
             for r in res:
@@ -461,5 +554,6 @@ if __name__ == "__main__":
             s = stats()
             for t, n in s["trechos"].items(): print(f"  trechos {t:<12} {n}")
             print(f"  documentos       {s['documentos']}\n  entidades        {s['entidades']}\n  casos no índice  {s['casos']}")
+            print(f"  vetores (híbrida) {s['vetores']}")
     except (FileNotFoundError, ValueError) as e:
         raise SystemExit(f"ERRO: {e}")

@@ -108,6 +108,7 @@ from rotas.comum import (  # noqa: E402
 )
 from rotas.relatorios import CAMPOS_MINUTA, ler_minuta, ultima_minuta  # noqa: E402
 from rotas import registrar_rotas  # noqa: E402
+from web_seguro import CSP_INTERFACE, configurar_escuta, criar_servidor_wsgi, proteger_requisicao, drenar_corpo_de_erro  # noqa: E402
 
 app = Flask(__name__, static_folder=os.path.join(AQUI, "static"), static_url_path="/static")
 app.config.update(
@@ -121,17 +122,17 @@ app.config.update(
 
 @app.before_request
 def protege_post():
-    # mitigação de CSRF: toda escrita exige o cabeçalho enviado pela própria interface
-    if request.method == "POST" and request.headers.get("X-CPJ") != "1":
-        abort(403)
+    return proteger_requisicao()
 
 
 @app.after_request
 def cabecalhos(r):
+    r = drenar_corpo_de_erro(r)
     r.headers["X-Content-Type-Options"] = "nosniff"
     r.headers["X-Frame-Options"] = "SAMEORIGIN"
     r.headers["Referrer-Policy"] = "no-referrer"
     r.headers["Cache-Control"] = "no-store"
+    r.headers.setdefault("Content-Security-Policy", CSP_INTERFACE)
     return r
 
 
@@ -264,21 +265,26 @@ if __name__ == "__main__":
     ap.add_argument("--somente-local", action="store_true")
     a = ap.parse_args()
 
-    os.makedirs(C.CASOS, exist_ok=True)
-    threading.Thread(target=trabalhador, daemon=True).start()
-    retomar_pendentes()
     cfg = rede_cfg()
     porta = a.porta or cfg["porta"]
-    rede = cfg["compartilhar"] and not a.somente_local
-    if rede and auth.ha_senha_temporaria():
+    temporarias = bool(cfg["compartilhar"] and not a.somente_local and auth.ha_senha_temporaria())
+    try:
+        host, rede = configurar_escuta(cfg, a.host, a.somente_local, temporarias)
+    except ValueError as e:
+        ap.error(str(e))
+    if temporarias:
         print("AVISO: há usuários com senha temporária — acesso pela rede NÃO foi habilitado até que troquem a senha.")
-        rede = False
-    host, ssl = ("0.0.0.0", certificado() if cfg["https"] else None) if rede else (a.host, None)
+    ssl = certificado() if rede else None
     if ssl:
         app.config["SESSION_COOKIE_SECURE"] = True
     app.config["REDE_ATIVA"] = rede
+    app.config["CPJ_HOSTS_REDE"] = tuple(ips_locais() + [socket.gethostname().lower()]) if rede else ()
+    servidor_wsgi = criar_servidor_wsgi(app, host, porta, ssl)
+    os.makedirs(C.CASOS, exist_ok=True)
+    threading.Thread(target=trabalhador, daemon=True).start()
+    retomar_pendentes()
     url = f"{'https' if ssl else 'http'}://127.0.0.1:{porta}/"
-    print(f"Central CPJ em {url}  (workspace: {WS})")
+    print(f"Central CPJ em {url}  (workspace: {WS})", flush=True)
     if rede:
         print(
             "ACESSO PELA REDE LOCAL HABILITADO:",
@@ -287,4 +293,9 @@ if __name__ == "__main__":
     print("Feche esta janela para encerrar.")
     if not a.sem_navegador:
         threading.Timer(1.2, lambda: webbrowser.open(url)).start()
-    app.run(host=host, port=porta, threaded=True, debug=False, ssl_context=ssl)
+    try:
+        servidor_wsgi.start()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        servidor_wsgi.stop()

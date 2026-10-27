@@ -1,8 +1,12 @@
 # Pipeline completo do IP com pontos de aprovação
 
-*Arquivo portátil gerado em 2026-10-17 03:03 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
+No workspace, comece pela memória central `MEMORIA.md` e pelas fontes vivas ali indicadas; este portátil é um instantâneo para uso fora dele.
+
+*Arquivo portátil gerado em 2026-10-27 16:08 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
 
 ## Regras obrigatórias
+
+> **Índice das regras:** 1 só o caso indicado · 2 fato × relato × indício × inferência × lacuna · 3 sem completar dado incerto · 4 sem atribuir autoria · 5 `00-originais` intocável · 6 processamento local; provedor externo só se ativado · 7 nada de caso em `acervo\`, `calibracao\` ou GitHub · 8 toda saída é minuta · 9 `consulta\` e `referencias\` não são fonte de fatos · 10 OSINT de empresa · 11 dados faltantes em CAIXA ALTA · 12 gênero da autoridade · 13 estilo e formatação do relatório · 14 um agente por O.S. · 15 Referência só com IPe e Processo · 16 `scope-guard` e `no-gold-plating` · 17 a O.S. manda no relatório · 18 autorização permanente do Codex · 19 análise inclui o relatório em DOCX · 20 O.S. transcrita em Markdown · 21 extração enxuta só em Markdown · 22 memória central `MEMORIA.md` · 23 orquestração com coordenador.
 
 1. Trabalhe só com os documentos do caso indicado. Não invente fatos, pessoas, números, datas, jurisprudência ou diligências.
 2. Separe **fato documentado × relato × indício × inferência/hipótese × lacuna**. Cite a origem: `(pág. N do PDF; fls. X)`.
@@ -30,14 +34,19 @@
 
 16. **Limites e sem extras (determinação do usuário, 02/10/2026) — skills `scope-guard` e `no-gold-plating`, em `.claude\skills\` e `.agents\skills\`:** *scope-guard* = não saia destes limites: fixe o pedido, os arquivos reservados na fila e o caso/O.S. antes de agir, e pare e peça autorização antes de ultrapassá-los; defeito ou melhoria fora do escopo vira uma linha no relato ou proposta na fila, não correção. *no-gold-plating* = não invente melhorias que ninguém pediu: entregue o pedido, no tamanho pedido; extra vale no máximo uma linha de sugestão. Vale para todos os agentes; quem não carrega skills (Gemini, chat, modelo local) deve ler os dois `SKILL.md` antes de começar. As regras de governança, o teste da mudança e o registro na fila não são "extras".
 
-17. **A Ordem de Serviço manda no relatório (determinação do usuário, 05/10/2026):** o relatório de investigação deve atender **principalmente** às solicitações da O.S. — geralmente a **última** O.S. do procedimento. O sistema/agente deve (a) identificar a O.S. vigente nos documentos do caso, (b) extrair cada solicitação/determinação do Delegado de Polícia, (c) registrá-las em `02-analise\solicitacoes-os.md` (item, trecho com pág./fls., onde o relatório responde), (d) responder a cada item no relatório, e (e) tratar item não atendido como ressalva objetiva na Conclusão + aviso em CAIXA ALTA (`DADOS FALTANTES — PROVIDENCIAR (OPERADOR)`). Sem a O.S. localizada, parar e avisar o operador antes de redigir. A revisão reprova minuta que não responda a item da O.S. (f) **Cumprir todas as solicitações que for possível** com os documentos do caso e, no mais, fazer as análises de fraude/estelionato pelas regras de sempre (caminho do dinheiro, art. 171, lacunas). (g) **Escrita sempre humanizada** (texto corrido, natural, como o investigador escreveria; sem tom robótico ou de lista). (h) **CNPJ necessário e ausente dos autos:** pesquisar por OSINT de empresa (skill `osint-policial`; `skillsnalise-ip-fraude
-eferences\osint-empresas.md`; só CNPJ/razão social/cidade, duas fontes, citando a fonte) e inserir o dado no relatório no contexto adequado; não achando, `[PESQUISAR: CNPJ]` + aviso em CAIXA ALTA. Detalhe: `plugin\investigacao-cpj\skills\relatorio-ip-fraude\SKILL.md` (item 10) e `skills\analise-ip-fraude\SKILL.md` (passo 0).
+17. **A Ordem de Serviço manda no relatório (determinação do usuário, 05/10/2026):** o relatório de investigação deve atender **principalmente** às solicitações da O.S. — geralmente a **última** O.S. do procedimento. O sistema/agente deve (a) identificar a O.S. vigente nos documentos do caso, (b) extrair cada solicitação/determinação do Delegado de Polícia, (c) registrá-las em `02-analise\solicitacoes-os.md` (item, trecho com pág./fls., onde o relatório responde), (d) responder a cada item no relatório, e (e) tratar item não atendido como ressalva objetiva na Conclusão + aviso em CAIXA ALTA (`DADOS FALTANTES — PROVIDENCIAR (OPERADOR)`). Sem a O.S. localizada, parar e avisar o operador antes de redigir. A revisão reprova minuta que não responda a item da O.S. (f) **Cumprir todas as solicitações que for possível** com os documentos do caso e, no mais, fazer as análises de fraude/estelionato pelas regras de sempre (caminho do dinheiro, art. 171, lacunas). (g) **Escrita sempre humanizada** (texto corrido, natural, como o investigador escreveria; sem tom robótico ou de lista). (h) **CNPJ necessário e ausente dos autos:** pesquisar por OSINT de empresa (skill `osint-policial`; `plugin\investigacao-cpj\skills\analise-ip-fraude\references\osint-empresas.md`; só CNPJ/razão social/cidade, duas fontes, citando a fonte) e inserir o dado no relatório no contexto adequado; não achando, `[PESQUISAR: CNPJ]` + aviso em CAIXA ALTA. Detalhe: `plugin\investigacao-cpj\skills\relatorio-ip-fraude\SKILL.md` (item 10) e `skills\analise-ip-fraude\SKILL.md` (passo 0).
 
 18. **Autorização permanente do operador para o Codex (05/10/2026):** o investigador responsável autorizou expressamente nesta sessão: "Autorizo sempre, gravar regra. (Codex vai revisar e corrigir)". O Codex está autorizado a ler autos, imagens, extrações e minutas deste projeto nas sessões de chat em que o operador solicitar análise, revisão ou correção, e a produzir/corrigir as minutas correspondentes. Não pedir novamente confirmação de uso desta sessão/modelo para esses pedidos. Esta autorização expressa prevalece sobre as restrições genéricas de inferência externa nos adaptadores de skills e na seção 5 abaixo. Não autoriza publicação, envio a outros serviços/provedores, pesquisa de pessoas físicas ou alteração dos originais; as demais regras de sigilo, fontes, reserva e revisão humana permanecem aplicáveis.
 
 19. **Análise inclui relatório (determinação do investigador, 14/10/2026):** quando o operador pedir análise de um caso/O.S., a entrega inclui análise, redação, revisão e geração da **minuta do relatório de investigação policial em DOCX**. Não encerrar a demanda apenas com arquivos de análise, salvo pedido expresso de análise técnica isolada. Preservar os contratos exclusivos das etapas intermediárias: cada analista de bloco continua fazendo apenas sua etapa; a fila encadeia a redação e a revisão, sem duplicar o relatório em cada bloco.
 
 20. **O.S. transcrita em Markdown (determinação do investigador, 14/10/2026):** ao extrair/importar os autos, localizar e transcrever fielmente as Ordens de Serviço em `01-extracao\<documento>\ordens-de-servico\`, com origem, páginas e índice rastreável. Procurar especialmente nas páginas finais, sem presumir que posição equivale à ordem mais recente. Conferir vigência pela data e pelo conteúdo, preservar as anteriores pertinentes e verificar continuações no PDF. Antes de redigir, ler a O.S. transcrita e registrar cada solicitação em `02-analise\solicitacoes-os.md`; a minuta responde cada item, e a revisão confere seu atendimento. Sem O.S. localizada ou com extração incompleta, não inventar seu conteúdo: registrar a lacuna e avisar o operador antes da redação.
+
+21. **Extração enxuta (determinação de 27/10/2026):** novos PDFs geram somente Markdown como extração documental, sem tabelas/entidades CSV ou consolidação JSON derivados. Preservar PDFs originais, rastreabilidade por página, O.S. em Markdown e metadados/checkpoints essenciais consolidados. Não apagar por extensão: a limpeza autorizada remove somente derivados reconhecidos após arquivo de recuperação verificado e conferência de integridade; preservar dados incompletos/divergentes, relatórios, análises e estado necessário.
+
+22. **Memória central (determinação de 27/10/2026):** iniciar pelo `MEMORIA.md` da raiz, ponto de entrada compartilhado de todos os agentes para as fontes canônicas. Regras em `AGENTS.md`; arquitetura/estado em `PRD.md` e documentos canônicos; tarefa/reserva na fila; lições genéricas aprovadas em `calibracao/licoes-aprendidas.md`. Não criar memórias concorrentes por agente/pasta nem duplicar regras. Fatos e contexto de cada O.S. ficam no próprio caso. Consolidar somente aprendizado genérico revisado com origem/data/evidência; nunca transferir autos ou dados pessoais para memória global. Registros históricos não prevalecem sobre determinação posterior explícita.
+
+23. **Orquestração de agentes (determinação de 27/10/2026):** sempre há um coordenador responsável por delimitar escopo, atribuir/reservar tarefas, integrar, validar e comunicar o resultado. Ele pode criar executores de igual hierarquia/capacidade ou menor conforme necessário. Preferência: Astra na coordenação; Sol, Terra e Luna nas tarefas compatíveis com sua capacidade e complexidade. Selecionar o menor custo de tokens que preserve eficiência e acerto; tarefas com incerteza ou maior risco sobem ao coordenador/modelo mais capaz. Auditoria independente da redação; nenhum agente aprova por mera confiança outro resultado sem evidência. Delegar instruções focadas e contexto mínimo, evitar trabalho e chamadas repetidos, respeitar reservas e persistir até concluir o escopo autorizado. Essa política não autoriza ativar provedores, trocar executor/modelo padrão ou realizar chamadas externas sem os consentimentos existentes; não criar projeto de orquestração concorrente. Não ultrapassar os limites do projeto ou acrescentar melhorias alheias ao pedido.
 
 Governança completa: `acervo\repo-ia-alandougs\governanca\seguranca-e-dados.md`.
 
@@ -50,6 +59,8 @@ Governança completa: `acervo\repo-ia-alandougs\governanca\seguranca-e-dados.md`
 ## Fonte: `plugin/investigacao-cpj/commands/fluxo-ip.md`
 
 > Executa o pipeline completo do IP - caso, processamento, análise, relatório e DOCX - com paradas para aprovação
+
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
 
 Execute o pipeline completo para: [ARGUMENTOS: informe o ID do caso (ex.: OS-123-2026) e observações]
 
@@ -68,22 +79,25 @@ Um lembrete por conversa: conferir se o uso desta conta é compatível com o sig
 
 ## Fonte: `plugin/investigacao-cpj/commands/processar-ip.md`
 
-> Processa os arquivos do caso (PDF → diagnóstico, OCR, Markdown por página, CSV, entidades e JSON; ou MD/CSV prontos) e completa a transcrição visual das páginas pendentes
+> Processa novos PDFs em Markdown por página, com O.S. em Markdown e checkpoint essencial único; sem derivados CSV/JSON
+
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
 
 Processe o material do caso: [ARGUMENTOS: informe o ID do caso (ex.: OS-123-2026) e observações]
 
-Use a skill `pdf-autos-policiais`. Caminhos: `$S = "plugin\investigacao-cpj\skills\pdf-autos-policiais\scripts"`, `$B = "plugin\investigacao-cpj\skills\base-cpj\scripts"`, caso em `casos\<ID>\`.
+Leia primeiro a skill `pdf-autos-policiais`. Use os scripts originais em `plugin/investigacao-cpj/skills/pdf-autos-policiais/scripts`; caso em `casos/<ID>/`.
 
-1. **Verifique `processamento.json`** do caso. Documentos já `concluido` pela Central CPJ **não** devem ser reprocessados. Documentos em `na_fila`/`processando`: aguarde (a Central está trabalhando). Em `erro`: leia `01-extracao\<doc>\processamento.log`, explique e corrija.
-2. Para cada arquivo de `00-originais\` ainda sem pasta em `01-extracao\` (quando o usuário não usou a Central), com `$E = "...\01-extracao\<nome do arquivo sem extensão>"`:
-   - **PDF:** `$env:PATH += ";C:\Program Files\Tesseract-OCR"`; se existir `ferramentas\tessdata\por.traineddata`, `$env:TESSDATA_PREFIX = "$PWD\ferramentas\tessdata"`. Rode `diagnostico.py` → `extrair.py <pdf> --saida $E --lang por` (use `eng` só se `por` não existir, e avise) → `tabelas.py <pdf> --saida $E` → `tabelas.py $E\transcricao.md --saida $E` → `entidades.py $E\transcricao.md` → `dados_json.py $E` → `caso.py ip <ID> $E\relatorio_extracao.json`.
-   - **MD:** copie para `$E\transcricao.md` → `tabelas.py` → `entidades.py` → `dados_json.py $E`. **CSV:** copie para `$E\tabelas\` → `dados_json.py $E`.
-3. **Complete o que a máquina não resolve:** para páginas em `pendentes_transcricao_visual` ou `conferir_visualmente` (`relatorio_extracao.json`), leia os PNGs de `$E\paginas_visao\` em lotes de ~20, grave `$E\transcricoes_visuais\pNNNN.md` pelas regras de transcrição da skill (tabelas em Markdown) e rode `extrair.py` de novo + `tabelas.py`/`entidades.py`/`dados_json.py` sobre a transcrição. Se forem muitas páginas, informe o volume antes e pergunte se deve priorizar só as páginas críticas (extratos, comprovantes, qualificações).
-4. Atualize `registro-tratamento.md`, rode `python "$B\indexar.py"` e resuma: páginas por método, pendências, tabelas CSV, entidades e JSON consolidado. Próximo passo: `/analisar-ip <ID>`.
+1. Confira `processamento.json`: não reprocessar documento concluído nem concorrer com extração na fila/em andamento. Em erro, leia o log daquele documento e preserve checkpoints e originais.
+2. Para novo PDF ainda não processado, rode `extrair.py <pdf> --saida <pasta-da-extracao> --lang por`. Use OCR local disponível; ausência/ilegibilidade é pendência, nunca sucesso presumido. A extração gera `transcricao.md` com páginas, O.S. em Markdown e um checkpoint essencial consolidado. **Não executar tabelas.py, entidades.py nem dados_json.py no fluxo dos novos PDFs.** Não criar arquivo por página apenas para indexar no RAG. Para registrar metadados no caso, use `caso.py ip <ID> <pasta-da-extracao>` (leitor do estado consolidado).
+3. Para transcrição visual pendente, consulte o estado pelo leitor `estado_extracao.ler(pasta, 'relatorio_extracao.json')`; preserve a distinção entre transcrição confirmada e dado duvidoso. Observe consentimentos antes de qualquer provedor externo. Complete a transcrição conforme a skill e reprocesse apenas o necessário, sem gerar derivados CSV/JSON.
+4. Material MD/CSV fornecido pelo operador continua sendo original e não deve ser descartado; sua importação legada não autoriza recriar CSV/JSON para os novos PDFs.
+5. Atualize registro de tratamento e estado do caso, preservando SHA-256 do original; indexe pelos scripts existentes quando a etapa exigir. Resuma páginas/método, pendências e localização do Markdown. Próximo passo: `/analisar-ip <ID>`.
 
 ## Fonte: `plugin/investigacao-cpj/commands/analisar-ip.md`
 
 > Analisa o IP de fraude/estelionato - ficha, cronologia, pessoas, caminho do dinheiro, elementos do art. 171, lacunas
+
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
 
 Analise o caso: [ARGUMENTOS: informe o ID do caso (ex.: OS-123-2026) e observações]
 
@@ -102,6 +116,8 @@ Entregue resumo curto: modalidade, cronologia essencial, caminho do dinheiro com
 ## Fonte: `plugin/investigacao-cpj/commands/relatorio-ip.md`
 
 > Redige a minuta do Relatório de Investigação no modelo CPJ, revisa contra as fontes e gera o DOCX com timbre e assinatura
+
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
 
 Elabore o relatório do caso: [ARGUMENTOS: informe o ID do caso (ex.: OS-123-2026) e observações]
 

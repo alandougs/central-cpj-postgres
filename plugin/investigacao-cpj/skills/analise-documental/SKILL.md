@@ -5,6 +5,8 @@ description: Organiza achados de documentos autorizados com localizadores, separ
 
 # Análise documental rastreável
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 ## Quando usar
 
 Quando o usuário pedir leitura, síntese, comparação ou revisão de documentos fornecidos em um ambiente autorizado. Não use para atribuir automaticamente autoria ou recomendar medida invasiva.

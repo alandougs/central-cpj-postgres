@@ -10,6 +10,8 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.normpath(os.path.join(AQUI, "..", ".."))
 RAIZ = os.path.normpath(os.path.join(PLUGIN, "..", ".."))
 SP = os.path.join(PLUGIN, "skills", "pdf-autos-policiais", "scripts")
+from teste_extracao_markdown_md01 import estado as estado_md01
+
 T = tempfile.mkdtemp(prefix="cpj-l05-")
 falhas = []
 
@@ -32,7 +34,7 @@ def extrair(pdf, saida, *extra):
     r = subprocess.run([sys.executable, "-X", "utf8", os.path.join(SP, "extrair.py"), pdf, "--saida", saida, "--lang", "por", *extra],
                        env=env, capture_output=True, text=True, encoding="utf-8", timeout=600)
     if r.returncode != 0: print(r.stderr[-800:])
-    return r, json.load(open(os.path.join(saida, "relatorio_extracao.json"), encoding="utf-8"))
+    return r, estado_md01.ler(saida, "relatorio_extracao.json")
 
 
 def transcricao(saida):
@@ -71,7 +73,7 @@ try:
     t0 = time.time(); r, rel = extrair(pdf, s1); t_cheio = time.time() - t0
     ok(r.returncode == 0 and rel["metodos"].get("ocr-tesseract") == 4, f"4 páginas por OCR ({rel['metodos']})")
     ok(rel["paginas_reaproveitadas"] == 0, "nada reaproveitado na primeira vez")
-    ok(len(glob.glob(os.path.join(s1, ".checkpoint", "p*.json"))) == 4, "um checkpoint por página")
+    ok(len(json.loads(estado_md01.arquivo(s1).read_text(encoding="utf-8"))["paginas"]) == 4, "quatro páginas no checkpoint único")
     ok(rel["conferir_visualmente"] == [4] and os.path.exists(os.path.join(s1, "paginas_visao", "p0004.png")),
        "página em branco marcada para conferência com imagem")
     base = transcricao(s1)
@@ -79,7 +81,7 @@ try:
 
     print("L05.2 Uma única passada do Tesseract, mesmo texto do image_to_string")
     esperado = pytesseract.image_to_string(pags[0], lang="por").strip()
-    ck = json.load(open(os.path.join(s1, ".checkpoint", "p0001.json"), encoding="utf-8"))
+    ck = estado_md01.ler(s1, ".checkpoint/p0001.json")
     ok(ck["reg"]["texto"] == esperado, "texto de image_to_data reconstruído = image_to_string (página 1)")
     src = open(os.path.join(SP, "extrair.py"), encoding="utf-8").read()
     ok("pytesseract.image_to_string(" not in src and src.count("pytesseract.image_to_data(") == 1,
@@ -99,8 +101,10 @@ try:
     ok(tab1 == tab2, "tabelas (CSV) idênticas após o reaproveitamento")
 
     print("L05.4 Queda no meio: só as páginas faltantes são refeitas")
-    os.remove(os.path.join(s1, ".checkpoint", "p0002.json"))
-    open(os.path.join(s1, ".checkpoint", "p0003.json"), "w", encoding="utf-8").write('{"reg": {"pagina": 3, "met')  # gravação interrompida
+    paginas_ck = json.loads(estado_md01.arquivo(s1).read_text(encoding="utf-8"))["paginas"]
+    paginas_ck.pop("2")
+    paginas_ck["3"] = {"reg": {"pagina": 3}}  # registro incompleto
+    estado_md01.atualizar(s1, "paginas", paginas_ck)
     r, rel = extrair(pdf, s1)
     ok(rel["paginas_reaproveitadas"] == 2, "checkpoint ausente e corrompido são refeitos; os íntegros reaproveitados")
     ok(transcricao(s1) == base, "resultado idêntico ao da extração completa")
@@ -110,7 +114,7 @@ try:
     for ln in p.stderr:
         if ln.startswith("progresso 2/"): p.kill(); break
     p.wait(30)
-    feitas = len(glob.glob(os.path.join(s2, ".checkpoint", "p*.json")))
+    feitas = len(json.loads(estado_md01.arquivo(s2).read_text(encoding="utf-8"))["paginas"])
     ok(feitas >= 2 and not os.path.exists(os.path.join(s2, "transcricao.md")), f"processo morto após 2 páginas deixou {feitas} checkpoint(s)")
     r, rel = extrair(pdf, s2)
     ok(rel["paginas_reaproveitadas"] >= 2 and transcricao(s2) == base, "retomada termina só o que faltava, com o mesmo texto")

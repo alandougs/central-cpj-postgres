@@ -171,3 +171,5 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 .ft-in{max-width:1380px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
 
+
+.linha-concluida>td{background:var(--good-soft)}

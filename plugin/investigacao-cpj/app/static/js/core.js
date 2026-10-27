@@ -34,7 +34,9 @@ function badge(st){const m={processando:["b-run","processando"],executando:["b-r
 
 function prazoBadge(c){if(!c.prazo)return '<span class="muted">—</span>';const s=c.situacao_prazo,t={vencido:"⛔ vencido",hoje:"⚠ vence hoje",proximo:"⏳ "+dt(c.prazo)}[s];return t?`<span class="badge pz-${s}">${t}</span>`:`<span class="muted">${dt(c.prazo)}</span>`}
 
-$("#tema").onclick=()=>{const r=document.documentElement,d=r.dataset.theme==="dark"||(!r.dataset.theme&&matchMedia("(prefers-color-scheme: dark)").matches);r.dataset.theme=d?"light":"dark"};
+function sincronizarTemaPainel(){try{const r=document.documentElement,p=$("#if-painel").contentDocument;if(p)p.documentElement.dataset.theme=r.dataset.theme||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch(e){}}
+$("#if-painel").addEventListener("load",sincronizarTemaPainel);
+$("#tema").onclick=()=>{const r=document.documentElement,d=r.dataset.theme==="dark"||(!r.dataset.theme&&matchMedia("(prefers-color-scheme: dark)").matches);r.dataset.theme=d?"light":"dark";sincronizarTemaPainel()};
 
 
 

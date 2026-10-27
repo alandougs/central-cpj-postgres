@@ -17,18 +17,21 @@ class FolhasAssinatura(opcoes.TesteOpcoesDocx):
         self.gerar('--sem-fluxograma')
         d=Document(self.rel/'saida.docx')
         texto='\n'.join([p.text for p in d.paragraphs]+[c.text for t in d.tables for row in t.rows for c in row.cells])
-        self.assertIn('(fls. 12–13)',texto)
-        self.assertIn('(fls. 27)',texto)
-        self.assertIn('(fls. 30–31)',texto)
+        self.assertIn('(Fls. 12–13)',texto)
+        self.assertIn('(Fls. 27)',texto)
+        self.assertIn('(Fls. 30–31)',texto)
         self.assertNotIn('do PDF',texto)
         self.assertEqual(sha,hashlib.sha256(self.minuta.read_bytes()).hexdigest())
 
     def test_so_pagina_pdf_nao_vira_folha_inventada(self):
         self.minuta.write_text(self.minuta.read_text(encoding='utf-8').replace('Documento fictício examinado.','Documento (pág. 19 do PDF), sem folha informada.'),encoding='utf-8')
+        sha=hashlib.sha256(self.minuta.read_bytes()).hexdigest()
         self.gerar('--sem-fluxograma')
         texto='\n'.join(p.text for p in Document(self.rel/'saida.docx').paragraphs)
-        self.assertIn('(pág. 19 do PDF)',texto)
-        self.assertNotIn('fls. 19',texto)
+        self.assertIn('[OBTER: FOLHAS DOS AUTOS]',texto)
+        self.assertNotIn('do PDF',texto)
+        self.assertNotRegex(texto,r'(?i)fls\.\s*19')
+        self.assertEqual(sha,hashlib.sha256(self.minuta.read_bytes()).hexdigest())
 
     def test_assinatura_incluida_junto_ao_subscritor_sem_pagina_forcada(self):
         medias=self.gerar('--sem-fluxograma')

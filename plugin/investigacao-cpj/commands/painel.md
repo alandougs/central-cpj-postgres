@@ -3,6 +3,8 @@ description: Atualiza a base e abre o painel de produção (dia, mês, ano, meta
 argument-hint: [ano-mês opcional]
 ---
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 Atualize e mostre a produção. $ARGUMENTS
 
 1. `python "plugin\investigacao-cpj\skills\base-cpj\scripts\indexar.py"`

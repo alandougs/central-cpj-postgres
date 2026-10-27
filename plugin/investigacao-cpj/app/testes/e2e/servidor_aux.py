@@ -66,13 +66,9 @@ class ServidorTesteE2E:
             encoding="utf-8",
         )
 
-        # 2. Copia modelos oficiais para que o gerador de DOCX encontre o template
-        modelos_orig = ROOT_DIR / "modelos"
-        if not any(modelos_orig.glob("*.docx")):
-            raise RuntimeError(f"Modelo DOCX oficial não encontrado em {modelos_orig}")
-        for item in modelos_orig.iterdir():
-            if item.is_file():
-                shutil.copy2(item, self.ws / "modelos" / item.name)
+        # 2. Modelo e assinatura geométricos: nunca ler/copiar modelos operacionais.
+        from testes.fixtures_docx import criar_modelo
+        criar_modelo(self.ws / "modelos")
 
         # 3. Configura modo solo ativo
         (self.ws / "config" / "solo.json").write_text(

@@ -23,6 +23,8 @@ def visual():
     m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
     return m
 
+from teste_extracao_markdown_md01 import estado as estado_md01
+
 class Visual(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="cpj-px05-")
@@ -177,7 +179,7 @@ class Visual(unittest.TestCase):
         t = (self.pasta / "transcricao.md").read_text(encoding="utf-8")
         self.assertIn("CONFERIR", t); self.assertIn("12?", t)
         self.assertEqual(hashlib.sha256(pdf.read_bytes()).hexdigest(), antes)
-        rel = json.loads((self.pasta / "relatorio_extracao.json").read_text(encoding="utf-8"))
+        rel = estado_md01.ler(self.pasta, "relatorio_extracao.json")
         self.assertEqual(rel["paginas"], 2)
         self.assertEqual(rel["pendentes_transcricao_visual"], [])
 
@@ -188,20 +190,20 @@ class Visual(unittest.TestCase):
         Image.new("RGB", (300, 400), "white").save(orig)
         r = subprocess.run([sys.executable, str(SCRIPT.with_name("extrair.py")), str(orig), "--saida", str(self.pasta), "--ocr", "visao", "--sem-reaproveitar"], env=dict(os.environ, CPJ_WORKSPACE=str(self.ws)), capture_output=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        meta_file = self.pasta / ".checkpoint/meta.json"
-        meta = json.loads(meta_file.read_text(encoding="utf-8")); incompleto = dict(meta); incompleto.pop("dpi")
-        meta_file.write_text(json.dumps(incompleto))
+        meta_file = estado_md01.arquivo(self.pasta)
+        meta = estado_md01.ler(self.pasta, ".checkpoint/meta.json"); incompleto = dict(meta); incompleto.pop("dpi")
+        estado_md01.atualizar(self.pasta, "meta", incompleto)
         with self.assertRaisesRegex(RuntimeError, "checkpoint|Checkpoint"):
             visual().validar_replay(self.pasta, orig)
-        meta_file.write_text(json.dumps(meta))
+        estado_md01.atualizar(self.pasta, "meta", meta)
         auto = dict(meta, ocr="auto", tesseract=True)
-        meta_file.write_text(json.dumps(auto))
+        estado_md01.atualizar(self.pasta, "meta", auto)
         ambiente = {"PATH": "TESSERACT-FICTICIO", "TESSDATA_PREFIX": "IDIOMA-FICTICIO"}
         with patch("pytesseract.get_languages", side_effect=AssertionError("Não consultar ambiente pai")), patch("subprocess.run", return_value=subprocess.CompletedProcess([], 0, stdout="true", stderr="")) as consulta:
             self.assertTrue(visual().validar_replay(self.pasta, orig, ambiente=ambiente)["tesseract"])
             self.assertEqual(consulta.call_args.kwargs["env"], ambiente)
             self.assertNotIn("image_to_data", str(consulta.call_args))
-        meta_file.write_text(json.dumps(meta))
+        estado_md01.atualizar(self.pasta, "meta", meta)
         (self.pasta / "qualidade.json").write_text("{}")
         (self.ws / "casos/OS-888-2099/caso.json").write_text('{"id":"OS-888-2099","status":"recebido","datas":{}}')
         (self.ws / "config").mkdir(exist_ok=True)
@@ -224,8 +226,9 @@ class Visual(unittest.TestCase):
         self.assertTrue(tasks.indexado)
         self.assertEqual(tasks.estado["uso_ia"]["tokens"], 12)
         self.assertIn("123?", (self.pasta / "transcricao.md").read_text(encoding="utf-8"))
-        self.assertTrue((self.pasta / "dados_extraidos.json").exists())
-        self.assertEqual(json.loads((self.pasta / "relatorio_extracao.json").read_text(encoding="utf-8"))["ocr_workers"], 0)
+        self.assertFalse((self.pasta / "dados_extraidos.json").exists())
+        self.assertTrue(estado_md01.arquivo(self.pasta).exists())
+        self.assertEqual(estado_md01.ler(self.pasta, "relatorio_extracao.json")["ocr_workers"], 0)
         # Arquivo já gravado é retomado sem novo envio.
         with patch.object(EL, "_http_json", side_effect=AssertionError("API repetida")):
             comum.transcricao_visual("visual-retomada-test", "OS-888-2099", plano, cons)
@@ -240,20 +243,60 @@ class Visual(unittest.TestCase):
             self.assertEqual(http.call_count, 1)
             self.assertFalse((self.pasta / "transcricoes_visuais/p0001.md").exists())
         (self.ws / "config/ia.json").write_text("{}")
-        atual = json.loads(meta_file.read_text(encoding="utf-8"))
+        atual = estado_md01.ler(self.pasta, ".checkpoint/meta.json")
         def altera_checkpoint(*a, **kw):
-            meta_file.write_text(json.dumps(dict(atual, min_chars=atual["min_chars"] + 1)))
+            estado_md01.atualizar(self.pasta, "meta", dict(atual, min_chars=atual["min_chars"] + 1))
             return resposta
         with patch.object(EL, "_http_json", side_effect=altera_checkpoint), patch.object(comum, "rodar") as replay:
             with self.assertRaisesRegex(RuntimeError, "checkpoint|Checkpoint"):
                 comum.transcricao_visual("visual-corrida-test", "OS-888-2099", plano, cons)
             replay.assert_not_called()
-        meta_file.write_text(json.dumps(atual))
+        estado_md01.atualizar(self.pasta, "meta", atual)
         (self.pasta / "transcricoes_visuais/p0001.md").unlink()
         orig.write_bytes(orig.read_bytes() + b"\n%MODIFICADO-FICTICIO")
         with patch.object(EL, "_http_json", return_value=resposta) as http:
             with self.assertRaisesRegex(RuntimeError, "original|SHA|checkpoint"):
                 comum.transcricao_visual("visual-hash-test", "OS-888-2099", plano, cons)
             http.assert_not_called()
+
+
+class LifetimeTrava(unittest.TestCase):
+    def verificar(self, falha):
+        with tempfile.TemporaryDirectory(prefix='cpj-px05-lifetime-') as td:
+            codigo = r"""
+import json,os,runpy,subprocess,sys
+from pathlib import Path
+from unittest.mock import patch
+from pypdf import PdfWriter
+script=Path(sys.argv[1]);raiz=Path(sys.argv[2]);falha=sys.argv[3]=='erro'
+sys.path.insert(0,str(script.parent));import estado_extracao as estado
+pdf=raiz/'ficticio.pdf';saida=raiz/'extracao'
+w=PdfWriter();w.add_blank_page(width=300,height=400);w.write(pdf)
+args=[str(script),str(pdf),'--saida',str(saida),'--ocr','visao','--sem-reaproveitar']
+atualizar=estado.atualizar
+def salvar(*a,**k):
+ if falha:raise OSError('falha ficticia no relatorio')
+ return atualizar(*a,**k)
+with patch.object(sys,'argv',args),patch.object(estado,'atualizar',side_effect=salvar):
+ try:runpy.run_path(str(script),run_name='__main__')
+ except OSError as erro:
+  assert falha and str(erro)=='falha ficticia no relatorio',str(erro)
+ else:assert not falha,'Falha controlada nao ocorreu'
+# O chamador continua vivo: outro extrator deve poder adquirir a mesma trava.
+r=subprocess.run([sys.executable,'-X','utf8',*args,'--espera-trava','.15'],capture_output=True,timeout=10)
+assert r.returncode==0,r.stderr.decode('utf-8','replace')
+assert (saida/'.checkpoint/extracao.lock').read_bytes()==b'\0'
+print('lifetime liberado: '+('erro' if falha else 'sucesso'))
+"""
+            r=subprocess.run([sys.executable,'-X','utf8','-c',codigo,str(SCRIPT.with_name('extrair.py')),td,
+                              'erro' if falha else 'sucesso'],capture_output=True,text=True,encoding='utf-8',timeout=20)
+            self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+            self.assertIn('lifetime liberado',r.stdout)
+
+    def test_runpy_libera_trava_no_sucesso_sem_encerrar_chamador(self):
+        self.verificar(False)
+
+    def test_runpy_libera_trava_na_excecao_sem_encerrar_chamador(self):
+        self.verificar(True)
 
 if __name__ == "__main__": unittest.main(verbosity=2)

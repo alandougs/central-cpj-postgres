@@ -110,6 +110,13 @@ def _chave(tipo, valor):
     return re.sub(r'[^a-z0-9@/ -]+', ' ', valor).replace('-', ' ').strip()
 
 
+def recusar_identificador_incerto(tipo, valor):
+    """Valida o valor bruto antes de qualquer normalização, na API e no store."""
+    import correlacoes as CORR
+    if tipo in ('CPF', 'CNPJ', 'TELEFONE', 'RG', 'PLACA', 'CONTA', 'CHAVE_PIX', 'EMAIL', 'PROCESSO', 'BO') and CORR.contem_incerteza(valor):
+        raise ValueError('Identificador incerto não pode ser normalizado como identidade exata.')
+
+
 def _dados(dados):
     if not isinstance(dados, dict):
         raise ValueError('Informe os campos do vínculo.')
@@ -120,6 +127,7 @@ def _dados(dados):
         valor = _texto(dados.get(lado+'_valor', ''), 'valor', True)
         if tipo not in TIPOS or (tipo == 'PESSOA' and not valor.startswith('P:')):
             raise ValueError('Tipo inválido ou Pessoa sem identificador de registro.')
+        recusar_identificador_incerto(tipo, valor)
         valor = _chave(tipo, valor)
         if not valor:
             raise ValueError('Identificador vazio após normalização.')

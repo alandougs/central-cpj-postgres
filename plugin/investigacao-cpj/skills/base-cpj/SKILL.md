@@ -5,6 +5,8 @@ description: Base de dados local do workspace CPJ - registro de casos (caso.json
 
 # Base CPJ — casos, estatística, RAG e painel
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 Todo o conteúdo do workspace é a base de dados. **Fonte da verdade:** `casos\<ID>\caso.json` (um por caso) + os arquivos Markdown/CSV do caso. Tudo o mais é derivado e pode ser regenerado a qualquer momento.
 
 Scripts em `scripts\` (ao lado deste SKILL.md). Em PowerShell: `$B = "<base da skill>\scripts"`.

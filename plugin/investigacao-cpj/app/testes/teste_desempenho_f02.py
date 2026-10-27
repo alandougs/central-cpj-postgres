@@ -41,6 +41,8 @@ def gerar_pdf_ficticio(destino):
     paginas[0].save(destino, "PDF", save_all=True, append_images=paginas[1:], resolution=120)
 
 
+from teste_extracao_markdown_md01 import estado as estado_md01
+
 @unittest.skipUnless(tesseract_local(), "Tesseract local indisponível; teste de OCR ignorado")
 class TesteDesempenhoF02(unittest.TestCase):
     def test_paralelismo_preserva_texto_e_metodos(self):
@@ -66,7 +68,7 @@ class TesteDesempenhoF02(unittest.TestCase):
                     cwd=ROOT, env=env, capture_output=True, text=True, timeout=180,
                 )
                 self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
-                relatorio = json.loads((destino / "relatorio_extracao.json").read_text(encoding="utf-8"))
+                relatorio = estado_md01.ler(destino, "relatorio_extracao.json")
                 texto = (destino / "transcricao.md").read_text(encoding="utf-8")
                 self.assertEqual(relatorio["ocr_workers"], workers)
                 self.assertEqual(relatorio["metodos"], {"ocr-tesseract": 4})

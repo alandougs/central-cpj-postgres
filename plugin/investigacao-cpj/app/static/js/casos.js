@@ -4,12 +4,13 @@ function compararNumeroOS(a,b){
  const numero=c=>{const m=String(c.ordem_servico||c.id||"").match(/\d+/);return m?Number(m[0]):Infinity};
  return numero(a)-numero(b)||String(a.ordem_servico||a.id||"").localeCompare(String(b.ordem_servico||b.id||""),"pt-BR",{numeric:true});
 }
+function casoEstaFinalizado(c){return ["entregue","concluido"].includes(String(c.status||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim())}
 let tq;$("#q-casos").oninput=()=>{clearTimeout(tq);tq=setTimeout(carregarCasos,250)};$("#st-casos").onchange=carregarCasos;$("#pz-casos").onchange=carregarCasos;$("#meus-casos").onchange=carregarCasos;
 
 async function carregarCasos(){const cs=await api(`/api/casos?q=${enc($("#q-casos").value)}&status=${$("#st-casos").value}&prazo=${$("#pz-casos").value}&meus=${$("#meus-casos").checked?1:""}`);
  cs.sort(compararNumeroOS);
 
- $("#casos-vazio").hidden=!!cs.length;$("#t-casos").innerHTML=cs.map(c=>`<tr class="${c.status==="entregue"?"caso-entregue":""}" data-id="${esc(c.id)}"><td><b>${esc(c.ordem_servico||c.id)}</b>${!c.visto&&pode("trabalho")?' <span class="badge b-wait"><i aria-hidden="true"></i>nova</span>':""}${c.prioridade&&c.prioridade!=="normal"?` <span class="badge pz-hoje">${esc(c.prioridade)}</span>`:""}</td>
+ $("#casos-vazio").hidden=!!cs.length;$("#t-casos").innerHTML=cs.map(c=>`<tr class="${casoEstaFinalizado(c)?"caso-entregue linha-concluida":""}" data-id="${esc(c.id)}"><td><b>${esc(c.ordem_servico||c.id)}</b>${!c.visto&&pode("trabalho")?' <span class="badge b-wait"><i aria-hidden="true"></i>nova</span>':""}${c.prioridade&&c.prioridade!=="normal"?` <span class="badge pz-hoje">${esc(c.prioridade)}</span>`:""}</td>
 
  <td>${esc(c.bo||"—")}<br><span class="muted">${esc(c.inquerito||"")}</span></td><td>${esc([...c.vitimas,...c.investigados].slice(0,3).join("; ")||"—")}</td><td>${esc(c.modalidade||"—")}</td>
 

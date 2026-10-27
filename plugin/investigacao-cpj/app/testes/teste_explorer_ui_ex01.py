@@ -28,8 +28,9 @@ const {chromium} = require('playwright');
 const assert = require('node:assert/strict');
 const f = FIXTURE;
 (async()=>{
- const browser=await chromium.launch({headless:true,channel:process.env.CPJ_BROWSER_CHANNEL||'msedge'});
+ const servidor=await chromium.launchServer({headless:true,channel:process.env.CPJ_BROWSER_CHANNEL||'msedge'});
  try {
+  const browser=await chromium.connect(servidor.wsEndpoint());
   const context=await browser.newContext();
   const login=await context.request.post(f.url+'/api/entrar',{headers:{'X-CPJ':'1'},data:{login:'admin_ex01',senha:'Ficticia123'}});
   assert.equal(login.status(),200);
@@ -59,9 +60,20 @@ const f = FIXTURE;
   assert.equal(await page.locator('[data-pasta-arquivo]').count(),0,'Acesso remoto nao deve oferecer Explorer');
   assert.equal(await page.locator('#arquivos-docx a').count(),1,'Download continua disponivel');
   assert.deepEqual(erros,[]);
-  await context.close();
   console.log('UI EX01 OK: grupos DOCX, links, cliques por arquivo e acesso remoto.');
- } finally {await browser.close()}
+ }catch(e){console.error(e);process.exitCode=1}
+ finally{
+  // Encerra somente a instância criada pelo teste; Edge pode bloquear close().
+  if(process.platform==='win32'){
+   const pid=servidor.process().pid;
+   const fim=require('node:child_process').spawnSync('taskkill',['/PID',String(pid),'/T','/F'],{stdio:'ignore',windowsHide:true,timeout:10000});
+   if(fim.status!==0){
+    try{process.kill(pid,0);throw new Error('Edge de teste não foi encerrado: '+pid)}
+    catch(e){if(e.code!=='ESRCH')throw e}
+   }
+  }else await servidor.kill();
+ }
+ process.exit(process.exitCode||0);
 })().catch(e=>{console.error(e);process.exit(1)});
 '''.replace("FIXTURE", fixture)
         # O disparo real do Explorer é validado isoladamente na suíte de rotas.

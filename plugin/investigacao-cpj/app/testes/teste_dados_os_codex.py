@@ -2,6 +2,7 @@
 from fonte_interface import ler_interface
 import io
 import gc
+import hashlib
 import json
 import os
 import re
@@ -24,6 +25,8 @@ Prazo: 31/12/2099
 Determinação: Identificar o titular da conta indicada.
 """
 
+
+from teste_extracao_markdown_md01 import estado as estado_md01
 
 class DadosOS(unittest.TestCase):
     @classmethod
@@ -151,10 +154,15 @@ class DadosOS(unittest.TestCase):
             self.assertEqual(r.status_code, 200)
             id_ = r.json["caso"]
             p = Path(self.s.C.caminho(id_)) / "00-originais" / "scan-ficticio.pdf"
+            hash_original = hashlib.sha256(p.read_bytes()).hexdigest()
             self.assertFalse(self.d.extrair(self.d.ler_original(str(p)), p.name)[0])
             t = self.s.ler_proc(id_)["trabalhos"][0] | {"caso": id_}
             self.s.processar(t)
         c = self.s.C.carregar(id_)
+        relatorio = estado_md01.ler(p.parent.parent / "01-extracao/scan-ficticio", "relatorio_extracao.json")
+        self.assertEqual(relatorio["ferramentas"]["ocr"], "tesseract (por)", "Fixture exige OCR português real; não basta status concluído")
+        self.assertEqual(relatorio["metodos"], {"ocr-tesseract": 1})
+        self.assertEqual(hashlib.sha256(p.read_bytes()).hexdigest(), hash_original)
         self.assertEqual(self.s.ler_proc(id_)["trabalhos"][0]["status"], "concluido")
         self.assertEqual(c["escrivao"], "ESCRIVAO FICTICIO")
         self.assertEqual(c["ordem_servico"], "992/2099")

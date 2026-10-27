@@ -155,7 +155,10 @@ def api_usuarios_remover(login):
 @bp_usuarios.get("/api/auditoria")
 @requer("usuarios")
 def api_auditoria():
-    return jsonify(auth.auditoria(300))
+    try:
+        return jsonify(auth.auditoria(300))
+    except RuntimeError:
+        return jsonify({"erro": "Integridade da auditoria não confirmada. Preserve os registros e consulte o diagnóstico de integridade."}), 503
 
 
 @bp_usuarios.get("/api/perfis")
@@ -229,6 +232,8 @@ def api_rede():
 @requer("rede")
 def api_rede_salvar():
     d = request.get_json(force=True) or {}
+    if d.get("compartilhar") and d.get("https", True) is not True:
+        return jsonify({"erro": "O compartilhamento pela rede exige HTTPS."}), 400
     if d.get("compartilhar") and auth.ha_senha_temporaria():
         return jsonify({
             "erro": (

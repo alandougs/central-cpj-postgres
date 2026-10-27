@@ -19,8 +19,20 @@ class GrafoInterface(unittest.TestCase):
             const elementos={},desenhos=[];
             const pincel=new Proxy({}, {get(o,k){return o[k]||((...args)=>desenhos.push([k,...args]))}});
             function $(id){return elementos[id]||(elementos[id]={value:'',checked:true,hidden:true,
-                style:{},innerHTML:'',textContent:'',width:800,height:560,
-                addEventListener(){},querySelectorAll(){return []},getBoundingClientRect(){return {width:800,height:560,left:0,top:0}},
+                style:{},innerHTML:'',textContent:'',width:800,height:560,filhos:{},
+                querySelectorAll(seletor){
+                    const atributo=seletor.slice(1,-1), encontrados=[];
+                    const padrao=new RegExp('<[^>]* '+atributo+'(?:="([^"]*)")?[^>]*>','g');
+                    let match;
+                    while((match=padrao.exec(this.innerHTML))){
+                        const chave=atributo+':'+encontrados.length;
+                        const campo=atributo.slice(5).replace(/-([a-z])/g,(_,letra)=>letra.toUpperCase());
+                        encontrados.push(this.filhos[chave]||(this.filhos[chave]={dataset:{[campo]:match[1]},onclick:null}));
+                    }
+                    return encontrados;
+                },
+                querySelector(seletor){return this.querySelectorAll(seletor)[0]||null},
+                addEventListener(){},getBoundingClientRect(){return {width:800,height:560,left:0,top:0}},
                 getContext(){return pincel}})}
             const enc=encodeURIComponent,esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
             const window={devicePixelRatio:1,addEventListener(){}};

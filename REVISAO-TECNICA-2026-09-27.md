@@ -1,5 +1,7 @@
 # Revisão técnica da Central CPJ — 27/09/2026
 
+> **Registro histórico — não é fonte de regra.** A entrada vigente para qualquer agente é `MEMORIA.md` na raiz, com as fontes canônicas (`AGENTS.md`, `PRD.md`, `docs/ESPINHA-DORSAL.md`, a fila e `calibracao/licoes-aprendidas.md`). Em divergência, prevalece a determinação explícita vigente do operador registrada nessas fontes, não este arquivo.
+
 ## Parecer
 
 O projeto tem um núcleo funcional e uma arquitetura adequada ao volume previsto: Python, Flask, arquivos por caso, extração local e SQLite FTS5. A prioridade é estabilizar o que existe, completar a interface e eliminar resultados incorretos antes de ampliar as funcionalidades. Ainda não considero a versão atual validada para operação integral com múltiplos usuários.

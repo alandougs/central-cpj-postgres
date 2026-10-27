@@ -12,6 +12,7 @@ import time
 import zipfile
 from flask import Blueprint, abort, jsonify, request, send_file, url_for
 from werkzeug.exceptions import HTTPException
+from web_seguro import enviar_arquivo_caso
 from rotas.comum import (
     C,
     D_OS,
@@ -30,6 +31,7 @@ from rotas.comum import (
     idioma_ocr,
     ler_proc,
     limitacao_ocr,
+    modulo_visual,
     nome_seguro,
     pode_alterar_os,
     preparar_modo,
@@ -506,10 +508,7 @@ def api_arquivo(id_, rel):
         abort(404)
     _autorizar_arquivo(os.path.relpath(alvo, os.path.realpath(C.caminho(id_))))
     auditar("download", f"{id_}/{rel}")
-    ext = os.path.splitext(alvo)[1].lower()
-    if ext in (".md", ".csv", ".json", ".log", ".txt", ".jsonl"):
-        return send_file(alvo, mimetype="text/plain; charset=utf-8")
-    return send_file(alvo, as_attachment=ext in (".docx", ".xlsx"))
+    return enviar_arquivo_caso(alvo)
 
 
 PREVIA_DOCX_BYTES = 20 * 1024 * 1024
@@ -913,8 +912,7 @@ def api_pendencias_ocr():
             motivo = None
             if tem_md:
                 try:
-                    with open(os.path.join(ext_dir, "relatorio_extracao.json"), encoding="utf-8") as f:
-                        motivo = limitacao_ocr(json.load(f))
+                    motivo = limitacao_ocr(modulo_visual().ler_json(ext_dir, "relatorio_extracao.json"))
                 except (OSError, ValueError):
                     pass
 

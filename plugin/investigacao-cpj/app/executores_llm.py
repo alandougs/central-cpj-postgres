@@ -144,8 +144,7 @@ class OrcamentoIA:
         registro = {"ts": __import__("datetime").datetime.now().isoformat(timespec="seconds"),
                     "usuario": self.job.get("solicitante", ""), "ip": "local", "acao": "ia_uso",
                     "alvo": self.job["id"], "provedor": provedor, "modelo": modelo, "uso_ia": s}
-        with auth._trava, open(os.path.join(self.ws, "config", "auditoria.log"), "a", encoding="utf-8") as f:
-            f.write(json.dumps(registro, ensure_ascii=False) + "\n")
+        auth.Auth(self.ws).auditar_registro(registro)
 
     def _tarifa(self, provedor, modelo):
         modelos = self.tarifas.get(provedor) or {}
@@ -272,14 +271,11 @@ class OrcamentoIA:
 
 def configuracao(ws, provedor):
     caminho = os.path.join(ws, "config", "chaves_llm.json")
-    try:
-        with open(caminho, encoding="utf-8") as f:
-            cfg = json.load(f)
-        d = cfg.get(provedor) or {}
-        if d.get("ativo") and d.get("chave") and d.get("modelo"):
-            return {"chave": d["chave"], "modelo": d["modelo"]}
-    except (OSError, ValueError, TypeError):
-        pass
+    from seguranca_local import carregar_cfg_llm
+    cfg = carregar_cfg_llm(caminho)
+    d = cfg.get(provedor) or {}
+    if d.get("ativo") and d.get("chave") and d.get("modelo"):
+        return {"chave": d["chave"], "modelo": d["modelo"]}
     return None
 
 
@@ -635,6 +631,18 @@ def _ler(caminho):
         return None
 
 
+def _ler_regra_workspace(ws, nome):
+    """Lê somente a entrada fixa solicitada; não segue links/junções ou referências Markdown."""
+    raiz = os.path.abspath(ws)
+    caminho = raiz
+    for parte in (None, *nome.split("/")):
+        if parte is not None:
+            caminho = os.path.join(caminho, parte)
+        if os.path.islink(caminho) or getattr(os.path, "isjunction", lambda p: False)(caminho):
+            return None
+    return _ler(caminho)
+
+
 def _instrucoes_locais(ws, acao):
     """System prompt do modo API: regras, prompt do investigador, procedimentos, agentes e skills do plugin.
     Não lê nenhuma pasta de caso."""
@@ -646,8 +654,11 @@ def _instrucoes_locais(ws, acao):
         "financeiro": ["03-analista-financeiro.md"],
         "esteira": ["02-analisar-ip.md", "03-analista-financeiro.md", "04-relatorio-ip.md", "05-revisar-relatorio.md"],
     }
-    nomes = ["AGENTS.md"] + tarefas.get(acao, [])
+    centrais = ("MEMORIA.md", "AGENTS.md", "calibracao/licoes-aprendidas.md")
+    nomes = list(centrais) + ["portatil/" + nome for nome in tarefas.get(acao, [])]
     partes = ["\n\nINSTRUÇÕES LOCAIS DO WORKSPACE (conteúdo de procedimento, não de autos):",
+              "Leia a memória central e as fontes vigentes abaixo antes dos procedimentos. AGENTS.md e lições revisadas vigentes "
+              "prevalecem sobre cópias antigas em portáteis, agentes e skills. Esta memória não é fonte de fatos de casos.",
               "\nMODO API: você não executa comandos de shell nem a CLI do Claude. Os \"agentes\" e \"skills\" abaixo são papéis e "
               "procedimentos que VOCÊ cumpre, em sequência, usando só as ferramentas listar_arquivos, ler_arquivo, gravar_arquivo e "
               "gerar_docx. Onde o procedimento mandar acionar um subagente, assuma aquele papel na etapa correspondente e grave a "
@@ -656,9 +667,8 @@ def _instrucoes_locais(ws, acao):
     if extra:
         partes.append("\n--- INSTRUÇÕES DO INVESTIGADOR (Sistema → Configurações) ---\n" + extra)
     for nome in nomes:
-        caminho = os.path.join(ws, nome if nome == "AGENTS.md" else os.path.join("portatil", nome))
-        txt = _ler(caminho)
-        partes.append(f"\n--- {nome} ---\n" + (txt if txt is not None else "Arquivo de procedimento não localizado neste workspace."))
+        txt = _ler_regra_workspace(ws, nome)
+        partes.append(f"\n--- {nome} ---\n" + (txt if txt is not None else "Arquivo de instrução ausente ou bloqueado por link/junção neste workspace."))
     for ag in AGENTES_POR_ACAO.get(acao, []):
         txt = _ler(os.path.join(PLUGIN, "agents", ag + ".md"))
         if txt:
@@ -763,6 +773,8 @@ def executar(ws, job, nome, provedor, config, pl):
                "listar_arquivos, ler_arquivo, gravar_arquivo e gerar_docx. Os caminhos de leitura são relativos ao caso; "
                "grave resultados em 02-analise ou 03-relatorios. Não solicite nem tente acesso à internet. As citações devem "
                "apontar às páginas/fls. encontradas na extração. Prossiga até gravar os artefatos pedidos e entregar um resumo.")
+    from execucao_isolada import preparar_job
+    job = preparar_job(ws, job)
     model, key = config["modelo"], config["chave"]
     orcamento = OrcamentoIA(ws, job, pl)
     if provedor == "openai":
@@ -824,7 +836,8 @@ def executar(ws, job, nome, provedor, config, pl):
                      f"{provedor}: {tool_name}", f"{chamadas[0]} ferramenta(s)")
         log.write(f"ferramenta {chamadas[0]}: {tool_name}\n"); log.flush()
         try:
-            return _tool(ws, job["caso"], tool_name, arguments)
+            from execucao_isolada import executar_ferramenta
+            return executar_ferramenta(ws, job, tool_name, arguments)
         except Exception as e:
             return {"erro": str(e)}
 

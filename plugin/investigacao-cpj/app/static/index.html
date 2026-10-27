@@ -10,7 +10,7 @@
 
 <meta name="theme-color" content="#f1f5f9" media="(prefers-color-scheme: light)">
 
-<link rel="stylesheet" href="/static/css/central.css"></head><body>
+<link rel="stylesheet" href="/static/css/central.css"><link rel="stylesheet" href="/static/css/apple-cpj.css?v=ap37"></head><body>
 
 
 
@@ -184,7 +184,7 @@
 
 <section class="aba" id="pesquisa"><h2>Pesquisa</h2><p class="sub">Relacional: combine nome, mãe, pai, CPF, telefone, CNPJ, endereço… em qualificações extraídas dos autos e nas bases de consulta. Clique em um valor para cruzá-lo. Bases de consulta servem só para pesquisa — não são fonte do relatório.</p>
 
-<div class="seg"><button data-m="pessoas" class="on">Pessoas (relacional)</button><button data-m="texto">Texto nos documentos</button><button data-m="correlacoes" id="b-seg-correlacoes">Correlações (Radar)</button><button data-m="mapa" id="b-seg-mapa">Mapa (Offline)</button></div>
+<div class="seg"><button data-m="pessoas" class="on">Pessoas (relacional)</button><button data-m="texto">Texto nos documentos</button><button data-m="correlacoes" id="b-seg-correlacoes">Correlações (Radar)</button></div>
 
 <div id="m-pessoas"><form class="card" id="f-pessoas"><div class="campos">
 
@@ -213,10 +213,10 @@
 <div id="m-texto" hidden><form class="barra" id="f-busca"><input id="q-busca" placeholder="Ex.: falsa central · 123.456.789-00 · chave pix aleatória"><select id="tp-busca"><option value="">todos</option><option value="transcricao">transcrição</option><option value="analise">análise</option><option value="relatorio">relatório final</option><option value="referencia">referência</option><option value="acervo">acervo</option></select><button class="btn pri">Buscar</button></form><div id="r-busca"></div></div>
 
 <div id="m-correlacoes" hidden></div>
-<div id="m-mapa" hidden></div>
 
 </section>
 
+<section class="aba" id="mapa" aria-labelledby="titulo-mapa"><div id="m-mapa"></div></section>
 
 
 <section class="aba" id="grafo">
@@ -239,7 +239,10 @@
 
     <button class="btn sm" id="b-gr-foto">Salvar PNG</button>
     <button type="button" class="btn sm" id="b-gr-correlacoes">Correlações</button>
-    <button type="button" class="btn sm" id="b-gr-mapa">Mapa Offline</button>
+
+
+    <button type="button" class="btn sm" id="b-gr-correlacoes">Correlações</button>
+
 
   </div>
 
@@ -318,7 +321,7 @@
 
 <div class="g2" data-perm="dados">
 
- <div class="card"><h3>Exportar banco de dados</h3><p class="muted">Pacote ZIP estruturado (com verificação de integridade) para backup ou para abrir em outro computador. Contém dados sigilosos: guarde em local autorizado.</p>
+ <div class="card"><h3>Exportar casos</h3><p class="muted">Pacote .cpjenc criptografado com senha para transferência a outro computador. Não substitui o backup completo da Central: não inclui usuários, credenciais nem a fila. Guarde a senha separadamente e use local autorizado.</p>
 
   <label><input type="radio" name="modo" value="dados" checked style="width:auto"> Só dados (leve: sem os PDFs originais)</label>
 
@@ -326,11 +329,12 @@
 
   <label><input type="checkbox" id="exp-modelo" style="width:auto"> Incluir modelo DOCX (contém timbre e assinatura)</label>
 
+  <label for="exp-senha">Senha do pacote (12 a 1024 caracteres)</label><input type="password" id="exp-senha" minlength="12" maxlength="1024" autocomplete="new-password">
   <div class="acoes"><button class="btn pri" id="b-exportar">Exportar</button></div><h4 style="margin-top:12px">Pacotes gerados</h4><div id="lista-exp" class="arqs"></div></div>
 
  <div class="card"><h3>Importar banco de dados</h3><p class="muted">Envie um pacote exportado pela Central. Os arquivos são verificados; casos novos são acrescentados e casos existentes <b>não</b> são sobrescritos.</p>
 
-  <input type="file" id="imp-zip" accept=".zip"><div class="prog" id="prog-imp" hidden><i aria-hidden="true"></i></div><div class="acoes"><button class="btn pri" id="b-importar">Importar</button><span class="muted" id="msg-imp"></span></div></div>
+  <input type="file" id="imp-zip" accept=".cpjenc,.zip"><label for="imp-senha">Senha do pacote criptografado</label><input type="password" id="imp-senha" minlength="12" maxlength="1024" autocomplete="off"><p class="muted">ZIP legado não tem criptografia; a importação exige confirmação do risco.</p><div class="prog" id="prog-imp" hidden><i aria-hidden="true"></i></div><div class="acoes"><button class="btn pri" id="b-importar">Importar</button><span class="muted" id="msg-imp"></span></div></div>
 
 </div>
 

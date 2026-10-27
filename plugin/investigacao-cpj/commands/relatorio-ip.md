@@ -3,6 +3,8 @@ description: Redige a minuta do Relatório de Investigação no modelo CPJ, revi
 argument-hint: <ID do caso> [observações do investigador: diligências feitas, consultas, foco]
 ---
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 Elabore o relatório do caso: $ARGUMENTS
 
 Use a skill `relatorio-ip-fraude`.

@@ -1,17 +1,19 @@
 ---
 name: pdf-autos-policiais
-description: Prepara PDFs de inquéritos, processos e procedimentos policiais para análise por IA com segurança e rastreabilidade. Diagnostica o arquivo (páginas, camada de texto, hash), extrai transcrição Markdown página a página (texto nativo, OCR Tesseract em português ou transcrição visual), tabelas em CSV e dados críticos candidatos; ou divide em partes de até 100 páginas. Use sempre que o usuário enviar ou mencionar PDF de IP, autos, processo, BO, RDO, TCO, laudo, extrato ou peça digitalizada, ou disser "processa esse IP", "faz OCR", "extrai o texto", "extrai as tabelas", "transforma em markdown", "divide o PDF", "PDF muito grande", "o Claude não leu o PDF inteiro".
+description: Prepara PDFs de inquéritos, processos e procedimentos policiais para análise por IA com segurança e rastreabilidade. Diagnostica o arquivo (páginas, camada de texto, hash), extrai transcrição Markdown página a página (texto nativo, OCR Tesseract em português ou transcrição visual), tabelas em Markdown e dados críticos conferíveis; ou divide em partes de até 100 páginas. Use sempre que o usuário enviar ou mencionar PDF de IP, autos, processo, BO, RDO, TCO, laudo, extrato ou peça digitalizada, ou disser "processa esse IP", "faz OCR", "extrai o texto", "extrai as tabelas", "transforma em markdown", "divide o PDF", "PDF muito grande", "o Claude não leu o PDF inteiro".
 ---
 
 # PDF de Autos Policiais: diagnóstico, extração estruturada ou divisão
 
-> Origem: `repo-ia-alandougs/skills/pdf-autos-policiais` (estado: rascunho). Adaptada para Claude Code no Windows (PowerShell, `python`), com etapa de tabelas → CSV e integração ao workspace CPJ.
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
+> Origem: `repo-ia-alandougs/skills/pdf-autos-policiais` (estado: rascunho). Adaptada para Claude Code no Windows (PowerShell, `python`), com extração somente em Markdown e integração ao workspace CPJ.
 
 Prepara PDFs volumosos de inquéritos, processos e procedimentos para que a análise por IA seja completa, auditável e citável por página. Quando o modelo lê e interpreta ao mesmo tempo, um erro de leitura (um dígito de CPF, conta ou valor) entra na conclusão sem deixar registro conferível. Por isso, aqui a regra é: **primeiro transcrever com método registrado, depois analisar sobre a transcrição**.
 
 Dois caminhos:
 
-- **B — Extração estruturada (padrão neste ambiente):** transcrição página a página com método registrado, tabelas em CSV, dados críticos candidatos, índice de peças.
+- **B — Extração estruturada (padrão neste ambiente):** transcrição página a página com método registrado, tabelas em Markdown, dados críticos candidatos e índice de peças em Markdown.
 - **A — Dividir** em partes de até 100 páginas, preservando a leitura visual (útil para envio ao Claude.ai/Projetos ou para peças predominantemente visuais).
 
 ---
@@ -22,7 +24,7 @@ Dois caminhos:
 - O usuário pede para analisar, resumir, montar cronologia, extrair qualificação, cruzar dados ou redigir relatório com base em autos em PDF.
 - O usuário diz: "faz OCR", "extrai o texto", "extrai as tabelas", "transforma em markdown", "divide o PDF".
 
-**Não use** quando o usuário já entregar a transcrição em Markdown (e/ou CSV): nesse caso, pule direto para a skill `analise-ip-fraude` — apenas rode `tabelas.py` sobre o `.md` se houver tabelas Markdown a converter em CSV.
+**Não use** quando o usuário já entregar a transcrição em Markdown (e/ou CSV): nesse caso, pule direto para a skill `analise-ip-fraude` — preserve tabelas no próprio Markdown, sem criar derivados CSV/JSON.
 
 ---
 
@@ -31,11 +33,11 @@ Dois caminhos:
 - **Scripts:** `$S = "plugin\investigacao-cpj\skills\pdf-autos-policiais\scripts"`.
 - **Caso:** `casos\<ID>\`, onde `<ID>` deriva da **Ordem de Serviço** (O.S. `123/2026` → `OS-123-2026`).
   - `00-originais\` — arquivos originais (somente leitura), **nunca modificados**.
-  - `01-extracao\<documento>\` — uma pasta por arquivo original (nome do arquivo sem extensão): `transcricao.md`, `tabelas\`, `entidades.csv`, `dados_extraidos.json`, `relatorio_extracao.json`, `diagnostico.json`, `processamento.log`.
-  - `ordens-de-servico\`, dentro da pasta de extração de cada documento — transcrições Markdown das O.S. localizadas e `indice.json` com páginas, fonte e SHA-256. `extrair.py` e `dados_json.py` geram/atualizam automaticamente esses derivados. A busca começa pelas páginas finais; a posição não determina vigência. Confira integralidade, continuações e datas no PDF antes de escolher a ordem principal.
+  - `01-extracao\<documento>\` — uma pasta por arquivo original (nome do arquivo sem extensão): `transcricao.md`, `ordens-de-servico\*.md` e um único `.checkpoint\estado.json` essencial à retomada/OCR/qualidade; o log operacional permanece quando gerado pela Central.
+  - `ordens-de-servico\`, dentro da pasta de extração de cada documento — transcrições Markdown das O.S. localizadas e `indice.md` com páginas, fonte e SHA-256. `extrair.py` gera/atualiza esses arquivos Markdown. A busca começa pelas páginas finais; a posição não determina vigência. Confira integralidade, continuações e datas no PDF antes de escolher a ordem principal.
   - `02-analise\`, `03-relatorios\` — etapas seguintes.
   - `caso.json`, `processamento.json`, `registro-tratamento.md`.
-- **Central CPJ** (`http://127.0.0.1:8765`, atalho `Central CPJ.bat`): o usuário normalmente envia os PDFs por ela, e ela já executa diagnóstico, extração/OCR, tabelas, entidades e indexação. **Antes de processar, verifique `processamento.json`**: se o documento já está `concluido`, não refaça — vá direto à transcrição visual das páginas pendentes/⚠ (se houver) e à análise.
+- **Central CPJ** (`http://127.0.0.1:8765`, atalho `Central CPJ.bat`): o usuário normalmente envia os PDFs por ela, e ela já executa diagnóstico, extração/OCR em Markdown e indexação. **Antes de processar, verifique `processamento.json`**: se o documento já está `concluido`, não refaça — vá direto à transcrição visual das páginas pendentes/⚠ (se houver) e à análise.
 
 ---
 
@@ -82,8 +84,8 @@ O hash registra a integridade do original e permite comprovar depois que a anál
 
 | | **A — Dividir em partes de até 100 páginas** | **B — Extração estruturada** |
 |---|---|---|
-| Como funciona | O PDF é fatiado; cada parte é lida com texto + imagem de cada página (ex.: Claude.ai) | Cada página vira texto (camada nativa, OCR ou transcrição visual do Claude), com página e método registrados; tabelas viram CSV; depois índice de peças e dados críticos |
-| Vantagens | Mantém leitura de manuscritos, carimbos, assinaturas, fotos, croquis e tabelas tortas; rápido; não altera o conteúdo | Texto conferível e pesquisável; cita página em cada afirmação; ocupa muito menos contexto, então o IP inteiro pode ser cruzado de uma vez; busca exata de CPF, placa, telefone, conta, Pix; tabelas de extratos em CSV; material reaproveitável em relatório e na base RAG |
+| Como funciona | O PDF é fatiado; cada parte é lida com texto + imagem de cada página (ex.: Claude.ai) | Cada página vira texto (camada nativa, OCR ou transcrição visual do Claude), com página e método registrados; tabelas permanecem em Markdown, com índice de peças e dados críticos |
+| Vantagens | Mantém leitura de manuscritos, carimbos, assinaturas, fotos, croquis e tabelas tortas; rápido; não altera o conteúdo | Texto conferível e pesquisável; cita página em cada afirmação; ocupa muito menos contexto, então o IP inteiro pode ser cruzado de uma vez; busca exata de CPF, placa, telefone, conta, Pix; tabelas de extratos em Markdown; material reaproveitável em relatório e na base RAG |
 | Desvantagens | Partes se somam no contexto e detalhes se perdem; cruzar informação entre partes exige consolidação; erro de leitura não deixa registro | Mais demorado em PDF escaneado; OCR erra manuscrito e carimbo e pode "corrigir" palavras; tabelas escaneadas precisam de transcrição visual; exige conferência dos dados críticos |
 | Indicado para | Peças com muito manuscrito, fotos ou croquis; consulta pontual | Relatório de investigação, análise de fraude/estelionato, cronologia de transferências, cruzamento de vínculos, qualquer produto que vá aos autos |
 
@@ -123,47 +125,19 @@ python "$S\extrair.py" "casos\<ID>\00-originais\arquivo.pdf" --saida $E         
 python "$S\extrair.py" "casos\<ID>\00-originais\arquivo.pdf" --saida $E --ocr visao  # força transcrição visual pelo Claude
 ```
 
-Gera `$E\transcricao.md` (seção `## Página N` por página, método em comentário) e `$E\relatorio_extracao.json`. Páginas sem texto e sem OCR, ou com OCR de confiança < 75%, são renderizadas em `$E\paginas_visao\pNNNN.png`.
+Gera `$E\transcricao.md` (seção `## Página N` por página, método em comentário) e um único `$E\.checkpoint\estado.json` para retomada e controle de qualidade, sem relatório JSON separado. Páginas sem texto e sem OCR, ou com OCR de confiança < 75%, são renderizadas em `$E\paginas_visao\pNNNN.png`.
 
-2. **Transcrição visual das páginas pendentes ou a conferir:** leia os PNGs em lotes (até ~20 por rodada) e grave cada transcrição em `$E\transcricoes_visuais\pNNNN.md`, seguindo as **regras de transcrição** abaixo — **tabelas sempre em Markdown** (`| col | col |`), para virarem CSV. Depois rode `extrair.py` de novo com os mesmos parâmetros: ele incorpora as transcrições (método `transcricao-visual-llm`). Se houver centenas de páginas pendentes, avise o tempo/consumo antes e sugira instalar o Tesseract.
+2. **Transcrição visual das páginas pendentes ou a conferir:** leia os PNGs em lotes (até ~20 por rodada) e grave cada transcrição em `$E\transcricoes_visuais\pNNNN.md`, seguindo as **regras de transcrição** abaixo — **tabelas sempre em Markdown** (`| col | col |`), sem conversão em CSV. Depois rode `extrair.py` de novo com os mesmos parâmetros: ele incorpora as transcrições (método `transcricao-visual-llm`). Se houver centenas de páginas pendentes, avise o tempo/consumo antes e sugira instalar o Tesseract.
 
-   **Pela Central CPJ:** na ficha do caso, use **Transcrever páginas a conferir**. O servidor seleciona a união de `pendentes_transcricao_visual`, `conferir_visualmente` e páginas com `precisa_ia` em `qualidade.json`. O aviso lista os destinos possíveis; Aceitar autoriza somente o escopo `transcricao_visual`, e Recusar/Esc não cria pedido. Somente o PNG de cada página selecionada e uma instrução fixa são enviados, pelo roteador com capacidade `vision`; o modelo configurado também deve aceitar imagens. Não são enviados o PDF inteiro, nomes de arquivos nem textos das outras páginas. DeepSeek/Groq sem visão não participam dessa rota.
+   **Pela Central CPJ:** na ficha do caso, use **Transcrever páginas a conferir**. O servidor seleciona a união de `pendentes_transcricao_visual`, `conferir_visualmente` e páginas com `precisa_ia` no checkpoint essencial (leitura lógica `qualidade.json` pelo leitor compatível). O aviso lista os destinos possíveis; Aceitar autoriza somente o escopo `transcricao_visual`, e Recusar/Esc não cria pedido. Somente o PNG de cada página selecionada e uma instrução fixa são enviados, pelo roteador com capacidade `vision`; o modelo configurado também deve aceitar imagens. Não são enviados o PDF inteiro, nomes de arquivos nem textos das outras páginas. DeepSeek/Groq sem visão não participam dessa rota.
 
    `scripts/transcrever_visual.py` grava arquivos novos com origem (provedor/modelo, página, hash do PNG) e aviso **CONFERIR**; nunca sobrescreve transcrição existente, inclusive gravação concorrente. Dígitos duvidosos devem ser `? [dígito incerto]`; a conferência humana continua obrigatória. O pedido compartilha o orçamento entre páginas, retries e fallback. A chamada enviada pode ultrapassar um teto antes da medição; a próxima é bloqueada, sem prometer limite rígido de faturamento.
 
-   A Central valida o hash do original, os checkpoints e a disponibilidade de Tesseract antes do envio. Com os mesmos parâmetros, incorpora as transcrições sem novo OCR e atualiza tabelas Markdown, entidades, JSON estruturado, qualidade e índice. Se original/checkpoint/ambiente mudou, interrompe com aviso para executar processamento local primeiro. Retomar preserva arquivos já transcritos e incorpora também resultados de um pedido interrompido.
+   A Central valida o hash do original, os checkpoints e a disponibilidade de Tesseract antes do envio. Com os mesmos parâmetros, incorpora as transcrições sem novo OCR e atualiza a transcrição Markdown, o índice das O.S. em Markdown e a qualidade no checkpoint essencial. Se original/checkpoint/ambiente mudou, interrompe com aviso para executar processamento local primeiro. Retomar preserva arquivos já transcritos e incorpora também resultados de um pedido interrompido.
 
-3. **Tabelas → CSV** (extratos, relações de transferências, planilhas de quebra):
+3. **Tabelas e dados críticos:** mantenha as tabelas no próprio Markdown, com página de origem e marcações de legibilidade. Não execute `tabelas.py`, `entidades.py` nem `dados_json.py` no fluxo de novos PDFs. Esses utilitários continuam disponíveis para compatibilidade com trabalho anterior, sem conversão ou exclusão indiscriminada do legado.
 
-```powershell
-python "$S\tabelas.py" "casos\<ID>\00-originais\arquivo.pdf" --saida $E   # tabelas das páginas digitais
-python "$S\tabelas.py" "$E\transcricao.md" --saida $E                      # tabelas Markdown (OCR/visual ou MD do usuário)
-```
-
-Gera `$E\tabelas\tNNN_pagPPPP.csv` (`;`, UTF-8 BOM, coluna `pagina_pdf`) e `$E\tabelas\indice_tabelas.csv`. Para extratos bancários, aplique em seguida o agente/comando `extrair-tabela-bancaria` para normalizar colunas (data, descrição, valor, tipo, saldo) sem interpretar identidade das partes.
-
-4. **Dados críticos candidatos:**
-
-```powershell
-python "$S\entidades.py" "$E\transcricao.md"
-```
-
-Gera `$E\entidades.csv` (CPF, CNPJ, placa, telefone, valor, data, e-mail, fls. por página). São candidatos por padrão de texto: status "pendente de conferência" até alguém confrontar com a imagem da página.
-
-5. **JSON consolidado da extração:**
-
-```powershell
-python "$S\dados_json.py" $E
-```
-
-Gera `$E\dados_extraidos.json`, reunindo as páginas da transcrição com o método usado, as linhas dos CSVs de tabelas e os candidatos de `entidades.csv`. Ele preserva página, arquivo de origem e status de conferência; não substitui o Markdown, os CSVs nem `relatorio_extracao.json`.
-
-6. **Estruturar** a partir da transcrição (não do PDF bruto), em `$E\estrutura.md`:
-   - **Índice de peças:** peça, data, págs. do PDF, fls. dos autos (quando legíveis), síntese de uma linha.
-   - **Pessoas:** nome como consta, qualificação como consta, condição (vítima, testemunha, investigado, indiciado, comunicante), páginas.
-   - **Cronologia:** data/hora, fato, fonte (peça e página), natureza (fato documentado / relato / informação de terceiro).
-   - **Dados críticos a conferir:** consolidação do `entidades.csv` sem duplicatas, com todas as páginas onde cada dado aparece e divergências (ex.: mesmo nome com CPFs diferentes).
-   - **Lacunas:** páginas ilegíveis, peças referidas mas ausentes, numeração de fls. com saltos.
+4. **Encaminhar a transcrição para análise:** índices, cronologia e dados críticos necessários à análise permanecem em Markdown no caso. Não gere consolidações JSON ou CSV da extração. O checkpoint essencial mantém a assinatura dos parâmetros, o SHA-256, registros por página, pendências OCR/visuais e qualidade em um único arquivo. `estado_extracao.ler()` e `transcrever_visual.ler_json()` leem também os formatos legados; não alteram nem apagam esses arquivos.
 
 ### Regras de transcrição visual
 
@@ -180,7 +154,7 @@ A análise e o relatório seguem nas skills `analise-ip-fraude` e `relatorio-ip-
 
 ## Output
 
-- **B:** `transcricao.md`, `estrutura.md`, `entidades.csv`, `dados_extraidos.json`, `tabelas\*.csv` + `indice_tabelas.csv`, `relatorio_extracao.json`.
+- **B:** `transcricao.md` e `ordens-de-servico\*.md` (incluindo `indice.md`); checkpoint essencial único em `.checkpoint\estado.json`, metadados do caso/processamento e rastreabilidade preservados.
 - **A:** partes `NOME_parteXXdeYY_pagsINICIO-FIM.pdf` + `MANIFESTO.json` + modelo de Ficha da Parte.
 
 Atualize `registro-tratamento.md` do caso e feche com o quadro:
@@ -190,7 +164,7 @@ Atualize `registro-tratamento.md` do caso e feche com o quadro:
 | Original | nome, páginas, SHA-256 |
 | Caminho adotado | A ou B (e por quê) |
 | Métodos | ex.: 80 págs. texto nativo, 140 OCR, 10 transcrição visual |
-| Tabelas | quantidade de CSVs e páginas de origem |
+| Tabelas | páginas de origem das tabelas no Markdown |
 | Pendências | páginas ilegíveis ou com baixa confiança; dados críticos não conferidos |
 | Data e ferramentas | data/hora e bibliotecas usadas |
 
@@ -208,11 +182,11 @@ Atualize `registro-tratamento.md` do caso e feche com o quadro:
 
 ## Exemplos
 
-**1.** IP escaneado de 312 páginas; relatório de estelionato com transferências Pix → diagnóstico; B com OCR em português; transcrição visual das páginas de baixa confiança e dos comprovantes; `tabelas.py` sobre a transcrição; `entidades.csv`; segue para `/analisar-ip`.
+**1.** IP escaneado de 312 páginas; relatório de estelionato com transferências Pix → diagnóstico; B com OCR em português; transcrição visual das páginas de baixa confiança e dos comprovantes; tabelas e dados críticos na transcrição Markdown; segue para `/analisar-ip`.
 
 **2.** Processo de 180 páginas, digital, com laudo com fotos e croqui; usuário quer a dinâmica do local → recomendar A com cortes nas fronteiras das peças.
 
-**3.** Usuário entrega `IP-123.md` já transcrito com tabelas → não usar esta skill; rodar só `tabelas.py` sobre o `.md` e seguir para `analise-ip-fraude`.
+**3.** Usuário entrega `IP-123.md` já transcrito com tabelas → não usar esta skill; preservar as tabelas no `.md` e seguir para `analise-ip-fraude`.
 
 ---
 

@@ -91,7 +91,10 @@ class HomologacaoAST17(unittest.TestCase):
             os_texts = [p.read_text(encoding='utf-8') for p in transcription.parent.glob('ordens-de-servico/*.md')]
             self.assertTrue(any('## Página 3' in t and 'identificacao do titular' in t for t in os_texts),
                             'A O.S. final deve estar transcrita com sua determinação e página')
-            self.assertTrue((transcription.parent / 'entidades.csv').is_file())
+            self.assertFalse(list(transcription.parent.rglob('*.csv')),
+                             'Nova extração documental não gera derivados CSV.')
+            self.assertEqual([p.relative_to(transcription.parent).as_posix() for p in transcription.parent.rglob('*.json')],
+                             ['.checkpoint/estado.json'], 'Somente o checkpoint essencial pode ser JSON na extração.')
             # Simula somente a saída de um analista, sem afirmar execução da IA.
             analysis = case / '02-analise'; analysis.mkdir(exist_ok=True)
             (analysis / 'solicitacoes-os.md').write_text(

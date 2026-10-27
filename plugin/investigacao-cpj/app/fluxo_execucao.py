@@ -16,7 +16,9 @@ import base64
 import datetime
 import json
 import os
+import socket
 import sqlite3
+import threading
 import uuid
 from contextlib import contextmanager
 
@@ -37,6 +39,70 @@ ESTADO_PROCESSAMENTO = {"na_fila": "na_fila", "processando": "em_execucao", "con
 ESTADO_PEDIDO = {"pendente": "na_fila", "executando": "em_execucao", "concluida": "concluida",
                  "erro": "falhou", "cancelada": "cancelada"}
 LIMITE_MAX = 100
+
+
+def _processo_local(pid):
+    """(vivo, nascimento): None significa que a identidade não pôde ser comprovada."""
+    if os.name == "nt":
+        import ctypes
+        from ctypes import wintypes
+        k = ctypes.WinDLL("kernel32", use_last_error=True)
+        k.OpenProcess.restype = wintypes.HANDLE
+        h = k.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return (False, None) if ctypes.get_last_error() == 87 else (None, None)
+        try:
+            saida = wintypes.DWORD()
+            if not k.GetExitCodeProcess(ctypes.c_void_p(h), ctypes.byref(saida)):
+                return None, None
+            if saida.value != 259:  # STILL_ACTIVE; 259 como código final permanece conservador
+                return False, None
+            tempos = [wintypes.FILETIME() for _ in range(4)]
+            if not k.GetProcessTimes(ctypes.c_void_p(h), *(ctypes.byref(t) for t in tempos)):
+                return None, None
+            return True, str((tempos[0].dwHighDateTime << 32) | tempos[0].dwLowDateTime)
+        finally:
+            k.CloseHandle(ctypes.c_void_p(h))
+    if not os.path.isdir("/proc"):
+        return None, None
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            inicio = f.read().rsplit(") ", 1)[1].split()[19]
+    except FileNotFoundError:
+        return False, None
+    except (OSError, IndexError):
+        return None, None
+    try:
+        with open("/proc/sys/kernel/random/boot_id") as f:
+            return True, f.read().strip() + ":" + inicio
+    except OSError:
+        return None, None
+
+
+def dono_extracao_local():
+    """Identidade de processo para extração comprovadamente local (modo rápido)."""
+    pid = os.getpid()
+    vivo, inicio = _processo_local(pid)
+    if vivo is not True or not inicio:
+        return f"extrator-{pid}-{threading.get_ident()}"  # desconhecido: apenas expiração normal
+    return "extrator-local:" + json.dumps({"host": socket.gethostname().casefold(), "pid": pid,
+                "inicio": inicio, "thread": threading.get_ident()}, separators=(",", ":"))
+
+
+def _extrator_local_encerrado(dono):
+    if not isinstance(dono, str) or not dono.startswith("extrator-local:"):
+        return False
+    try:
+        d = json.loads(dono.removeprefix("extrator-local:"))
+        if (not isinstance(d, dict) or d.get("host") != socket.gethostname().casefold()
+                or type(d.get("pid")) is not int or not 0 < d["pid"] <= 0xFFFFFFFF
+                or not isinstance(d.get("inicio"), str) or not d["inicio"]):
+            return False
+        vivo, inicio = _processo_local(d["pid"])
+        # PID reutilizado com outro nascimento também comprova o fim do proprietário anterior.
+        return vivo is False or (vivo is True and inicio is not None and inicio != d["inicio"])
+    except (ValueError, OSError):
+        return False
 
 
 def _ddl_v1(c) -> None:
@@ -481,6 +547,14 @@ class Fluxos:
             self._set_c(c, e, "cancelada", p["etapa"] or "cancelada")
         return self._resumo_etapa(c.execute("SELECT * FROM fluxos_etapas WHERE id=?", (e["id"],)).fetchone())
 
+    def ultima_extracao(self, caso: str, arquivo: str) -> dict | None:
+        """Consulta sem reabrir tentativas ou alterar o checkpoint de outro executor."""
+        with self._c() as c:
+            r = c.execute("SELECT e.* FROM fluxos_etapas e JOIN fluxos_execucoes x ON x.id=e.execucao_id WHERE x.caso=? "
+                          "AND e.etapa='extracao' AND e.documento=? ORDER BY e.tentativa DESC, e.seq DESC LIMIT 1",
+                          (caso, arquivo)).fetchone()
+            return self._resumo_etapa(r) if r is not None else None
+
     def registrar_extracao(self, caso: str, usuario: str, doc: str, arquivo: str, enfileirado: str) -> dict:
         """Vincula o trabalho de extração (processamento.json) ao fluxo da O.S. Uma tentativa por enfileiramento;
         retomada após queda reaproveita a tentativa que já está na fila."""
@@ -514,9 +588,14 @@ class Fluxos:
                 novo = self._espelhar_c(c, e["origem_id"].split("#t")[0], ate)
                 if novo is not None and novo["estado"] != e["estado"]:
                     alinhadas += 1
-            orfas = c.execute("SELECT e.* FROM fluxos_etapas e LEFT JOIN fluxos_reservas r ON r.etapa_id=e.id "
-                              "WHERE e.estado='em_execucao' AND e.origem!='plantao' AND (r.etapa_id IS NULL OR r.ate <= ?)", (t,)).fetchall()
+            orfas = c.execute("SELECT e.*, r.dono AS reserva_dono, r.ate AS reserva_ate "
+                              "FROM fluxos_etapas e LEFT JOIN fluxos_reservas r ON r.etapa_id=e.id "
+                              "WHERE e.estado='em_execucao' AND e.origem!='plantao'").fetchall()
             for e in orfas:
+                if e["reserva_ate"] and e["reserva_ate"] > t:
+                    if not (e["origem"] == "processamento" and e["etapa"] == "extracao"
+                            and _extrator_local_encerrado(e["reserva_dono"])):
+                        continue
                 c.execute("DELETE FROM fluxos_reservas WHERE etapa_id=?", (e["id"],))
                 if self._interromper_c(c, e)["estado"] == "aguardando_operador":
                     incertas += 1

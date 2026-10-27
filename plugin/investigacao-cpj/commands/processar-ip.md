@@ -1,15 +1,16 @@
 ---
-description: Processa os arquivos do caso (PDF → diagnóstico, OCR, Markdown por página, CSV, entidades e JSON; ou MD/CSV prontos) e completa a transcrição visual das páginas pendentes
+description: Processa novos PDFs em Markdown por página, com O.S. em Markdown e checkpoint essencial único; sem derivados CSV/JSON
 argument-hint: <ID do caso (OS-...)> [arquivo específico]
 ---
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 Processe o material do caso: $ARGUMENTS
 
-Use a skill `pdf-autos-policiais`. Caminhos: `$S = "plugin\investigacao-cpj\skills\pdf-autos-policiais\scripts"`, `$B = "plugin\investigacao-cpj\skills\base-cpj\scripts"`, caso em `casos\<ID>\`.
+Leia primeiro a skill `pdf-autos-policiais`. Use os scripts originais em `plugin/investigacao-cpj/skills/pdf-autos-policiais/scripts`; caso em `casos/<ID>/`.
 
-1. **Verifique `processamento.json`** do caso. Documentos já `concluido` pela Central CPJ **não** devem ser reprocessados. Documentos em `na_fila`/`processando`: aguarde (a Central está trabalhando). Em `erro`: leia `01-extracao\<doc>\processamento.log`, explique e corrija.
-2. Para cada arquivo de `00-originais\` ainda sem pasta em `01-extracao\` (quando o usuário não usou a Central), com `$E = "...\01-extracao\<nome do arquivo sem extensão>"`:
-   - **PDF:** `$env:PATH += ";C:\Program Files\Tesseract-OCR"`; se existir `ferramentas\tessdata\por.traineddata`, `$env:TESSDATA_PREFIX = "$PWD\ferramentas\tessdata"`. Rode `diagnostico.py` → `extrair.py <pdf> --saida $E --lang por` (use `eng` só se `por` não existir, e avise) → `tabelas.py <pdf> --saida $E` → `tabelas.py $E\transcricao.md --saida $E` → `entidades.py $E\transcricao.md` → `dados_json.py $E` → `caso.py ip <ID> $E\relatorio_extracao.json`.
-   - **MD:** copie para `$E\transcricao.md` → `tabelas.py` → `entidades.py` → `dados_json.py $E`. **CSV:** copie para `$E\tabelas\` → `dados_json.py $E`.
-3. **Complete o que a máquina não resolve:** para páginas em `pendentes_transcricao_visual` ou `conferir_visualmente` (`relatorio_extracao.json`), leia os PNGs de `$E\paginas_visao\` em lotes de ~20, grave `$E\transcricoes_visuais\pNNNN.md` pelas regras de transcrição da skill (tabelas em Markdown) e rode `extrair.py` de novo + `tabelas.py`/`entidades.py`/`dados_json.py` sobre a transcrição. Se forem muitas páginas, informe o volume antes e pergunte se deve priorizar só as páginas críticas (extratos, comprovantes, qualificações).
-4. Atualize `registro-tratamento.md`, rode `python "$B\indexar.py"` e resuma: páginas por método, pendências, tabelas CSV, entidades e JSON consolidado. Próximo passo: `/analisar-ip <ID>`.
+1. Confira `processamento.json`: não reprocessar documento concluído nem concorrer com extração na fila/em andamento. Em erro, leia o log daquele documento e preserve checkpoints e originais.
+2. Para novo PDF ainda não processado, rode `extrair.py <pdf> --saida <pasta-da-extracao> --lang por`. Use OCR local disponível; ausência/ilegibilidade é pendência, nunca sucesso presumido. A extração gera `transcricao.md` com páginas, O.S. em Markdown e um checkpoint essencial consolidado. **Não executar tabelas.py, entidades.py nem dados_json.py no fluxo dos novos PDFs.** Não criar arquivo por página apenas para indexar no RAG. Para registrar metadados no caso, use `caso.py ip <ID> <pasta-da-extracao>` (leitor do estado consolidado).
+3. Para transcrição visual pendente, consulte o estado pelo leitor `estado_extracao.ler(pasta, 'relatorio_extracao.json')`; preserve a distinção entre transcrição confirmada e dado duvidoso. Observe consentimentos antes de qualquer provedor externo. Complete a transcrição conforme a skill e reprocesse apenas o necessário, sem gerar derivados CSV/JSON.
+4. Material MD/CSV fornecido pelo operador continua sendo original e não deve ser descartado; sua importação legada não autoriza recriar CSV/JSON para os novos PDFs.
+5. Atualize registro de tratamento e estado do caso, preservando SHA-256 do original; indexe pelos scripts existentes quando a etapa exigir. Resuma páginas/método, pendências e localização do Markdown. Próximo passo: `/analisar-ip <ID>`.

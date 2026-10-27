@@ -9,16 +9,17 @@ import unittest
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
+from fixtures_docx import criar_modelo
 
 AQUI = Path(__file__).resolve().parent
 ROOT = AQUI.parents[3]
-MODELO = ROOT / "modelos" / "MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx"
 GERADOR = ROOT / "plugin" / "investigacao-cpj" / "skills" / "relatorio-ip-fraude" / "scripts" / "gerar_docx.py"
 
 MINUTA = """---
 ordem_servico: 456/2026
-referencia: IP fictício 456/2026; BO fictício 789/2026
+referencia: IPe nº FICTÍCIO-456/2026 / Processo nº FICTÍCIO-789/2026
 natureza: Estelionato (art. 171, CP)
 investigados: INVESTIGADO FICTÍCIO
 vitimas: VÍTIMA FICTÍCIA
@@ -26,7 +27,8 @@ local: Rua Fictícia, 10, Presidente Prudente/SP
 data_fatos: 10/03/2026
 local_data: Presidente Prudente, SP, 28 de setembro de 2026
 data_rodape: 28/09/2026
-delegado: Delegado Fictício
+delegado: DELEGADO FICTÍCIO
+delegado_genero: M
 ---
 ## RESUMO DOS FATOS
 Em 10/03/2026, a vítima fictícia relatou transferência de R$ 1.234,56, conforme (pág. 2 do PDF; fls. 14). O relato é fictício e serve apenas para validar a conversão do documento.
@@ -48,17 +50,23 @@ class TesteDocxF04(unittest.TestCase):
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory(prefix="cpj-docx-f04-")
         pasta = Path(cls.temp.name)
+        cls.modelo_path = criar_modelo(pasta / "modelos")
+        modelo = Document(cls.modelo_path)
+        for p in modelo.paragraphs:
+            if p.text in {"RESUMO DOS FATOS", "DILIGÊNCIAS REALIZADAS", "CONCLUSÃO"}:
+                p._p.addnext(OxmlElement("w:p"))
+        modelo.save(cls.modelo_path)
         cls.saida = pasta / "relatorio-ficticio.docx"
         minuta = pasta / "minuta-ficticia.md"
         minuta.write_text(MINUTA, encoding="utf-8")
         subprocess.run(
-            [sys.executable, str(GERADOR), str(minuta), "--saida", str(cls.saida), "--modelo", str(MODELO)],
+            [sys.executable, str(GERADOR), str(minuta), "--saida", str(cls.saida), "--modelo", str(cls.modelo_path), "--sem-fluxograma"],
             check=True,
             capture_output=True,
             text=True,
-            env={**os.environ, "PYTHONUTF8": "1"},
+            env={**os.environ, "CPJ_WORKSPACE": str(pasta), "CPJ_SEM_AGENTE_EMBUTIDO": "1", "PYTHONUTF8": "1"},
         )
-        cls.modelo = Document(MODELO)
+        cls.modelo = Document(cls.modelo_path)
         cls.documento = Document(cls.saida)
 
     @classmethod
@@ -112,19 +120,28 @@ class TesteDocxF04(unittest.TestCase):
                 self.assertEqual(run.font.name, "Arial")
                 self.assertEqual(run.font.size.pt, 9)
 
-    def test_assinatura_acompanha_subscritor_sem_quebra_forcada_e_bloco_preservado(self):
+    def test_assinatura_nome_cargo_formam_bloco_sem_quebra_forcada(self):
         paragrafos_assinatura = [
             p for p in self.documento.paragraphs if p._p.xpath(".//pic:pic")
         ]
         self.assertEqual(len(paragrafos_assinatura), 1)
-        self.assertFalse(paragrafos_assinatura[0].paragraph_format.page_break_before)
-        self.assertTrue(paragrafos_assinatura[0].paragraph_format.keep_with_next)
-        subscritor = next(p for p in self.documento.paragraphs if p.text == "Alan Douglas Silva")
-        self.assertTrue(subscritor.paragraph_format.keep_with_next)
+        assinatura = paragrafos_assinatura[0]
+        self.assertFalse(assinatura.paragraph_format.page_break_before)
+        self.assertTrue(assinatura.paragraph_format.keep_with_next)
+        self.assertTrue(assinatura.paragraph_format.keep_together)
         textos = [p.text for p in self.documento.paragraphs]
-        self.assertIn("Alan Douglas Silva", textos)
+        self.assertIn("ALAN DOUGLAS SILVA", textos)
         self.assertIn("Investigador de Polícia", textos)
-        self.assertIn("Delegado Fictício", textos)
+        self.assertIn("DELEGADO FICTÍCIO", textos)
+        indice = next(i for i, p in enumerate(self.documento.paragraphs) if p._p == assinatura._p)
+        bloco = self.documento.paragraphs[indice:indice + 3]
+        self.assertEqual([p.text for p in bloco[1:]], ["ALAN DOUGLAS SILVA", "Investigador de Polícia"])
+        self.assertTrue(bloco[1].paragraph_format.keep_with_next)
+        for p in bloco:
+            self.assertTrue(p.paragraph_format.keep_together)
+            self.assertEqual(p.alignment, WD_ALIGN_PARAGRAPH.CENTER)
+            self.assertEqual(p.paragraph_format.first_line_indent, 0)
+            self.assertFalse(p.paragraph_format.page_break_before)
         self.assertEqual(
             len(self.documento._element.body.xpath(".//pic:pic")),
             len(self.modelo._element.body.xpath(".//pic:pic")),
@@ -132,9 +149,9 @@ class TesteDocxF04(unittest.TestCase):
 
     def test_citacoes_lista_e_estilos_do_modelo_sao_preservados(self):
         textos = [p.text for p in self.documento.paragraphs]
-        self.assertTrue(any("(fls. 14)" in texto for texto in textos))
-        self.assertTrue(any("(fls. 15)" in texto for texto in textos))
-        self.assertFalse(any("pág. 2 do PDF" in texto for texto in textos))
+        self.assertTrue(any("(Fls. 14)" in texto for texto in textos))
+        self.assertTrue(any("(Fls. 15)" in texto for texto in textos))
+        self.assertNotIn("do PDF", "\n".join(textos))
         self.assertTrue(any(texto.startswith("- Conferência") for texto in textos))
         for nome in ("RESUMO DOS FATOS", "DILIGÊNCIAS REALIZADAS", "CONCLUSÃO"):
             modelo = next(p for p in self.modelo.paragraphs if p.text == nome)
@@ -146,6 +163,25 @@ class TesteDocxF04(unittest.TestCase):
             self.assertEqual(saida.paragraph_format.space_before, modelo.paragraph_format.space_before)
             self.assertEqual(saida.paragraph_format.space_after, modelo.paragraph_format.space_after)
 
+
+    def test_titulos_de_secao_permanecem_com_o_primeiro_paragrafo(self):
+        nomes = {"RESUMO DOS FATOS", "DILIGÊNCIAS REALIZADAS", "CONCLUSÃO"}
+        titulos = [p for p in self.documento.paragraphs if p.text in nomes]
+        self.assertEqual(len(titulos), 3)
+        for titulo in titulos:
+            with self.subTest(secao=titulo.text):
+                self.assertTrue(titulo.paragraph_format.keep_with_next)
+                self.assertTrue(titulo.paragraph_format.keep_together)
+
+
+    def test_espacador_do_modelo_nao_separa_titulo_do_texto(self):
+        nomes = {"RESUMO DOS FATOS", "DILIGÊNCIAS REALIZADAS", "CONCLUSÃO"}
+        pars = self.documento.paragraphs
+        for i, p in enumerate(pars):
+            if p.text in nomes:
+                with self.subTest(secao=p.text):
+                    self.assertEqual(pars[i + 1].text, "")
+                    self.assertTrue(pars[i + 1].paragraph_format.keep_with_next)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

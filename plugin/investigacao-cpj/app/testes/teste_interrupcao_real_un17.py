@@ -104,7 +104,7 @@ class InterrupcaoReal(unittest.TestCase):
     def concluido(self, caso):
         d = self.ws / "casos" / caso
         trabalhos = self.processamento(caso).get("trabalhos", [])
-        return bool(trabalhos) and all(t.get("status") == "concluido" for t in trabalhos) and any(d.glob("01-extracao/*/entidades.csv"))
+        return bool(trabalhos) and all(t.get("status") == "concluido" for t in trabalhos) and any(d.glob("01-extracao/*/transcricao.md"))
 
     def test_morte_do_processo_durante_o_processamento_e_retomada(self):
         from testes.e2e.pdf_aux import gerar_pdf_sintetico_e2e
@@ -113,12 +113,16 @@ class InterrupcaoReal(unittest.TestCase):
         hash_original = hashlib.sha256(pdf.read_bytes()).hexdigest()
         self.iniciar()
         caso = self.enviar(pdf)
-        # espera o trabalho existir e NÃO estar concluído; então mata o processo de forma abrupta (TerminateProcess)
+        # Espera um checkpoint parcial real, então mata o servidor de forma abrupta (TerminateProcess).
         interrompido = False
+        paginas_antes = {}
         fim = time.monotonic() + 60
         while time.monotonic() < fim:
             trabalhos = self.processamento(caso).get("trabalhos", [])
-            if trabalhos and any(t.get("status") in ("na_fila", "processando") for t in trabalhos):
+            estados = list((self.ws / "casos" / caso).glob("01-extracao/*/.checkpoint/estado.json"))
+            if estados:
+                paginas_antes = json.loads(estados[0].read_text(encoding="utf-8")).get("paginas", {})
+            if trabalhos and any(t.get("status") == "processando" for t in trabalhos) and 2 <= len(paginas_antes) < 10:
                 self.processo.kill()
                 self.processo.wait(timeout=10)
                 interrompido = True
@@ -139,12 +143,120 @@ class InterrupcaoReal(unittest.TestCase):
         self.assertTrue(self.concluido(caso), json.dumps(self.processamento(caso), ensure_ascii=False)[:1500])
         transcricao = next((self.ws / "casos" / caso).glob("01-extracao/*/transcricao.md")).read_text(encoding="utf-8")
         self.assertIn("## Página 10", transcricao, "todas as páginas (inclusive as escaneadas) devem estar na transcrição")
+        estado_final = json.loads(next((self.ws / "casos" / caso).glob("01-extracao/*/.checkpoint/estado.json")).read_text(encoding="utf-8"))
+        self.assertGreaterEqual(estado_final["relatorio"]["paginas_reaproveitadas"], len(paginas_antes))
+        for numero, pagina in paginas_antes.items():
+            self.assertEqual(estado_final["paginas"][numero], pagina, "Checkpoint íntegro anterior à queda deve ser preservado.")
+        self.assertGreaterEqual(estado_final["relatorio"]["metodos"].get("ocr-tesseract", 0), 8,
+                                "As oito páginas escaneadas devem passar por OCR português real.")
+        self.assertFalse(list((self.ws / "casos" / caso / "01-extracao").rglob("*.csv")))
         # original intacto, sem caso duplicado, e nenhuma execução órfã no registro de fluxos
         self.assertEqual(hashlib.sha256(originais[0].read_bytes()).hexdigest(), hash_original)
         self.assertEqual([p.name for p in (self.ws / "casos").iterdir() if p.name != "_MODELO-CASO"], [caso])
         itens = self.get("/api/fluxos?limite=100")["itens"]
         self.assertFalse([i for i in itens if i.get("estado") == "em_execucao"], itens)
         self.assertFalse(any(i.get("estado") == "falhou" for i in itens), itens)
+
+
+def _encerrar_filho_ficticio(pid):
+    if os.name == "nt":
+        import ctypes
+        k=ctypes.WinDLL("kernel32",use_last_error=True); k.OpenProcess.restype=ctypes.c_void_p
+        h=k.OpenProcess(0x100001,False,pid)  # SYNCHRONIZE | PROCESS_TERMINATE
+        if h:
+            try:
+                k.TerminateProcess(ctypes.c_void_p(h),1)
+                if k.WaitForSingleObject(ctypes.c_void_p(h),5000) != 0:raise RuntimeError("Filho fictício não encerrou.")
+            finally:k.CloseHandle(ctypes.c_void_p(h))
+    else:
+        try:os.kill(pid,__import__('signal').SIGTERM)
+        except ProcessLookupError:pass
+
+
+class TravaExtracaoReal(unittest.TestCase):
+    @unittest.skipUnless(os.name == "nt", "Junction nativa Windows")
+    def test_trava_recusa_checkpoint_junction_sem_alterar_destino(self):
+        from pypdf import PdfWriter
+        with tempfile.TemporaryDirectory(prefix="cpj-un17-junction-") as td:
+            raiz=Path(td); pdf=raiz/'ficticio.pdf'; saida=raiz/'extracao'; alvo=raiz/'alvo'
+            saida.mkdir(); alvo.mkdir(); (alvo/'sentinela.txt').write_text('intacto')
+            w=PdfWriter(); w.add_blank_page(width=300,height=400); w.write(pdf)
+            r=subprocess.run(['cmd','/c','mklink','/J',str(saida/'.checkpoint'),str(alvo)],capture_output=True)
+            self.assertEqual(r.returncode,0,'Fixture de junction não foi criada.')
+            try:
+                script=APP.parent/'skills/pdf-autos-policiais/scripts/extrair.py'
+                r=subprocess.run([sys.executable,'-X','utf8',str(script),str(pdf),'--saida',str(saida),'--ocr','visao'],
+                                 capture_output=True,timeout=10)
+                self.assertNotEqual(r.returncode,0)
+                self.assertIn('junção',r.stderr.decode('utf-8','replace'))
+                self.assertEqual([p.name for p in alvo.iterdir()],['sentinela.txt'])
+                self.assertEqual((alvo/'sentinela.txt').read_text(),'intacto')
+            finally:(saida/'.checkpoint').rmdir()
+
+    def test_filho_orfao_mantem_trava_ate_terminar_e_novo_extrator_nao_escreve(self):
+        from pypdf import PdfWriter
+        with tempfile.TemporaryDirectory(prefix="cpj-un17-trava-") as td:
+            raiz = Path(td); pdf = raiz / "ficticio.pdf"; saida = raiz / "extracao"
+            w=PdfWriter(); w.add_blank_page(width=300,height=400); w.write(pdf)
+            script = APP.parent / "skills/pdf-autos-policiais/scripts/extrair.py"
+            # O filho permanece DENTRO da escrita da extração real, com a trava adquirida.
+            filho = r"""
+import os,runpy,sys,time
+from pathlib import Path
+sys.path.insert(0,str(Path(sys.argv[1]).parent))
+script,pdf,saida=sys.argv[1:]; sys.argv=[script,pdf,'--saida',saida,'--ocr','visao','--sem-reaproveitar']
+import estado_extracao as estado
+grava=estado.gravar
+def escrever(pasta,dados):
+ grava(pasta,dados)
+ if dados.get('paginas'):
+  p=Path(pasta)/'escritor-ficticio.txt'
+  while True:
+   with p.open('a') as f:f.write('escrita ficticia\n')
+   time.sleep(.02)
+estado.gravar=escrever
+runpy.run_path(script,run_name='__main__')
+"""
+            pai = r"""
+import subprocess,sys
+from pathlib import Path
+log=(Path(sys.argv[-1]).parent/'filho.log').open('wb')
+p=subprocess.Popen([sys.executable,'-X','utf8','-c',sys.argv[1],*sys.argv[2:]],stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT)
+print(p.pid,flush=True);sys.stdin.read()
+"""
+            env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1',CPJ_WORKSPACE=str(raiz))
+            lancador=subprocess.Popen([sys.executable,'-c',pai,filho,str(script),str(pdf),str(saida)],
+                                     stdin=subprocess.PIPE,stdout=subprocess.PIPE,text=True,env=env)
+            pid=int(lancador.stdout.readline()); segundo=None
+            try:
+                fim=time.monotonic()+15
+                marcador=saida/'escritor-ficticio.txt'
+                while time.monotonic()<fim and not marcador.exists():time.sleep(.02)
+                self.assertTrue(marcador.exists(),(raiz/'filho.log').read_text(encoding='utf-8',errors='replace'))
+                lancador.kill();lancador.wait(timeout=10)  # não mata o filho escritor
+                estado=saida/'.checkpoint/estado.json'; antes=estado.read_bytes()
+                cmd=[sys.executable,'-X','utf8',str(script),str(pdf),'--saida',str(saida),'--ocr','visao','--sem-reaproveitar','--refazer']
+                segundo=subprocess.Popen(cmd,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                with self.assertRaises(subprocess.TimeoutExpired):segundo.wait(timeout=.7)
+                self.assertEqual(estado.read_bytes(),antes,'Novo extrator não pode escrever sobre o filho órfão vivo.')
+                self.assertGreater(marcador.stat().st_size,len('escrita ficticia\n'))
+                # Timeout conservador não altera estado nem remove a trava do proprietário vivo.
+                ocupado=subprocess.run(cmd+['--espera-trava','.15'],env=env,capture_output=True,timeout=10)
+                self.assertNotEqual(ocupado.returncode,0)
+                self.assertIn('ocupada',ocupado.stderr.decode('utf-8','replace'))
+                self.assertEqual(estado.read_bytes(),antes)
+                _encerrar_filho_ficticio(pid)  # somente o filho fictício desta fixture
+                out,erro=segundo.communicate(timeout=20)
+                self.assertEqual(segundo.returncode,0,erro.decode('utf-8','replace'))
+                self.assertIn('## Página 1',(saida/'transcricao.md').read_text(encoding='utf-8'))
+                self.assertEqual((saida/'.checkpoint/extracao.lock').read_bytes(),b'\0')
+            finally:
+                if lancador.poll() is None:lancador.kill();lancador.wait(timeout=10)
+                lancador.stdin.close();lancador.stdout.close()
+                _encerrar_filho_ficticio(pid)
+                if segundo is not None:
+                    if segundo.poll() is None:segundo.kill();segundo.wait(timeout=10)
+                    segundo.stdout.close();segundo.stderr.close()
 
 
 if __name__ == "__main__":

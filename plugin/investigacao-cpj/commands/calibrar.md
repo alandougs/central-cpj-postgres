@@ -3,6 +3,8 @@ description: Calibra o sistema comparando a minuta da IA com a versão final do 
 argument-hint: <ID do caso> | geral
 ---
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 Calibre a partir de: $ARGUMENTS
 
 **Caso específico:**

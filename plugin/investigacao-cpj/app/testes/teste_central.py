@@ -158,10 +158,13 @@ ok(dlg.req("GET", "/arquivo/OS-901-2026/03-relatorios/RELATORIO-OS-901-2026-FINA
 ok(adm.req("GET", "/api/pendencias")[1]["entregues_hoje"] >= 1, "produção do dia contabilizada")
 
 print("7. Exportar e importar")
-st, j = adm.req("POST", "/api/exportar", {"modo": "dados"}); t = adm.esperar(j["tarefa"])
+senha_pacote = "SENHA-FICTICIA-E2E-123456"
+ok(adm.req("POST", "/api/exportar", {"modo": "dados"})[0] == 400, "exportação sem senha recusada")
+st, j = adm.req("POST", "/api/exportar", {"modo": "dados", "senha": senha_pacote}); t = adm.esperar(j["tarefa"])
 ok(t and t["status"] == "concluida" and t["resultado"]["casos"] == 1, f"exportação concluída ({t and (t.get('resultado') or t.get('erro'))})")
+ok(t["resultado"]["arquivo"].endswith(".cpjenc"), "exportação usa pacote criptografado")
 zp = os.path.join(W, "exportacoes", t["resultado"]["arquivo"])
-st, j = adm.req("POST", "/api/importar", arquivos=[("arquivo", zp)]); t = adm.esperar(j["tarefa"])
+st, j = adm.req("POST", "/api/importar", arquivos=[("arquivo", zp)], campos={"senha": senha_pacote}); t = adm.esperar(j["tarefa"])
 ok(t and t["status"] == "concluida" and "OS-901-2026" in t["resultado"]["casos_ja_existentes"], f"importação não sobrescreve caso existente ({t and (t.get('resultado') or t.get('erro'))})")
 ok(adm.req("GET", "/api/planilha", bruto=True)[0] == 200, "planilha CSV disponível")
 ok(adm.req("GET", "/painel", bruto=True)[0] == 200, "painel de estatísticas disponível")

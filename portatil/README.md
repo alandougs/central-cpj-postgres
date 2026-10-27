@@ -1,10 +1,10 @@
 # Procedimentos portáteis (qualquer agente de IA)
 
-Gerado em 2026-10-17 03:03. Um arquivo autocontido por tarefa. Leia também `..\AGENTS.md`.
+Gerado em 2026-10-27 16:08. Um arquivo autocontido por tarefa. Leia também `..\AGENTS.md`.
 
 | Arquivo | Tarefa |
 |---|---|
-| `01-processar-ip.md` | Receber e processar o material do IP (PDF → OCR → Markdown por página, CSV, entidades) |
+| `01-processar-ip.md` | Receber e processar o material do IP (PDF → OCR → Markdown por página) |
 | `02-analisar-ip.md` | Analisar IP de fraude/estelionato com rastreabilidade |
 | `03-analista-financeiro.md` | Extrair tabelas financeiras e montar o caminho do dinheiro |
 | `04-relatorio-ip.md` | Redigir o Relatório de Investigação no modelo CPJ e gerar o DOCX |

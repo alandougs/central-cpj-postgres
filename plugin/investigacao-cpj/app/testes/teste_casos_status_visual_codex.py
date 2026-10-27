@@ -1,37 +1,45 @@
-#!/usr/bin/env python3
-"""A tabela de Casos destaca em verde a linha cujo status é `entregue` (UX03, 15/10/2026).
-
-Requisito vigente (PRD, UX03): somente `entregue` recebe o fundo verde, inclusive no hover; os demais
-status, inclusive `concluido`, e a abertura da ficha pelo clique na linha não mudam. O contrato anterior
-(helper `casoEstaFinalizado`, classe `linha-concluida`, status `concluido` destacado) foi substituído
-por essa determinação. A interface é lida do HTML e dos módulos locais (CSS/JS).
-"""
-from pathlib import Path
-import re
+"""Status concluídos: células e temas conferidos no navegador real."""
 import unittest
-
-STATIC = Path(__file__).resolve().parents[1] / "static"
-CSS = (STATIC / "css" / "central.css").read_text(encoding="utf-8")
-CASOS_JS = (STATIC / "js" / "casos.js").read_text(encoding="utf-8")
+from teste_interface_rg26 import InterfaceFixtureRG26
 
 
-class CasosStatusVisualTests(unittest.TestCase):
-    def test_somente_status_entregue_aplica_classe_na_linha(self):
-        m = re.search(r'<tr class="\$\{c\.status==="entregue"\?"caso-entregue":""\}" data-id="\$\{esc\(c\.id\)\}"', CASOS_JS)
-        self.assertTrue(m, "a classe deve ser aplicada no elemento da linha, só quando status === 'entregue'")
-        self.assertNotIn("concluido", CASOS_JS[max(0, m.start() - 200):m.end() + 200],
-                         "status concluído não deve receber o destaque")
-        self.assertNotIn("linha-concluida", CASOS_JS + CSS, "contrato antigo (linha-concluida) foi substituído")
+CASOS = r'''
+  const estados=['entregue','concluido','Concluído','em_analise','minuta','arquivado'];
+  await page.route('**/api/casos?*',route=>route.fulfill({json:estados.map((status,i)=>({
+    id:'OS-'+(i+1)+'-2099',ordem_servico:(i+1)+'/2099',status,visto:true,
+    vitimas:['<img src=x onerror="window.injetado=true">'],investigados:[]
+  }))}));
+  await page.evaluate(()=>carregarCasos());
+'''
 
-    def test_linha_entregue_tem_fundo_verde_tambem_no_hover(self):
-        regra = re.search(r'tbody\.clic tr\.caso-entregue,\s*tbody\.clic tr\.caso-entregue:hover\s*\{([^}]*)\}', CSS)
-        self.assertTrue(regra, "regra de fundo para a linha entregue e seu hover ausente")
-        self.assertRegex(regra.group(1), r'background:\s*var\(--good-soft\)')
 
-    def test_celulas_nao_sobrepoem_o_fundo_da_linha_entregue(self):
-        # O fundo é da linha; nenhuma regra de célula pode cobrir o verde nas linhas entregues.
-        self.assertFalse(re.search(r'tr\.caso-entregue\s*>?\s*td\s*\{[^}]*background:(?!\s*var\(--good-soft\))', CSS))
-        self.assertFalse(re.search(r'(?<![\w.-])td\s*\{[^}]*background:', CSS), "td não deve definir fundo próprio")
+class CasosStatusVisualTests(InterfaceFixtureRG26):
+    def test_somente_status_finalizados_destacados_e_texto_escapado(self):
+        self.cenario(CASOS + r'''
+  const classes=await page.locator('#t-casos tr').evaluateAll(es=>es.map(e=>e.classList.contains('linha-concluida')));
+  assert.deepEqual(classes,[true,true,true,false,false,false]);
+  assert.equal(await page.locator('#t-casos img').count(),0);
+  assert.equal(await page.evaluate(()=>window.injetado),undefined);
+  assert.ok((await page.locator('#t-casos tr').first().innerText()).includes('<img'));
+''')
+
+    def test_todas_celulas_concluidas_verdes_nos_dois_temas_inclusive_hover(self):
+        self.cenario(CASOS + r'''
+  for(const tema of ['light','dark']){
+   await page.locator('html').evaluate((e,t)=>e.dataset.theme=t,tema);
+   const esperado=await page.evaluate(()=>{
+    const e=document.createElement('span');e.style.background='var(--good-soft)';document.body.append(e);
+    const cor=getComputedStyle(e).backgroundColor;e.remove();return cor;
+   });
+   for(let linha=0;linha<3;linha++){
+    const tr=page.locator('#t-casos tr').nth(linha);await tr.hover();
+    const cores=await tr.locator('td').evaluateAll(es=>es.map(e=>getComputedStyle(e).backgroundColor));
+    assert.ok(cores.every(c=>c===esperado),tema+': todas as células devem ficar verdes');
+   }
+   const aberta=await page.locator('#t-casos tr').nth(3).locator('td').first().evaluate(e=>getComputedStyle(e).backgroundColor);
+   assert.notEqual(aberta,esperado,'Caso aberto deve continuar distinguível');
+  }
+''')
 
 
 if __name__ == "__main__":

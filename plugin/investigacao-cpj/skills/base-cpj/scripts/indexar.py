@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Indexa o workspace CPJ: base consolidada de casos (estatística) + índice RAG local (SQLite FTS5).
 
-Uso:  indexar.py [--tudo]        (--tudo reindexa mesmo arquivos sem alteração)
+Uso:  indexar.py [--tudo] [--sem-baixa]
+      --tudo reindexa mesmo arquivos sem alteração
+      --sem-baixa permite manutenção do índice sem dar baixa automática nos casos
 
 Saídas:
   producao\\base.json, producao\\base.csv   — uma linha por caso (a partir de casos\\*\\caso.json)
@@ -17,6 +19,8 @@ Indexa (incremental, por SHA-256 do arquivo):
 Tudo local; nenhum dado sai do computador.
 """
 import argparse, csv, glob, hashlib, json, os, re, sqlite3, datetime
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../pdf-autos-policiais/scripts")))
 
 def ws_padrao():
     """Workspace CPJ: CPJ_WORKSPACE > 1ª pasta acima deste script com casos/ e modelos/ > cwd com casos/ > erro."""
@@ -36,12 +40,16 @@ def ws_padrao():
 
 
 WS = ws_padrao()
+from estado_extracao import ler as ler_estado_extracao  # noqa: E402
 CASOS = os.path.join(WS, "casos"); PROD = os.path.join(WS, "producao"); RAGD = os.path.join(WS, "rag")
 JANELA, SOBREPOE = 2500, 250
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--tudo", action="store_true")
 ap.add_argument("--so-base", action="store_true", help="Atualiza somente base.json e base.csv sem reindexar RAG")
+ap.add_argument("--sem-baixa", action="store_true", help="Manutenção: indexa sem dar baixa automática por relatório FINAL")
+ap.add_argument("--embeddings", action="store_true", help="Gera os vetores da busca híbrida nos trechos que ainda não têm")
+ap.add_argument("--reembeddings", action="store_true", help="Regera os vetores de todos os trechos (troca de modelo)")
 a = ap.parse_args()
 os.makedirs(PROD, exist_ok=True); os.makedirs(RAGD, exist_ok=True)
 
@@ -49,12 +57,13 @@ os.makedirs(PROD, exist_ok=True); os.makedirs(RAGD, exist_ok=True)
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import caso as C  # noqa: E402
-for d in (sorted(os.listdir(CASOS)) if os.path.isdir(CASOS) else []):
-    if d.startswith("_") or not os.path.exists(os.path.join(CASOS, d, "caso.json")): continue
-    try:
-        if C.baixa_automatica(d): print(f"Baixa automática: {d} (relatório FINAL encontrado em 03-relatorios)")
-    except Exception as e:
-        print(f"AVISO: baixa automática de {d} falhou: {e}")
+if not a.sem_baixa:
+    for d in (sorted(os.listdir(CASOS)) if os.path.isdir(CASOS) else []):
+        if d.startswith("_") or not os.path.exists(os.path.join(CASOS, d, "caso.json")): continue
+        try:
+            if C.baixa_automatica(d): print(f"Baixa automática: {d} (relatório FINAL encontrado em 03-relatorios)")
+        except Exception as e:
+            print(f"AVISO: baixa automática de {d} falhou: {e}")
 
 
 # ------------------------------------------------------------ base de casos
@@ -149,7 +158,8 @@ def janelas(txt):
 
 
 def fls_de(txt):
-    m = re.search(r"\bfls?\.?\s*(\d{1,5})\b", txt, flags=re.I)
+    # Remissão no corpo não identifica a folha física da página transcrita.
+    m = re.search(r"^[ \t]*(?:fls?\.?|folha)\s*(\d{1,5})[ \t]*$", txt, flags=re.I | re.M)
     return m.group(1) if m else None
 
 
@@ -243,6 +253,8 @@ def _banco(b):
 
 
 def conta_chave(banco, ag_conta):
+    import correlacoes as CORR
+    if not CORR.normalizar_banco(banco)[0] or CORR.contem_incerteza(ag_conta): return ""
     d = re.sub(r"\D", "", ag_conta or "")
     return f"{_banco(banco)}|{d}" if d else ""
 
@@ -259,6 +271,11 @@ def pix_chave(v):
 def norm(tipo, v):
     v = (v or "").strip()
     t = (tipo or "").upper()
+    import correlacoes as CORR
+    if CORR.contem_incerteza(v): return ""
+    if t == "CONTA":
+        ok, vn, _, _ = CORR.normalizar_identificador(t, v)
+        return vn if ok else ""
     if t == "CHAVE_PIX": return pix_chave(v)
     if t == "EMAIL": return v.lower()
     if t in ("CPF", "CNPJ", "TELEFONE", "CONTA", "AGENCIA") or re.fullmatch(r"[\d.\-/() ]+", v):
@@ -268,6 +285,7 @@ def norm(tipo, v):
 
 
 _hashes_fontes = {}
+_metadados_fontes = {}  # Somente metadados de proveniência; duração desta execução.
 
 
 def _texto_fonte(valor):
@@ -325,13 +343,17 @@ def evidencia_fonte(origem, caso, arquivo, localizador, *, documento=None, pagin
     if pasta:
         caminho_meta = _referencia_caso(caso, os.path.relpath(os.path.join(WS, pasta, 'relatorio_extracao.json'), os.path.join(CASOS, caso)))
         if caminho_meta:
-            try:
-                with open(os.path.join(WS, caminho_meta), encoding='utf-8') as f:
-                    lido = json.load(f)
-                if isinstance(lido, dict):
-                    meta = lido
-            except (OSError, ValueError):
-                pass
+            if caminho_meta not in _metadados_fontes:
+                resumo = {}
+                try:
+                    lido = ler_estado_extracao(os.path.join(WS, pasta), 'relatorio_extracao.json')
+                    if isinstance(lido, dict):
+                        resumo = {k: lido[k] for k in ('arquivo', 'sha256_original', 'gerado_em') if k in lido}
+                except (OSError, ValueError):
+                    pass
+                # Cachear também vazio/erro; não reter páginas/textos do checkpoint.
+                _metadados_fontes[caminho_meta] = resumo
+            meta = _metadados_fontes[caminho_meta]
     nome_original = _texto_fonte(meta.get('arquivo')) or declarado
     if caso and nome_original:
         nome = nome_original.replace('\\', '/')
@@ -360,6 +382,8 @@ def evidencia_fonte(origem, caso, arquivo, localizador, *, documento=None, pagin
 
 entidades_grafo = []
 db.execute("DELETE FROM entidades")
+from entidades import iter_candidatos  # noqa: E402
+
 for id_ in casos:
     base = os.path.join(CASOS, id_)
     for ent in glob.glob(os.path.join(base, "01-extracao", "**", "entidades.csv"), recursive=True):
@@ -375,6 +399,28 @@ for id_ in casos:
                                         tipo='extracao_candidata', status_fonte=r.get('status'))
             entidades_grafo.append((id_, r.get('tipo'), r.get('valor'),
                                    norm(r.get('tipo'), r.get('valor')), evidencia))
+    # Extração atual: Markdown -> candidatos em SQLite, sem derivados CSV/JSON.
+    # CSV existente continua autoritativo para a compatibilidade por documento.
+    for md in glob.glob(os.path.join(base, "01-extracao", "**", "transcricao.md"), recursive=True):
+        if os.path.exists(os.path.join(os.path.dirname(md), "entidades.csv")):
+            continue
+        arq = os.path.relpath(md, WS)
+        documento = os.path.relpath(os.path.dirname(md), os.path.join(base, "01-extracao"))
+        with open(md, encoding="utf-8") as fonte_md:
+            for r in iter_candidatos(fonte_md.read()):
+                tipo, valor = r['tipo'], r['valor']
+                if tipo in ('DATA', 'FLS', 'VALOR'):
+                    continue
+                vn = norm(tipo, valor)
+                if not vn:
+                    continue
+                pg, linha = r['pagina_pdf'], r['linha']
+                db.execute("INSERT INTO entidades VALUES(?,?,?,?,?,?,?)",
+                           (id_, tipo, valor, vn, pg, arq, r['trecho']))
+                evidencia = evidencia_fonte('caso', id_, arq, f'{arq} pág. {pg}; linha {linha}',
+                                            documento=documento, paginas=pg, trecho=r['trecho'], linha=linha,
+                                            tipo='extracao_candidata', status_fonte=r['status'])
+                entidades_grafo.append((id_, tipo, valor, vn, evidencia))
     ff = os.path.join(base, "02-analise", "fluxo-financeiro.csv")
     if os.path.exists(ff):
         for linha, r in enumerate(csv.DictReader(open(ff, encoding="utf-8-sig"), delimiter=";"), 2):
@@ -454,6 +500,8 @@ def aresta(a_tipo, a_valor, b_tipo, b_valor, relacao, origem, fonte, loc=""):
 
 def chave(tipo, v):
     """Normalização dos nós do grafo de vínculos. CONTA usa conta_chave(banco, conta); PESSOA usa id do registro."""
+    import correlacoes as CORR
+    if CORR.contem_incerteza(v): return ""
     if tipo in ("CPF", "CNPJ", "TELEFONE", "RG"): return re.sub(r"\D", "", v or "")
     if tipo == "PLACA": return re.sub(r"[^A-Z0-9]", "", (v or "").upper())
     if tipo in ("PROCESSO", "BO"):
@@ -572,7 +620,7 @@ MAPA_ENT = {"CPF": "CPF", "CNPJ": "CNPJ", "TELEFONE": "TELEFONE", "PLACA": "PLAC
             "CHAVE_PIX": "CHAVE_PIX", "CONTA": "CONTA", "TITULAR": "NOME"}
 for caso_, tipo, valor, vn, evidencia in entidades_grafo:
     t = MAPA_ENT.get((tipo or "").upper())
-    if not t: continue
+    if not t or not vn: continue
     k = vn if t == "CONTA" else chave(t, valor)
     aresta("CASO", caso_, t, k, "titular citado nos autos (nome — conferir)" if t == "NOME" else "consta nos autos",
            "caso", caso_, evidencia)
@@ -633,6 +681,30 @@ except Exception as e_corr:
         CORR.registrar_erro_indice(db, e_corr)
     except Exception:
         pass
+
+# ------------------------------------------------------------ vetores da busca híbrida (local, opcional)
+# Grava por lote e comita a cada lote: a geração é retomável e nunca deixa o índice textual inconsistente.
+if a.embeddings or a.reembeddings:
+    import embeddings as EMB  # noqa: E402
+    if not EMB.disponivel():
+        print("AVISO: busca híbrida indisponível (faltam fastembed/numpy no ambiente); vetores não gerados.")
+    else:
+        onde = "" if a.reembeddings else " WHERE embedding IS NULL"
+        pendentes = db.execute(f"SELECT id, texto FROM trechos{onde} ORDER BY id").fetchall()
+        feitos = 0
+        for i in range(0, len(pendentes), 256):
+            lote = pendentes[i:i + 256]
+            try:
+                vs = EMB.vetores([t or "" for _, t in lote])
+            except Exception as e_emb:
+                print(f"AVISO: geração de vetores interrompida após {feitos} trecho(s): {e_emb}")
+                break
+            db.executemany("UPDATE trechos SET embedding = ? WHERE id = ?",
+                           [(v, ident) for (ident, _), v in zip(lote, vs) if v is not None])
+            db.commit()
+            feitos += sum(1 for v in vs if v is not None)
+            print(f"  vetores {feitos}/{len(pendentes)}", flush=True)
+        print(f"Busca híbrida: {feitos} vetor(es) gravado(s) — {EMB.MODELO}, {EMB.DIM}d, local.")
 
 n_t = db.execute("SELECT COUNT(*) FROM trechos").fetchone()[0]
 n_e = db.execute("SELECT COUNT(*) FROM entidades").fetchone()[0]

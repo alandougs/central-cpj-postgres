@@ -132,18 +132,20 @@
 
   function montarUrlFonte(casoId, fonteObj) {
     if (!casoId || !fonteObj) return null;
+    if (!/^[\w.-]+$/.test(casoId) || casoId === "." || casoId === "..") return null;
+    if (fonteObj.caso && fonteObj.caso !== casoId) return null;
     let arq = String(fonteObj.arquivo || "").replace(/\\/g, "/").trim();
-    if (!arq) return null;
+    if (!arq || arq.startsWith("/") || /^[a-z]:/i.test(arq) || /[\u0000-\u001f\u007f]/.test(arq)) return null;
     if (arq.startsWith(`casos/${casoId}/`)) {
       arq = arq.slice(`casos/${casoId}/`.length);
     } else if (arq.startsWith("casos/")) {
-      const partes = arq.split("/");
-      if (partes.length >= 3) arq = partes.slice(2).join("/");
+      return null;
     }
+    if (arq.split("/").some(parte => !parte || parte === "." || parte === "..")) return null;
     if (!arq || arq.startsWith("caso.json")) return null;
     const urlBase = `/arquivo/${encUri(casoId)}/${arq.split("/").map(encUri).join("/")}`;
     const pag = fonteObj.pagina;
-    if (pag && Number.isInteger(Number(pag)) && arq.toLowerCase().endsWith(".pdf")) {
+    if ((typeof pag === "number" || typeof pag === "string") && Number.isSafeInteger(Number(pag)) && Number(pag) > 0 && arq.toLowerCase().endsWith(".pdf")) {
       return `${urlBase}#page=${Number(pag)}`;
     }
     return urlBase;
@@ -168,19 +170,22 @@
   // ---------------------------------------------------------------- Inicialização de sub-modos em Pesquisa e Grafo
 
   function ativarModoPesquisa(modo) {
+    if (modo === "mapa") {
+      if (typeof window.abrirAba === "function") window.abrirAba("mapa");
+      return;
+    }
+    if (typeof window.abrirAba === "function" && !document.getElementById("pesquisa")?.classList.contains("on")) window.abrirAba("pesquisa");
     const segBtns = document.querySelectorAll("#pesquisa .seg button");
     segBtns.forEach((b) => b.classList.toggle("on", b.dataset.m === modo));
     const paineis = {
       pessoas: document.getElementById("m-pessoas"),
       texto: document.getElementById("m-texto"),
       correlacoes: document.getElementById("m-correlacoes"),
-      mapa: document.getElementById("m-mapa"),
     };
     Object.entries(paineis).forEach(([k, el]) => {
       if (el) el.hidden = k !== modo;
     });
     if (modo === "correlacoes") carregarCorrelacoes();
-    if (modo === "mapa") carregarMapa();
   }
 
   function construirContainersDom() {
@@ -199,9 +204,9 @@
     if (!mMapa) {
       mMapa = document.createElement("div");
       mMapa.id = "m-mapa";
-      mMapa.hidden = true;
-      secPesquisa.appendChild(mMapa);
+      document.getElementById("mapa").appendChild(mMapa);
     }
+    if (document.getElementById("f-correlacoes-filtros") && document.getElementById("f-mapa-filtros")) return;
 
     mCorr.innerHTML = `
       <div class="card" style="margin-bottom:12px">
@@ -212,7 +217,7 @@
           </div>
           <div class="acoes" style="margin:0">
             <button type="button" class="btn sm" id="b-corr-atualizar">Atualizar lista</button>
-            <button type="button" class="btn sm" id="b-corr-ir-mapa">Abrir Mapa Offline</button>
+            <button type="button" class="btn sm" id="b-corr-ir-mapa">Abrir Mapa</button>
           </div>
         </div>
         <div id="corr-aviso-desatualizado" hidden class="aviso alerta" style="margin-bottom:10px"></div>
@@ -274,8 +279,8 @@
       <div class="card" style="margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
           <div>
-            <h3 style="margin:0">Mapa Tático de Referência — Malha Oficial IBGE (5.570 Municípios)</h3>
-            <p class="muted" style="margin:2px 0 0">Cartografia vetorial oficial das 27 UFs e sedes municipais do IBGE (100% local, zero requisições externas).</p>
+            <h2 id="titulo-mapa" style="margin:0">Mapa</h2>
+            <p class="muted" style="margin:2px 0 0">Referências municipais do IBGE, disponíveis localmente. A posição municipal é aproximada; coordenadas exatas exigem fonte documentada nos autos.</p>
           </div>
           <div class="acoes" style="margin:0;flex-wrap:wrap">
             <button type="button" class="btn sm pri" id="b-mapa-fit-pontos" title="Enquadrar automaticamente todos os pontos visíveis">Enquadrar Pontos</button>
@@ -320,9 +325,9 @@
         </form>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 380px;gap:12px;min-height:580px">
-        <div class="card" style="padding:0;position:relative;overflow:hidden;background:radial-gradient(circle at 55% 55%, #0c1c36 0%, #060d18 85%);border:1px solid #1e3a5f;display:flex;flex-direction:column;box-shadow:inset 0 0 40px rgba(0,0,0,0.65)">
-          <svg id="svg-mapa-offline" viewBox="0 0 800 560" role="img" aria-label="Mapa tático offline do Brasil — Malha IBGE" style="width:100%;height:530px;display:block;cursor:grab;user-select:none"></svg>
+      <div class="mapa-layout" style="display:grid;grid-template-columns:1fr 380px;gap:12px;min-height:580px">
+        <div class="card mapa-superficie" style="padding:0;position:relative;overflow:hidden;background:radial-gradient(circle at 55% 55%, #0c1c36 0%, #060d18 85%);border:1px solid #1e3a5f;display:flex;flex-direction:column;box-shadow:inset 0 0 40px rgba(0,0,0,0.65)">
+          <svg id="svg-mapa-offline" viewBox="0 0 800 560" role="group" aria-label="Mapa de referência municipal do Brasil — IBGE" style="width:100%;height:530px;display:block;cursor:grab;user-select:none"></svg>
 
           <!-- Controles flutuantes de zoom e indicador de escala -->
           <div style="position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:4px;z-index:4">
@@ -388,7 +393,13 @@
     });
 
     document.getElementById("b-corr-atualizar").addEventListener("click", () => carregarCorrelacoes());
-    document.getElementById("b-corr-ir-mapa").addEventListener("click", () => ativarModoPesquisa("mapa"));
+    document.getElementById("b-corr-ir-mapa").addEventListener("click", () => {
+      estadoMapa.filtros.caso = document.getElementById("corr-f-caso").value.trim();
+      estadoMapa.filtros.correlacao_id = "";
+      document.getElementById("mapa-f-caso").value = estadoMapa.filtros.caso;
+      estadoMapa.enquadrarAoCarregar = true;
+      ativarModoPesquisa("mapa");
+    });
 
     // Eventos do Mapa Offline
     document.getElementById("f-mapa-filtros").addEventListener("submit", (e) => {
@@ -633,6 +644,7 @@
           await atualizarEstadoCorrelacaoUI(cid, { estado: "descartado", motivo });
         } else if (acao === "mapa") {
           estadoMapa.filtros.correlacao_id = cid;
+          estadoMapa.enquadrarAoCarregar = true;
           ativarModoPesquisa("mapa");
         } else if (acao === "grafo") {
           navegarParaGrafo(btn.dataset.valor, btn.dataset.caso);
@@ -831,6 +843,8 @@
           .join("");
 
         listaSemLoc.querySelectorAll("[data-semloc-id]").forEach((el) => {
+          const registro = semLoc.find((x) => x.id === el.dataset.semlocId);
+          habilitarTecladoMapa(el, `Inspecionar ${registro?.nome || "registro sem localização"}`);
           el.addEventListener("click", () => {
             const alvo = semLoc.find((x) => x.id === el.dataset.semlocId);
             if (alvo) inspecionarRegistroMapa(alvo);
@@ -860,11 +874,27 @@
     if (tip) tip.hidden = true;
   }
 
+  function habilitarTecladoMapa(el, rotulo) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.setAttribute("aria-label", rotulo);
+    el.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter" && ev.key !== " ") return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+  }
+
   function desenharSvgMapa() {
     const svg = document.getElementById("svg-mapa-offline");
     if (!svg) return;
+    const focoAnterior = svg.contains(document.activeElement) ? document.activeElement : null;
     const z = Math.max(0.85, Number(estadoMapa.zoom) || 1);
     const invZ = Number((1 / z).toFixed(4));
+    const matrizTela = svg.getScreenCTM();
+    const escalaTela = matrizTela ? Math.hypot(matrizTela.a, matrizTela.b) : 1;
+    const invTela = Number((1 / (z * (escalaTela || 1))).toFixed(6));
     const strokeUf = Number((1.1 / Math.pow(z, 0.75)).toFixed(3));
     const lblZoom = document.getElementById("mapa-zoom-label");
     if (lblZoom) lblZoom.textContent = `${z.toFixed(1)}×`;
@@ -945,7 +975,7 @@
       }
     }
 
-    // 4) Marcadores de pontos e agrupamentos com escala constante na tela (scale(invZ))
+    // Marcadores mantêm tamanho em pixels, compensando o zoom e o viewBox responsivo.
     let gruposSvg = "";
     grupos.forEach((g) => {
       const [x, y] = projetarLatLon(g.lat, g.lon);
@@ -960,15 +990,16 @@
         const corCluster = g.destacado_correlacao ? "#b45309" : "#0369a1";
         const corAnel = g.destacado_correlacao ? "#fbbf24" : "#38bdf8";
         gruposSvg += `
-          <g class="mapa-grupo" data-grupo-id="${escHtml(g.id)}" transform="translate(${x},${y}) scale(${invZ})" style="cursor:pointer">
+          <g class="mapa-grupo" data-grupo-id="${escHtml(g.id)}" transform="translate(${x},${y}) scale(${invTela})" style="cursor:pointer">
+            <circle class="mapa-alvo" r="${Math.max(22, raio + 5)}" fill="transparent" />
             <circle r="${raio + 5}" fill="${corAnel}" fill-opacity="0.18" stroke="${corBorda}" stroke-width="1.3" ${dash} />
             <circle r="${raio}" fill="${corCluster}" stroke="#e0f2fe" stroke-width="1.8" />
-            <text y="0.5" fill="#FFFFFF" font-size="10.5" font-weight="700" text-anchor="middle" dominant-baseline="middle">${g.total}</text>
+            <text y="0.5" fill="#FFFFFF" font-size="12.5" font-weight="700" text-anchor="middle" dominant-baseline="middle">${g.total}</text>
             ${
               mostrarCidade
                 ? `<g transform="translate(0, ${-(raio + 11)})" pointer-events="none">
-                     <rect x="${-Math.min(78, (g.municipio || "").length * 3.3 + 8)}" y="-8" width="${Math.min(156, (g.municipio || "").length * 6.6 + 16)}" height="15" rx="4" fill="rgba(6,13,24,0.88)" stroke="#1e3a5f" stroke-width="0.8" />
-                     <text y="0.5" fill="#e2e8f0" font-size="9.5" font-weight="600" text-anchor="middle" dominant-baseline="middle">${escHtml((g.municipio || "").slice(0, 22))}</text>
+                     <rect x="${-Math.min(88, (g.municipio || "").length * 3.6 + 8)}" y="-10" width="${Math.min(176, (g.municipio || "").length * 7.2 + 16)}" height="20" rx="4" fill="rgba(6,13,24,0.88)" stroke="#1e3a5f" stroke-width="0.8" />
+                     <text y="0.5" fill="#e2e8f0" font-size="12.5" font-weight="600" text-anchor="middle" dominant-baseline="middle">${escHtml((g.municipio || "").slice(0, 22))}</text>
                    </g>`
                 : ""
             }
@@ -982,16 +1013,17 @@
         const corPreench = g.destacado_correlacao ? "#f59e0b" : (isPj ? "#10b981" : "#0ea5e9");
         const rotuloCurto = z >= 2.2 ? (p.nome || "").slice(0, 20) : (g.municipio || p.nome || "").slice(0, 18);
         gruposSvg += `
-          <g class="mapa-ponto" data-ponto-id="${escHtml(p.id)}" transform="translate(${x},${y}) scale(${invZ})" style="cursor:pointer">
+          <g class="mapa-ponto" data-ponto-id="${escHtml(p.id)}" transform="translate(${x},${y}) scale(${invTela})" style="cursor:pointer">
+            <circle class="mapa-alvo" r="22" fill="transparent" />
             <circle r="11.5" fill="${corPreench}" fill-opacity="0.18" stroke="${corBorda}" stroke-width="1.3" ${dash} />
             ${
               isPj
                 ? `<rect x="-6" y="-6" width="12" height="12" rx="2.5" transform="rotate(45)" fill="${corPreench}" stroke="#ffffff" stroke-width="1.4" />`
                 : `<circle r="6.8" fill="${corPreench}" stroke="#ffffff" stroke-width="1.4" />`
             }
-            <g transform="translate(0, -17)" pointer-events="none">
-              <rect x="${-Math.min(72, rotuloCurto.length * 3.1 + 7)}" y="-7.5" width="${Math.min(144, rotuloCurto.length * 6.2 + 14)}" height="14" rx="3.5" fill="rgba(6,13,24,0.86)" stroke="#1e3a5f" stroke-width="0.7" />
-              <text y="0.5" fill="#f1f5f9" font-size="9" font-weight="600" text-anchor="middle" dominant-baseline="middle">${escHtml(rotuloCurto)}</text>
+            <g transform="translate(0, -26)" pointer-events="none">
+              <rect x="${-Math.min(80, rotuloCurto.length * 3.6 + 7)}" y="-10" width="${Math.min(160, rotuloCurto.length * 7.2 + 14)}" height="20" rx="3.5" fill="rgba(6,13,24,0.86)" stroke="#1e3a5f" stroke-width="0.7" />
+              <text y="0.5" fill="#f1f5f9" font-size="12.5" font-weight="600" text-anchor="middle" dominant-baseline="middle">${escHtml(rotuloCurto)}</text>
             </g>
           </g>
         `;
@@ -1016,11 +1048,12 @@
         const corSat = isPj ? "#10b981" : "#38bdf8";
         const sel = estadoMapa.selecionado && estadoMapa.selecionado.id === m.id;
         spiderSvg += `
-          <g class="mapa-satelite" data-ponto-id="${escHtml(m.id)}" transform="translate(${gx},${gy}) scale(${invZ})" style="cursor:pointer">
+          <g class="mapa-satelite" data-ponto-id="${escHtml(m.id)}" transform="translate(${gx},${gy}) scale(${invTela})" style="cursor:pointer">
             <line x1="0" y1="0" x2="${sx}" y2="${sy}" stroke="#38bdf8" stroke-width="1.3" stroke-dasharray="3,2" opacity="0.85" />
             <g transform="translate(${sx},${sy})">
+              <circle class="mapa-alvo" r="22" fill="transparent" />
               <circle r="${sel ? 11 : 8.5}" fill="${corSat}" stroke="${sel ? "#fbbf24" : "#ffffff"}" stroke-width="${sel ? 2.2 : 1.4}" />
-              <text y="14" fill="#f8fafc" font-size="8.5" font-weight="600" text-anchor="middle" style="text-shadow:0 1px 3px #000">${escHtml((m.nome || "").slice(0, 14))}</text>
+              <text y="28" fill="#f8fafc" font-size="12.5" font-weight="600" text-anchor="middle" style="text-shadow:0 1px 3px #000">${escHtml((m.nome || "").slice(0, 14))}</text>
             </g>
           </g>
         `;
@@ -1067,6 +1100,8 @@
 
     // Eventos dos pontos individuais e satélites do leque
     svg.querySelectorAll(".mapa-ponto, .mapa-satelite").forEach((el) => {
+      const registro = pontosPorId[el.dataset.pontoId];
+      habilitarTecladoMapa(el, `Inspecionar ${registro?.nome || "registro"}, ${registro?.caso || ""}`);
       el.addEventListener("mouseenter", (ev) => {
         const p = pontosPorId[el.dataset.pontoId];
         if (!p) return;
@@ -1091,6 +1126,8 @@
 
     // Eventos dos agrupamentos municipais (clusters)
     svg.querySelectorAll(".mapa-grupo").forEach((el) => {
+      const grupo = grupos.find((x) => x.id === el.dataset.grupoId);
+      habilitarTecladoMapa(el, `Abrir ${grupo?.total || 0} registros em ${grupo?.municipio || "agrupamento"}`);
       el.addEventListener("mouseenter", (ev) => {
         const grp = grupos.find((x) => x.id === el.dataset.grupoId);
         if (!grp) return;
@@ -1109,11 +1146,18 @@
         if (grp) abrirFanoutGrupo(grp, pontosPorId);
       });
     });
+    if (focoAnterior) {
+      const alvo = [...svg.querySelectorAll(".mapa-ponto, .mapa-satelite, .mapa-grupo")].find((el) =>
+        el.getAttribute("class") === focoAnterior.getAttribute("class") &&
+        el.dataset.pontoId === focoAnterior.dataset.pontoId && el.dataset.grupoId === focoAnterior.dataset.grupoId);
+      if (alvo) alvo.focus({ preventScroll: true });
+    }
   }
 
   function configurarInteracaoSvgMapa() {
     const svg = document.getElementById("svg-mapa-offline");
     if (!svg) return;
+    if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => desenharSvgMapa()).observe(svg);
     let arrastando = false;
     let iniX = 0, iniY = 0;
 
@@ -1201,6 +1245,7 @@
     if (btnFecha) btnFecha.onclick = fecharFanoutGrupo;
 
     box.querySelectorAll("[data-fanout-membro]").forEach((el) => {
+      habilitarTecladoMapa(el, `Inspecionar ${pontosPorId[el.dataset.fanoutMembro]?.nome || "registro"}`);
       el.addEventListener("click", () => {
         const p = pontosPorId[el.dataset.fanoutMembro];
         if (p) {
@@ -1300,15 +1345,17 @@
   // ---------------------------------------------------------------- Inicialização Geral
 
   function iniciarInteligenciaMapa() {
+    const primeiraInicializacao = !document.getElementById("f-mapa-filtros");
     construirContainersDom();
+    if (primeiraInicializacao && document.getElementById("mapa")?.classList.contains("on")) carregarMapa();
 
-    // Estender os botões segmentados da aba Pesquisa para suportar Correlações e Mapa
+    // Modos da Pesquisa; o alias legado "mapa" abre a aba principal.
     const segBtns = document.querySelectorAll("#pesquisa .seg button");
     segBtns.forEach((b) => {
       b.onclick = () => ativarModoPesquisa(b.dataset.m);
     });
 
-    // Atalhos na barra do Grafo para abrir Radar de Correlações ou Mapa Offline mantendo a O.S. selecionada
+    // Atalho do Grafo para o Radar mantendo a O.S. selecionada.
     const bGrCorr = document.getElementById("b-gr-correlacoes");
     if (bGrCorr) {
       bGrCorr.onclick = () => {
@@ -1321,22 +1368,10 @@
       };
     }
 
-    const bGrMapa = document.getElementById("b-gr-mapa");
-    if (bGrMapa) {
-      bGrMapa.onclick = () => {
-        const casoSel = (document.getElementById("gr-caso") || {}).value || "";
-        estadoMapa.filtros.caso = casoSel;
-        const inp = document.getElementById("mapa-f-caso");
-        if (inp) inp.value = casoSel;
-        if (typeof window.abrirAba === "function") window.abrirAba("pesquisa");
-        ativarModoPesquisa("mapa");
-      };
-    }
-
-    // Injetar atalhos diretos "Correlações" e "Mapa" na barra superior (#nav) ao lado de Pesquisa/Grafo
+    // O mapa pertence à navegação principal; somente o atalho do Radar é injetado.
     function injetarBotoesNavSuperior() {
       const nav = document.getElementById("nav");
-      if (!nav || document.getElementById("nav-btn-mapa")) return;
+      if (!nav || document.getElementById("nav-btn-correlacoes")) return;
       const btnGrafo = nav.querySelector('button[data-a="grafo"]') || nav.querySelector('button[data-a="pesquisa"]');
       if (!btnGrafo) return;
 
@@ -1348,27 +1383,20 @@
       btnCorr.onclick = () => {
         if (typeof window.abrirAba === "function") window.abrirAba("pesquisa");
         ativarModoPesquisa("correlacoes");
-        nav.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === btnCorr));
-      };
-
-      const btnMapa = document.createElement("button");
-      btnMapa.type = "button";
-      btnMapa.id = "nav-btn-mapa";
-      btnMapa.dataset.a = "mapa-atalho";
-      btnMapa.textContent = "Mapa";
-      btnMapa.onclick = () => {
-        if (typeof window.abrirAba === "function") window.abrirAba("pesquisa");
-        ativarModoPesquisa("mapa");
-        nav.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === btnMapa));
+        nav.querySelectorAll("button").forEach((x) => {
+          x.classList.toggle("on", x === btnCorr);
+          if (x === btnCorr) x.setAttribute("aria-current", "page");
+          else x.removeAttribute("aria-current");
+        });
       };
 
       btnGrafo.insertAdjacentElement("afterend", btnCorr);
-      btnCorr.insertAdjacentElement("afterend", btnMapa);
     }
 
     injetarBotoesNavSuperior();
     const navEl = document.getElementById("nav");
-    if (navEl && typeof MutationObserver !== "undefined") {
+    if (navEl && !navEl.dataset.inteligenciaObservada && typeof MutationObserver !== "undefined") {
+      navEl.dataset.inteligenciaObservada = "1";
       const obs = new MutationObserver(() => injetarBotoesNavSuperior());
       obs.observe(navEl, { childList: true });
     }

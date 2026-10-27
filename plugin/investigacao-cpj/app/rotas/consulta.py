@@ -342,9 +342,11 @@ def api_grafo_adicionar_vinculo():
         pagina = evidencia["pagina"]
         if pagina is not None and (type(pagina) is not int or pagina < 1):
             raise ValueError("Página deve ser um número inteiro positivo.")
+        import vinculos_manuais as VM
         for tipo, valor in ((a_tipo,a_valor),(b_tipo,b_valor)):
             if tipo not in R.TIPOS_NO or (tipo == "PESSOA" and not valor.startswith("P:")):
                 raise ValueError("Use um identificador de registro para Pessoa; para nome sem identidade confirmada, selecione Nome candidato.")
+            VM.recusar_identificador_incerto(tipo, valor)
         a_valor, b_valor = R.chave_no(a_tipo,a_valor), R.chave_no(b_tipo,b_valor)
     except ValueError as e:
         return jsonify({"erro": str(e)}), 400

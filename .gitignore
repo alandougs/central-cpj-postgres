@@ -80,3 +80,11 @@ Imagens/
 /deploy/
 /ferramentas/migrar-json-postgres.py
 /plugin/investigacao-cpj/app/db.py
+
+# Caches de testes e transferências locais (não são fontes do sistema)
+.pytest_cache/
+/.tmp.driveupload/
+/.tmp.drivedownload/
+
+# Runtime OCR portátil local (não distribuir binários no Git)
+/ferramentas/tesseract/

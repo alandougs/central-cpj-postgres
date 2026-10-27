@@ -31,18 +31,23 @@ import rag as R  # noqa: E402
 import referencias as RF  # noqa: E402
 from auth import Auth, DESCRICAO, PERFIS, TODAS  # noqa: E402
 from tarefas import SEM_JANELA, Tarefas, gerar_docx, gerar_pdf, soffice  # noqa: E402
-from fluxo_execucao import Fluxos  # noqa: E402
+from fluxo_execucao import Fluxos, dono_extracao_local  # noqa: E402
 
 WS = C.WS
 PY = sys.executable
 def _achar_tesseract():
-    """Pasta do tesseract.exe: CPJ_TESSERACT, instalação padrão, a que vem com o PDF24 ou o PATH."""
-    candidatos = [os.environ.get("CPJ_TESSERACT", ""), r"C:\Program Files\Tesseract-OCR", r"C:\Program Files\PDF24\tesseract"]
+    """Pasta do OCR: configuração explícita, projeto portátil, instalações ou PATH."""
+    raiz = os.path.dirname(os.path.dirname(PLUGIN))
+    candidatos = [os.environ.get("CPJ_TESSERACT", ""),
+                  os.path.join(WS, "ferramentas", "tesseract"),
+                  os.path.join(raiz, "ferramentas", "tesseract"),
+                  r"C:\Program Files\Tesseract-OCR", r"C:\Program Files\PDF24\tesseract"]
     for d in candidatos:
-        if d and os.path.isfile(os.path.join(d, "tesseract.exe")):
-            return d
+        exe = d if d.lower().endswith("tesseract.exe") else os.path.join(d, "tesseract.exe")
+        if d and os.path.isfile(exe):
+            return os.path.dirname(exe)
     exe = shutil.which("tesseract")
-    return os.path.dirname(exe) if exe else candidatos[1]
+    return os.path.dirname(exe) if exe else r"C:\Program Files\Tesseract-OCR"
 
 
 TESS_DIR = _achar_tesseract()
@@ -162,8 +167,11 @@ def pasta_usuario(login):
 
 def ambiente_ocr():
     env = dict(os.environ, CPJ_WORKSPACE=WS, PYTHONIOENCODING="utf-8", PYTHONWARNINGS="ignore")
-    if os.path.isdir(TESS_DIR) and TESS_DIR not in env.get("PATH", ""):
-        env["PATH"] = env.get("PATH", "") + ";" + TESS_DIR
+    if os.path.isdir(TESS_DIR):
+        escolhido = os.path.normcase(os.path.abspath(TESS_DIR))
+        outros = [p for p in env.get("PATH", "").split(os.pathsep)
+                  if os.path.normcase(os.path.abspath(p)) != escolhido]
+        env["PATH"] = os.pathsep.join([TESS_DIR, *outros])
     if os.path.exists(os.path.join(TESSDATA_LOCAL, "por.traineddata")):
         env["TESSDATA_PREFIX"] = TESSDATA_LOCAL
     return env
@@ -178,7 +186,7 @@ def assinatura_arquivo(p):
 
 
 def idioma_ocr(env):
-    exe = os.path.join(TESS_DIR, "tesseract.exe")
+    exe = shutil.which("tesseract", path=env.get("PATH")) or os.path.join(TESS_DIR, "tesseract.exe")
     tessdata = env.get("TESSDATA_PREFIX") or os.path.join(TESS_DIR, "tessdata")
     chave = (
         exe,
@@ -384,7 +392,7 @@ def plano_transcricao_visual(id_, todas=False, documentos=None):
             continue
         original = (raiz / "00-originais" / arquivo).resolve()
         if not original.is_relative_to(raiz / "00-originais"): raise ValueError("Original fora do caso.")
-        if not m.caminho(pasta, "qualidade.json").exists() and original.is_file():
+        if not m.ler_json(pasta, "qualidade.json") and original.is_file():
             rodar([PY, os.path.join(S_PDF, "qualidade.py"), str(pasta), "--pdf", str(original)], ambiente_ocr(), str(pasta / "qualidade.log"))
         paginas = list(range(1, rel.get("paginas", 0) + 1)) if todas else m.paginas_pendentes(pasta)
         if paginas: plano.append({"doc": pasta.name, "paginas": paginas, "arquivo": arquivo})
@@ -437,11 +445,8 @@ def transcricao_visual(tid, id_, plano, consentimento):
             if campo in meta: cmd += [flag, str(meta[campo])]
         log = str(pasta / f"transcricao-visual-{tid}.log")
         rodar(cmd, ambiente_ocr(), log)
-        for script, args in (("tabelas.py", [str(pasta / "transcricao.md"), "--saida", str(pasta / "tabelas")]),
-                             ("entidades.py", [str(pasta / "transcricao.md"), "--saida", str(pasta / "entidades.csv")]),
-                             ("dados_json.py", [str(pasta)]), ("qualidade.py", [str(pasta), "--pdf", str(original)])):
-            rodar([PY, os.path.join(S_PDF, script), *args], ambiente_ocr(), log)
-        C.importar_ip(id_, str(pasta / "relatorio_extracao.json"))
+        rodar([PY, os.path.join(S_PDF, "qualidade.py"), str(pasta), "--pdf", str(original)], ambiente_ocr(), log)
+        C.importar_ip(id_, relatorio=m.ler_json(pasta, "relatorio_extracao.json"), pasta=d["doc"])
         registrar_tratamento(id_, [f"- Transcrição visual por API: {d['doc']}, páginas {d['paginas']}; origem registrada em cada arquivo; CONFERIR. Originais preservados; replay dos checkpoints."])
         resultados.append({"doc": d["doc"], **r})
     tarefas.indexar()
@@ -513,7 +518,6 @@ def processar(trab, app_logger=None):
             saida_diag = rodar([PY, os.path.join(S_PDF, "diagnostico.py"), orig], env, log)
             json_str = saida_diag[saida_diag.find("{") : saida_diag.rfind("}") + 1]
             diag = json.loads(json_str)
-            json.dump(diag, open(os.path.join(dest, "diagnostico.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=2)
             if "erro" in diag:
                 raise RuntimeError(diag["erro"])
             lang = idioma_ocr(env) or "por"
@@ -526,9 +530,6 @@ def processar(trab, app_logger=None):
                     atualizar_trabalho(id_, doc, pagina_atual=i, paginas=n, progresso=5 + int(85 * i / n))
 
             rodar([PY, os.path.join(S_PDF, "extrair.py"), orig, "--saida", dest, "--lang", lang], env, log, prog)
-            etapa("tabelas (CSV)", progresso=91)
-            rodar([PY, os.path.join(S_PDF, "tabelas.py"), orig, "--saida", dest], env, log)
-            rodar([PY, os.path.join(S_PDF, "tabelas.py"), os.path.join(dest, "transcricao.md"), "--saida", dest], env, log)
         elif ext == ".md":
             etapa("importação do Markdown", progresso=30)
             shutil.copyfile(orig, os.path.join(dest, "transcricao.md"))
@@ -538,17 +539,17 @@ def processar(trab, app_logger=None):
             etapa("importação do CSV", progresso=50)
             os.makedirs(os.path.join(dest, "tabelas"), exist_ok=True)
             shutil.copyfile(orig, os.path.join(dest, "tabelas", arq))
-        if os.path.exists(os.path.join(dest, "transcricao.md")):
+        if ext != ".pdf" and os.path.exists(os.path.join(dest, "transcricao.md")):
             etapa("dados críticos", progresso=94)
             rodar([PY, os.path.join(S_PDF, "entidades.py"), os.path.join(dest, "transcricao.md")], env, log)
-        etapa("consolidação JSON", progresso=95)
-        rodar([PY, os.path.join(S_PDF, "dados_json.py"), dest], env, log)
+        if ext != ".pdf":
+            etapa("consolidação JSON", progresso=95)
+            rodar([PY, os.path.join(S_PDF, "dados_json.py"), dest], env, log)
         etapa("registro", progresso=96)
-        rel = os.path.join(dest, "relatorio_extracao.json")
         sem_ocr = None
-        if os.path.exists(rel):
-            C.importar_ip(id_, rel)
-            r = json.load(open(rel, encoding="utf-8"))
+        r = modulo_visual().ler_json(dest, "relatorio_extracao.json")
+        if r:
+            C.importar_ip(id_, relatorio=r, pasta=doc)
             sem_ocr = limitacao_ocr(r)
             registrar_tratamento(
                 id_,
@@ -625,7 +626,8 @@ def _processar_coordenado(trab):
         processar(trab)
         return
     id_, doc = trab["caso"], trab["doc"]
-    dono = f"extrator-{os.getpid()}-{threading.get_ident()}"
+    # Outros modos podem enviar páginas à API; não recebem retomada antecipada por morte local.
+    dono = dono_extracao_local() if trab.get("modo") == "rapido" else f"extrator-{os.getpid()}-{threading.get_ident()}"
     try:
         fx = fluxos()
         etapa = fx.reservar(etapa_id, dono, 12 * 3600)
@@ -686,10 +688,19 @@ def retomar_pendentes():
     except Exception as erro:
         import logging
         logging.getLogger("cpj.fluxos").warning("reconciliação de inicialização incompleta: %s", erro)
+        return  # sem saber a titularidade, não sobrescrever processamento.json
     for c in C.listar():
         for t in ler_proc(c["id"]).get("trabalhos", []):
             if t.get("status") in ("na_fila", "processando"):
-                enfileirar(c["id"], t["doc"], t["arquivo"], **{k: t.get(k) for k in ("usuario", "consentimento", "grupo_ia", "limitacao")}, modo=t.get("modo", "inteligente"))
+                etapa = fx.ultima_extracao(c["id"], t["arquivo"])
+                if etapa is None or etapa["estado"] != "na_fila":
+                    continue  # preservar executor vivo/incerto, cancelamento e resultados já registrados
+                # Retomada reutiliza o item/etapa persistidos, sem criar nova solicitação ou zerar
+                # progresso. Outro servidor pode reservar após a consulta: o worker conferirá a
+                # reserva atômica antes de tocar no checkpoint.
+                fila.put({"caso": c["id"], "doc": t["doc"], "arquivo": t["arquivo"], "etapa_id": etapa["id"],
+                          "modo": t.get("modo", "inteligente"),
+                          **{k: t.get(k) for k in ("usuario", "consentimento", "grupo_ia", "limitacao")}})
 
 
 # ================================================================== casos helpers
