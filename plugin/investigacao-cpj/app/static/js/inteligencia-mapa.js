@@ -279,7 +279,7 @@
       <div class="card" style="margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
           <div>
-            <h2 id="titulo-mapa" style="margin:0">Mapa</h2>
+            <h2 id="titulo-mapa" style="margin:0">Mapa <span id="mapa-carregando" class="chip" style="font-size:12px;font-weight:normal" hidden>Carregando…</span></h2>
             <p class="muted" style="margin:2px 0 0">Referências municipais do IBGE, disponíveis localmente. A posição municipal é aproximada; coordenadas exatas exigem fonte documentada nos autos.</p>
           </div>
           <div class="acoes" style="margin:0;flex-wrap:wrap">
@@ -668,7 +668,10 @@
 
   // ---------------------------------------------------------------- Mapa Offline: Carregamento e Renderização Vetorial IBGE
 
+  let seqRequisicaoMapa = 0;
+
   async function carregarMapa() {
+    const seqAtual = ++seqRequisicaoMapa;
     const f = estadoMapa.filtros;
     const qs = new URLSearchParams();
     if (f.caso) qs.set("caso", f.caso);
@@ -682,9 +685,15 @@
       estadoMapa.enquadrarAoCarregar = true;
     }
 
+    const ctlCarregando = document.getElementById("mapa-carregando");
+    if (ctlCarregando) ctlCarregando.hidden = false;
+
     try {
       const res = await chamarApi(`/api/inteligencia/mapa?${qs.toString()}`);
-
+      if (seqAtual !== seqRequisicaoMapa) {
+        // Resposta desatualizada descartada para evitar race condition
+        return;
+      }
       Object.assign(estadoMapa, res);
       estadoMapa.jaCarregou = true;
       renderizarPainelMapa();
@@ -695,8 +704,13 @@
         desenharSvgMapa();
       }
     } catch (e) {
+      if (seqAtual !== seqRequisicaoMapa) return;
       const insp = document.getElementById("mapa-inspetor-conteudo");
       if (insp) insp.innerHTML = `<div class="aviso alerta">Erro ao carregar mapa offline: ${escHtml(e.message)}</div>`;
+    } finally {
+      if (seqAtual === seqRequisicaoMapa && ctlCarregando) {
+        ctlCarregando.hidden = true;
+      }
     }
   }
 
@@ -1276,8 +1290,8 @@
     const precisaoBadge =
       item.precisao === "coordenada_documentada"
         ? `<span class="badge st-conf">Coordenada documentada (${escHtml(item.contexto_coordenada || "autos")})</span>`
-        : item.precisao === "municipio_aproximado"
-        ? `<span class="badge st-ind">Município aproximado (centroide IBGE)</span>`
+        : (item.precisao === "municipio_aproximado" || item.precisao === "municipio" || item.is_aproximado)
+        ? `<span class="badge badge-aproximada">Localização aproximada (centro do município · IBGE)</span>`
         : `<span class="badge st-neg">Sem coordenada (${escHtml(MOTIVOS_GEO_ROTULO[item.motivo_sem_localizacao] || item.motivo_sem_localizacao || "")})</span>`;
 
     const docPrincipal = item.tipo_pessoa === "PJ" ? (item.cnpj ? `CNPJ: ${item.cnpj}` : "CNPJ não consta") : (item.cpf ? `CPF: ${item.cpf}` : "CPF não consta");

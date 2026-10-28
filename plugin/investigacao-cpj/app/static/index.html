@@ -96,7 +96,7 @@
 
 
 
-<section class="aba" id="nova"><h2>Nova Ordem de Serviço</h2><p class="sub">Cadastre a O.S. e envie o PDF do IP (ou peças). O sistema organiza pela O.S. e processa automaticamente: OCR, Markdown por página, tabelas em CSV e indexação. O investigador é avisado no Início.</p>
+<section class="aba" id="nova"><h2>Nova Ordem de Serviço</h2><p class="sub">Cadastre a O.S. e envie o PDF do IP (ou peças). O sistema organiza pela O.S. e processa automaticamente: OCR local, extração Markdown por página, rastreabilidade e indexação. O investigador é avisado no Início.</p>
 
 <div class="g2"><form class="card" id="f-os">
 
@@ -238,9 +238,6 @@
     <button class="btn sm" id="b-gr-reset">Centralizar</button>
 
     <button class="btn sm" id="b-gr-foto">Salvar PNG</button>
-    <button type="button" class="btn sm" id="b-gr-correlacoes">Correlações</button>
-
-
     <button type="button" class="btn sm" id="b-gr-correlacoes">Correlações</button>
 
 
@@ -629,6 +626,47 @@
 <div id="final-ressalva-lista" style="max-height:220px;overflow:auto;margin-bottom:12px;font-size:12px;border:1px solid var(--borda,#ddd);border-radius:6px;padding:8px"></div>
 <div style="margin-bottom:12px"><label style="display:block;font-weight:600;margin-bottom:4px;font-size:13px">Justificativa para entrega com ressalva (mínimo 15 caracteres):</label><textarea id="final-ressalva-texto" rows="3" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px" placeholder="Descreva a justificativa para prosseguir mesmo com as pendências acima..."></textarea></div>
 <div style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn sm" id="b-canc-final-ressalva">Cancelar</button><button type="button" class="btn sm b-ok" id="b-confirmar-final-ressalva">Definir FINAL com ressalva</button></div></div></div>
+
+
+<div class="modal" id="modal-conferencia-documental" role="dialog" aria-modal="true" aria-labelledby="conf-doc-titulo" hidden>
+  <div class="card card-conferencia" style="max-width:1240px;width:96vw;height:90vh;display:flex;flex-direction:column;padding:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:10px">
+      <div>
+        <h3 id="conf-doc-titulo" style="margin:0;font-size:18px">Conferência Documental — Autos Originais × Extração</h3>
+        <p class="muted" id="conf-doc-sub" style="margin:2px 0 0;font-size:12px">Comparação direta da peça original com a transcrição textual gerada.</p>
+      </div>
+      <div class="acoes" style="margin:0;display:flex;align-items:center;gap:8px">
+        <label for="conf-doc-pag" style="font-size:13px;margin:0">Página:</label>
+        <button type="button" class="btn sm" id="b-conf-pag-ant" title="Página anterior">◀ Anterior</button>
+        <select id="conf-doc-pag" style="width:auto;min-width:90px"></select>
+        <button type="button" class="btn sm" id="b-conf-pag-prox" title="Próxima página">Próxima ▶</button>
+        <button type="button" class="btn sm" id="b-conf-fechar">Fechar</button>
+      </div>
+    </div>
+    <div class="conf-doc-body" style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:14px;min-height:0;overflow:hidden">
+      <div class="conf-coluna" style="display:flex;flex-direction:column;min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden">
+        <div class="conf-coluna-hd" style="padding:8px 12px;background:var(--surface-2);border-bottom:1px solid var(--line);font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+          <span id="conf-pdf-label">PDF dos Autos Originais</span>
+          <a class="lk" id="conf-pdf-link" href="#" target="_blank" rel="noopener">Abrir original em nova aba</a>
+        </div>
+        <iframe id="conf-pdf-frame" title="PDF original dos autos" style="flex:1;width:100%;border:none;background:#525659"></iframe>
+      </div>
+      <div class="conf-coluna" style="display:flex;flex-direction:column;min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden">
+        <div class="conf-coluna-hd" style="padding:8px 12px;background:var(--surface-2);border-bottom:1px solid var(--line);font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+          <span id="conf-md-label">Transcrição Markdown</span>
+          <span class="chip" id="conf-md-metodo" style="font-size:11px">Método: —</span>
+        </div>
+        <div id="conf-md-conteudo" style="flex:1;padding:14px;overflow-y:auto;background:var(--surface);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.6;white-space:pre-wrap"></div>
+        <div id="conf-md-avisos" class="muted" style="padding:6px 12px;font-size:11.5px;border-top:1px solid var(--line);background:var(--surface-2)">
+          <span>Folhas dos autos: <b id="conf-md-fls">—</b> · Página do PDF: <b id="conf-md-pag-num">—</b></span>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:11.5px;color:var(--muted);text-align:right">
+      Aviso: A transcrição em Markdown é material derivado para análise. A conferência com o PDF original dos autos é mandatória.
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 

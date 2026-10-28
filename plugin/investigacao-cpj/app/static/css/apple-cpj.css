@@ -1,21 +1,25 @@
-/* CPJ: quiet desktop hierarchy, local system type, opaque investigative content.
+/* ASTRA: precise console hierarchy, local system type, opaque investigative content.
    Loaded after the legacy styles; theme selection and DOM contracts stay in the app. */
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #17181b;
-  --surface: #202124;
-  --surface-2: #292a2e;
+  --page: #060606;
+  --surface: #171b19;
+  --surface-2: #242a27;
   --ink: #f5f5f7;
   --ink2: #d2d2d7;
   --muted: #adadb5;
-  --line: #3e3f45;
+  --line: #39443d;
+  --edge-light: rgba(230,255,238,.1);
+  --ambient: rgba(49,217,109,.075);
+  --grid-line: rgba(49,217,109,.075);
   --control-line: #777780;
-  --ring: rgba(105,177,255,.3);
-  --acc: #0066cc;
-  --acc-hov: #0055ad;
-  --acc-2: #69b1ff;
-  --acc-soft: #243449;
+  --ring: rgba(49,217,109,.3);
+  --acc: #31D96D;
+  --acc-hov: #29be5f;
+  --acc-ink: #060606;
+  --acc-2: #63e38f;
+  --acc-soft: #20392a;
   --gold: #eac778;
   --gold-soft: #3b301d;
   --good: #83d99b;
@@ -26,8 +30,8 @@
   --crit-soft: #3c2224;
   --danger-fill: #b8322e;
   --mark: #58491d;
-  --header-glass: rgba(32,33,36,.96);
-  --shadow: none;
+  --header-glass: rgba(23,27,25,.94);
+  --shadow: 0 8px 24px rgba(0,0,0,.16), inset 0 1px 0 var(--edge-light);
   --shadow-md: 0 18px 60px rgba(0,0,0,.28);
   --map-land: #2b3038;
   --map-land-active: #33465e;
@@ -40,19 +44,23 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --page: #f5f5f7;
+  --page: #F5F5F5;
   --surface: #ffffff;
-  --surface-2: #f5f5f7;
-  --ink: #1d1d1f;
+  --surface-2: #F5F5F5;
+  --ink: #060606;
   --ink2: #424247;
   --muted: #626269;
   --line: #dcdce1;
+  --edge-light: rgba(255,255,255,.9);
+  --ambient: rgba(49,217,109,.055);
+  --grid-line: rgba(20,108,53,.06);
   --control-line: #85858d;
-  --ring: rgba(0,102,204,.22);
-  --acc: #0066cc;
-  --acc-hov: #0055ad;
-  --acc-2: #0066cc;
-  --acc-soft: #eaf2fc;
+  --ring: rgba(20,108,53,.22);
+  --acc: #31D96D;
+  --acc-hov: #29be5f;
+  --acc-ink: #060606;
+  --acc-2: #146c35;
+  --acc-soft: #e8f7ed;
   --gold: #735a21;
   --gold-soft: #fff3df;
   --good: #287641;
@@ -63,8 +71,8 @@
   --crit-soft: #fff0ef;
   --danger-fill: #b8322e;
   --mark: #ffec99;
-  --header-glass: rgba(255,255,255,.96);
-  --shadow: none;
+  --header-glass: rgba(255,255,255,.94);
+  --shadow: 0 6px 24px rgba(6,6,6,.035), inset 0 1px 0 var(--edge-light);
   --shadow-md: 0 18px 60px rgba(29,29,31,.16);
   --map-land: #e5e9ef;
   --map-land-active: #d0e1f7;
@@ -80,11 +88,25 @@ body {
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  background-image: radial-gradient(ellipse 80% 420px at 85% 0, var(--ambient), transparent 80%);
+  background-repeat: no-repeat;
+}
+
+/* The technical grid stays in the wide-screen gutter, outside reading surfaces. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 168px auto 0 0;
+  width: max(0px, calc((100vw - 1440px) / 2));
+  background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
 }
 
 header {
   background: var(--surface);
-  box-shadow: none;
+  border-top: 2px solid var(--acc);
+  box-shadow: 0 8px 28px rgba(0,0,0,.06), inset 0 -1px 0 var(--edge-light);
 }
 
 @supports ((backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px))) {
@@ -103,38 +125,41 @@ header {
 
 .brand { flex: 1 1 24rem; min-width: 0; }
 .brasao-hd { height: 40px; filter: none; }
-.logo { font-size: 19px; font-weight: 700; letter-spacing: -.035em; min-width: 0; }
+.logo { font-size: 21px; font-weight: 750; letter-spacing: -.035em; min-width: 0; }
 .logo small { margin-top: 3px; font-size: 12px; letter-spacing: 0; white-space: normal; line-height: 1.35; }
 
 nav {
   order: 5;
   flex: 1 0 100%;
   gap: 4px;
-  border-top: 1px solid var(--line);
-  padding-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 5px;
+  background: var(--surface-2);
+  box-shadow: inset 0 1px 0 var(--edge-light);
 }
 
 nav button {
-  min-height: 34px;
+  min-height: 36px;
   padding: 6px 12px;
   border-radius: 8px;
   font-size: 14px;
   transition: background-color .12s ease, color .12s ease;
 }
 
-nav button.on { background: var(--acc); border-color: var(--acc); box-shadow: none; }
-nav button:hover:not(.on) { color: var(--ink); background: var(--surface-2); }
+nav button.on { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); box-shadow: 0 0 0 1px var(--edge-light), 0 2px 10px var(--ambient); }
+nav button:hover:not(.on) { color: var(--ink); background: var(--surface); border-color: var(--line); }
 nav button .n { background: var(--danger-fill); color: #fff; font-size: 11px; }
 .chip, .user { min-height: 32px; display: inline-flex; align-items: center; border-radius: 8px; font-size: 13px; }
 .user { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 
 main { max-width: 1440px; padding: 24px 24px 48px; min-width: 0; }
-h2 { font-size: 28px; font-weight: 700; line-height: 1.2; letter-spacing: -.035em; margin-bottom: 8px; }
+h2 { font-size: 30px; font-weight: 700; line-height: 1.2; letter-spacing: -.04em; margin-bottom: 8px; }
 h3 { font-size: 22px; font-weight: 650; line-height: 1.25; letter-spacing: -.025em; margin-bottom: 14px; }
 h4 { font-size: 15px; font-weight: 650; line-height: 1.4; letter-spacing: 0; }
 .sub { font-size: 14px; line-height: 1.55; margin-bottom: 20px; max-width: 85ch; }
 .muted { font-size: 13px; }
-.card { min-width: 0; border-radius: 12px; padding: 18px; box-shadow: none; }
+.card { min-width: 0; border-radius: 16px; padding: 20px; box-shadow: var(--shadow); }
 .card .card { border-radius: 10px; box-shadow: none; }
 .g2, .g3 { gap: 16px; }
 .g2 > *, .g3 > * { min-width: 0; }
@@ -170,8 +195,8 @@ textarea { line-height: 1.6; }
 
 .btn.sm { min-height: 32px; padding: 5px 10px; font-size: 13px; border-radius: 7px; }
 .btn:hover { background: var(--surface-2); border-color: var(--acc-2); color: var(--ink); }
-.btn.pri { background: var(--acc); border-color: var(--acc); color: #fff; box-shadow: none; }
-.btn.pri:hover { background: var(--acc-hov); border-color: var(--acc-hov); color: #fff; }
+.btn.pri { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 2px 8px var(--ambient); }
+.btn.pri:hover { background: var(--acc-hov); border-color: var(--acc-hov); color: var(--acc-ink); }
 .btn:active, nav button:active { filter: brightness(.9); }
 .btn.dan { color: var(--crit); }
 .btn.dan:hover { color: var(--crit); background: var(--crit-soft); border-color: var(--crit); }
@@ -195,21 +220,21 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .badge { font-size: 12px; line-height: 1.5; }
 .aviso { border-radius: 10px; font-size: 14px; line-height: 1.55; }
 
-table { font-size: 14px; }
+table { font-size: 14px; font-variant-numeric: tabular-nums; }
 th, td { padding: 10px 12px; }
-th { font-size: 13px; }
+th { font-size: 13px; background: var(--surface-2); color: var(--ink2); font-weight: 600; }
 td { overflow-wrap: anywhere; }
 .card:has(> table) { overflow-x: auto; }
 tbody.clic tr:hover > td { background: var(--acc-soft); }
 .linha-concluida > td,
 tbody.clic tr.linha-concluida:hover > td { background: var(--good-soft); }
 .kpis { gap: 12px; }
-.kpi { border-radius: 12px; padding: 16px 18px; box-shadow: none; }
+.kpi { border-radius: 14px; padding: 18px 20px; border-top: 2px solid var(--acc-2); box-shadow: var(--shadow); }
 .kpi .l { font-size: 13px; font-weight: 500; text-transform: none; letter-spacing: 0; }
-.kpi .kv { font-size: 28px; font-weight: 650; letter-spacing: -.03em; }
+.kpi .kv { font-size: 32px; font-weight: 650; letter-spacing: -.04em; font-variant-numeric: tabular-nums; line-height: 1.25; }
 .seg { border-radius: 10px; overflow: visible; flex-wrap: wrap; gap: 2px; padding: 3px; }
 .seg button { min-height: 34px; padding: 6px 12px; border-radius: 7px; font-size: 14px; }
-.seg button.on { background: var(--acc); color: #fff; }
+.seg button.on { background: var(--acc); color: var(--acc-ink); }
 .seg button:active { background: var(--acc-soft); color: var(--ink); }
 
 .tela { background: var(--page); }
@@ -220,7 +245,7 @@ tbody.clic tr.linha-concluida:hover > td { background: var(--good-soft); }
 .org-tit { font-weight: 700; font-size: 32px; letter-spacing: -.04em; }
 .org-dep { font-size: 14px; }
 .modal { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(0,0,0,.48); }
-.modal .card { border-radius: 18px; box-shadow: var(--shadow-md); }
+.modal .card { border-radius: 20px; box-shadow: var(--shadow-md), inset 0 1px 0 var(--edge-light); }
 .toast { border-radius: 12px; font-size: 14px; line-height: 1.5; }
 details summary { font-size: 14px; min-height: 32px; padding: 5px 0; }
 .ft { padding: 14px 24px; background: var(--page); font-size: 12px; }
@@ -337,16 +362,299 @@ details summary { font-size: 14px; min-height: 32px; padding: 5px 0; }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   header { background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  body { background-image: none; }
+  body::before { display: none; }
+  .card, .kpi, nav, nav button.on, .btn.pri { box-shadow: none; }
 }
 
 @media (prefers-contrast: more) {
   :root, :root[data-theme] { --line: var(--control-line); }
   .card, .kpi, .badge, .seg { border-color: var(--ink2); }
-  :focus-visible { outline-width: 4px; }
+  :focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline-width: 4px; }
 }
 
 @media (forced-colors: active) {
+  body { background-image: none; }
+  body::before { display: none; }
   .btn, nav button, input, select, textarea { border: 1px solid ButtonText; }
-  :focus-visible { outline-color: Highlight; }
+  :focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline-color: Highlight; }
   nav button.on, .seg button.on { outline: 2px solid Highlight; outline-offset: -3px; }
+}
+
+
+/* ==========================================================================
+   ASTRA CPJ: Extensões de Interface (AG90: AG-R01 a AG-R10)
+   ========================================================================== */
+
+/* Cores Astra / Alan Douglas (verde moderno #31D96D e superfícies) */
+:root {
+  --astra-green: #31D96D;
+  --astra-green-hover: #29be5f;
+  --astra-green-soft: rgba(49, 217, 109, 0.12);
+  --astra-green-border: rgba(49, 217, 109, 0.35);
+  --astra-dark-ink: #060606;
+}
+
+/* Botão de Destaque Astra */
+.btn-astra,
+.btn.pri.btn-astra {
+  background: var(--astra-green) !important;
+  color: var(--astra-dark-ink) !important;
+  border-color: var(--astra-green) !important;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.btn-astra:hover,
+.btn.pri.btn-astra:hover {
+  background: var(--astra-green-hover) !important;
+  border-color: var(--astra-green-hover) !important;
+}
+
+/* --------------------------------------------------------------------------
+   AG-R02: Esteira de Fluxo Operacional por Etapas (Caso Detail)
+   -------------------------------------------------------------------------- */
+.esteira-operacional {
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.esteira-header {
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.esteira-header h4 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+.esteira-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+.etapa-card {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 125px;
+  transition: border-color 0.15s ease;
+}
+.etapa-card.concluida {
+  border-left: 4px solid var(--good);
+  background: linear-gradient(to right, var(--good-soft), var(--surface) 35%);
+}
+.etapa-card.ativa {
+  border-left: 4px solid var(--acc-2);
+  background: linear-gradient(to right, var(--acc-soft), var(--surface) 35%);
+}
+.etapa-card.pendente {
+  border-left: 4px solid var(--control-line);
+  opacity: 0.88;
+}
+.etapa-card.bloqueada {
+  border-left: 4px solid var(--danger-fill);
+  background: linear-gradient(to right, var(--crit-soft), var(--surface) 35%);
+}
+.etapa-num {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.etapa-titulo {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.etapa-info {
+  font-size: 12px;
+  color: var(--ink2);
+  margin-bottom: 8px;
+  flex: 1;
+}
+.etapa-info a {
+  color: var(--acc-2);
+  text-decoration: underline;
+}
+.etapa-acao {
+  margin-top: 4px;
+}
+.etapa-acao button {
+  width: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   AG-R06: Painel de Solicitações e Revisão da O.S.
+   -------------------------------------------------------------------------- */
+.painel-solicitacoes-os {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface);
+}
+.solicitacao-item {
+  border-top: 1px solid var(--line);
+  padding: 8px 0;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.solicitacao-item:first-of-type {
+  border-top: none;
+}
+.solicitacao-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.aviso-reconferencia {
+  padding: 8px 12px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: 6px;
+  margin: 8px 0;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   AG-R07: Conferência Documental Lado a Lado
+   -------------------------------------------------------------------------- */
+.card-conferencia {
+  box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+}
+@media (max-width: 900px) {
+  .conf-doc-body {
+    grid-template-columns: 1fr !important;
+    overflow-y: auto !important;
+  }
+  .conf-coluna {
+    min-height: 380px !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   AG-R08: Tabela de Eventos Financeiros e Filtros
+   -------------------------------------------------------------------------- */
+.filtros-financeiros {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+.filtros-financeiros label {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+}
+.badge-transacao {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.badge-recebido {
+  background: var(--good-soft);
+  color: var(--good);
+  border: 1px solid var(--good);
+}
+.badge-enviado {
+  background: var(--crit-soft);
+  color: var(--crit);
+  border: 1px solid var(--crit);
+}
+.badge-precisao {
+  font-size: 10.5px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   AG-R09: Consultas Salvas e Notas Analíticas
+   -------------------------------------------------------------------------- */
+.painel-notas-caso {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface);
+}
+.tag-nota-investigador {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--warn);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-bottom: 4px;
+}
+.nota-item {
+  border-top: 1px solid var(--line);
+  padding: 8px 0;
+  font-size: 12.5px;
+}
+
+/* --------------------------------------------------------------------------
+   AG-R03 & AG-R04: Mapa e Grafo
+   -------------------------------------------------------------------------- */
+.badge-aproximada {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--warn);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+#mapa-carregando {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }

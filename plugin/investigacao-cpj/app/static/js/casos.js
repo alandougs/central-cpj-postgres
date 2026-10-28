@@ -58,7 +58,9 @@ function painelInvestigativo(id,j){
  const fonte=a=>`<li><a href="${link(a)}" target="_blank" rel="noopener">${esc(a.caminho)}</a>${a.tamanho===0?" — arquivo vazio; conferir":""}</li>`;
  const fontes=arqs.filter(a=>a.caminho.startsWith("00-originais/")||/^01-extracao\/.+\/(?:transcricao(?:-normalizada)?\.md|ordens-de-servico\/.+\.md)$/.test(a.caminho)||/^02-analise\/(?:solicitacoes-os|dados-faltantes)\.md$/.test(a.caminho));
  const lacuna=arqs.find(a=>a.caminho==="02-analise/dados-faltantes.md");
- const disponibilidade=[["Transcrição",transcricao],["Identificadores extraídos",arqs.some(a=>/^01-extracao\/.+\/entidades\.csv$/.test(a.caminho))],["Análise de pessoas",arqs.some(a=>a.caminho==="02-analise/pessoas.csv")],["Fluxo financeiro",arqs.some(a=>a.caminho==="02-analise/fluxo-financeiro.csv")]].map(([nome,tem])=>`${nome}: ${tem?"arquivo disponível para conferir":"não disponível"}`).join(" · ");
+ const temEntidadesLegadas=arqs.some(a=>/^01-extracao\/.+\/entidades\.csv$/.test(a.caminho));
+ const statusIdentificadores=temEntidadesLegadas?"arquivo legado entidades.csv disponível":(transcricao?"consultar na transcrição (Markdown)":"não disponível");
+ const disponibilidade=[["Transcrição",transcricao?"arquivo disponível para conferir":"não disponível"],["Identificadores extraídos",statusIdentificadores],["Análise de pessoas",arqs.some(a=>a.caminho==="02-analise/pessoas.csv")?"arquivo disponível para conferir":"não disponível"],["Fluxo financeiro",arqs.some(a=>a.caminho==="02-analise/fluxo-financeiro.csv")?"arquivo disponível para conferir":"não disponível"]].map(([nome,sit])=>`${nome}: ${sit}`).join(" · ");
  let passo={texto:"Consultar material",acao:"fontes"};
  if(ativo)passo={texto:"Acompanhar extração",acao:"processamento"};
  else if(iaAtiva)passo={texto:"Acompanhar análise",acao:"ia"};
@@ -70,10 +72,104 @@ function painelInvestigativo(id,j){
  else if(c.status==="entregue"&&(j.relatorios||[]).some(f=>f.tipo==="final"))passo={texto:"Ver relatório FINAL",acao:"final"};
  else if(c.status==="devolvido")passo={texto:"Conferir pendências",acao:"fontes"};
  return `<section id="astra-proximo-passo" style="margin-top:14px"><h4>Próximo passo da O.S.</h4><p class="muted">Ações para conferir o material, explorar vínculos e preparar a minuta. A conferência das fontes permanece sob responsabilidade do operador.</p>
- <div class="acoes"><button type="button" class="btn pri" id="b-caso-proximo" data-passo="${passo.acao}">${passo.texto}</button>${pode("pesquisa")?`<button type="button" class="btn" id="b-explorar-astra" data-caso="${esc(id)}">Explorar no ASTRA</button>`:""}<button type="button" class="btn" id="b-caso-conferir-fontes">Conferir fontes e pendências</button>${T&&pode("pesquisa")?'<button type="button" class="btn" id="b-caso-hipotese">Registrar hipótese de vínculo</button>':""}</div>
+ <div class="acoes"><button type="button" class="btn pri btn-astra" id="b-caso-proximo" data-passo="${passo.acao}">${passo.texto}</button>${pode("pesquisa")?`<button type="button" class="btn" id="b-explorar-astra" data-caso="${esc(id)}">Explorar no ASTRA</button>`:""}<button type="button" class="btn" id="b-caso-conferir-fontes">Conferir fontes e pendências</button><button type="button" class="btn" id="b-caso-conferencia-lado-a-lado" hidden>Conferência Lado a Lado (PDF × Extração)</button>${T&&pode("pesquisa")?'<button type="button" class="btn" id="b-caso-hipotese">Registrar hipótese de vínculo</button>':""}</div>
  ${pode("pesquisa")?'<div class="acoes"><label for="astra-identificador">Pessoa ou conta</label><input id="astra-identificador" placeholder="Digite o nome ou identificador para explorar" style="max-width:360px"><button type="button" class="btn sm" id="b-caso-explorar-identificador">Explorar identificador</button></div>':""}
  <div id="astra-material-resumo" role="status"><p>${originais.length} arquivos originais · ${docs} · ${paginas}.</p><p>${esc(disponibilidade)}.</p><p>${esc(resumoGrafoDoCaso(id))}</p><p>${Array.isArray(pendentes)?pendentes.length+" campo(s) de cadastro pendente(s)" :"Pendências de cadastro não informadas"}. ${lacuna?`<a href="${link(lacuna)}" target="_blank" rel="noopener">Registro de lacunas disponível</a>${lacuna.tamanho===0?" — arquivo vazio; conferir":""}`:"Registro de lacunas não disponível"}.</p>${ativo?'<p>Extração em andamento; acompanhe o progresso em Processamento.</p>':""}${erros.map(t=>`<p class="aviso alerta">${esc(t.arquivo||"Documento")}: ${esc(t.erro||"Processamento com erro; confira o documento e tente reprocessar.")}</p>`).join("")}</div>
- <div id="astra-fontes" hidden><h5>Material disponível para conferência</h5>${fontes.length?`<ul>${fontes.map(fonte).join("")}</ul>`:'<p>Nenhum documento ou registro de fontes disponível. Confira o recebimento e o processamento da O.S.</p>'}</div></section>`;
+ <div id="astra-fontes" hidden><h5>Material disponível para conferência</h5>${fontes.length?`<ul>${fontes.map(fonte).join("")}</ul>`:'<p>Nenhum documento ou registro de fontes disponível. Confira o recebimento e o processamento da O.S.</p>'}</div>
+ <div class="esteira-operacional">
+  <div class="esteira-header">
+    <h4>Esteira de Investigação da O.S. — 5 Etapas</h4>
+    <span class="muted" style="font-size:12px">Fluxo da infração penal e apuração</span>
+  </div>
+  <div class="esteira-grid">
+    <div class="etapa-card ${originais.length ? 'concluida' : 'bloqueada'}">
+      <div>
+        <div class="etapa-num"><span>Etapa 1</span><span>${originais.length ? 'OK' : 'Pendente'}</span></div>
+        <div class="etapa-titulo">1. Peças & O.S.</div>
+        <div class="etapa-info">${originais.length} original(is). ${originais.length ? `<a href="${link(originais[0])}" target="_blank" rel="noopener">Abrir original</a>` : 'Nenhum original.'}</div>
+      </div>
+      <div class="etapa-acao"><button type="button" class="btn sm" onclick="$('#nv-documentos')?.scrollIntoView({behavior:'smooth'})">Ver Documentos</button></div>
+    </div>
+    <div class="etapa-card ${transcricao ? 'ativa' : (ativo ? 'ativa' : (erros.length ? 'bloqueada' : 'pendente'))}">
+      <div>
+        <div class="etapa-num"><span>Etapa 2</span><span>${transcricao ? 'Conferir' : (ativo ? 'Executando' : (erros.length ? 'Erro' : 'Pendente'))}</span></div>
+        <div class="etapa-titulo">2. Extração & OCR</div>
+        <div class="etapa-info">${transcricao ? 'Transcrição disponível para conferência.' : (ativo ? 'Extração em andamento...' : (erros.length ? 'Erro na extração.' : 'Aguardando processamento.'))}</div>
+      </div>
+      <div class="etapa-acao"${transcricao ? '' : ' hidden'}><button type="button" class="btn sm" onclick="abrirConferenciaDocumental('${esc(id)}')">Conferência Lado a Lado</button></div>
+    </div>
+    <div class="etapa-card ${arqs.some(a=>a.caminho==='02-analise/fluxo-financeiro.csv'||a.caminho==='02-analise/pessoas.csv') ? 'ativa' : 'pendente'}">
+      <div>
+        <div class="etapa-num"><span>Etapa 3</span><span>${arqs.some(a=>a.caminho==='02-analise/fluxo-financeiro.csv') ? 'Conferir' : 'Pendente'}</span></div>
+        <div class="etapa-titulo">3. Análise & Vínculos</div>
+        <div class="etapa-info">${arqs.some(a=>a.caminho==='02-analise/fluxo-financeiro.csv') ? 'Arquivo de fluxo financeiro disponível.' : 'Arquivo de fluxo estruturado não disponível.'}</div>
+      </div>
+      <div class="etapa-acao"><button type="button" class="btn sm" onclick="$('#b-caso-ver-fluxo')?.click()">Ver Fluxograma</button></div>
+    </div>
+    <div class="etapa-card ${j.relatorios?.length || c.status === 'minuta' ? 'ativa' : 'pendente'}">
+      <div>
+        <div class="etapa-num"><span>Etapa 4</span><span>${j.relatorios?.length ? 'Conferir' : 'Pendente'}</span></div>
+        <div class="etapa-titulo">4. Minuta & Revisão</div>
+        <div class="etapa-info">${j.relatorios?.length ? `${j.relatorios.length} versão(ões) gerada(s).` : 'Minuta ainda não elaborada.'}</div>
+      </div>
+      <div class="etapa-acao"><button type="button" class="btn sm" onclick="$('#nv-relatorios')?.scrollIntoView({behavior:'smooth'})">Revisar Minuta</button></div>
+    </div>
+    <div class="etapa-card ${c.status === 'entregue' ? 'concluida' : 'pendente'}">
+      <div>
+        <div class="etapa-num"><span>Etapa 5</span><span>${c.status === 'entregue' ? 'Entregue' : 'Pendente'}</span></div>
+        <div class="etapa-titulo">5. Finalização Humana</div>
+        <div class="etapa-info">${c.status === 'entregue' ? `Baixa em ${dt(c.datas?.entregue)}.` : 'Aguardando validação e baixa.'}</div>
+      </div>
+      <div class="etapa-acao">${c.status === 'entregue' ? '<span class="badge st-pos">Concluída</span>' : '<button type="button" class="btn sm pri" onclick="$(\'#b-baixa\')?.scrollIntoView({behavior:\'smooth\'})">Dar Baixa</button>'}</div>
+    </div>
+  </div>
+ </div>
+ <div class="painel-solicitacoes-os" id="painel-solicitacoes-os">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+    <h5 style="margin:0;font-size:14px">Determinações e registros para conferência</h5>
+    <span class="chip" style="font-size:11px">Relatórios disponíveis: ${(j.relatorios||[]).length}</span>
+  </div>
+  <p class="muted">A disponibilidade dos arquivos não comprova o atendimento da O.S. nem a revisão da minuta.</p>
+  ${(j.relatorios||[]).length>1?'<div class="aviso-reconferencia" style="padding:6px 10px;margin-bottom:8px;background:rgba(255,165,0,0.15);border:1px solid #f59e0b;border-radius:6px;font-size:12px;color:var(--ink)">⚠️ Minuta alterada (versão mais recente): nova conferência necessária antes de finalizar.</div>':''}
+  <div class="solicitacao-item">
+    <div class="solicitacao-header">
+      <b>1. Determinação da autoridade nos autos:</b>
+      <span class="badge">${c.determinacao ? 'Informada no cadastro' : 'Não informada'}</span>
+    </div>
+    <div class="muted">${c.determinacao ? esc(c.determinacao) : 'Determinação não informada expressamente.'}</div>
+  </div>
+  ${arqs.find(a=>a.caminho==='02-analise/solicitacoes-os.md')?`
+  <div class="solicitacao-item">
+    <div class="solicitacao-header">
+      <b>2. Solicitações mapeadas da O.S.:</b>
+      <span class="badge">Arquivo disponível</span>
+    </div>
+    <div class="muted"><a href="${link(arqs.find(a=>a.caminho==='02-analise/solicitacoes-os.md'))}" target="_blank" rel="noopener">Abrir solicitacoes-os.md com referências e folhas</a></div>
+  </div>`:''}
+  ${lacuna?`
+  <div class="solicitacao-item">
+    <div class="solicitacao-header">
+      <b>3. Lacunas & Dados Faltantes:</b>
+      <span class="badge ${lacuna.tamanho===0?'alerta':''}">${lacuna.tamanho===0?'Arquivo vazio; conferir':'Arquivo disponível para conferir'}</span>
+    </div>
+    <div class="muted"><a href="${link(lacuna)}" target="_blank" rel="noopener">Conferir dados-faltantes.md</a></div>
+  </div>`:''}
+ </div>
+ <div class="painel-notas-caso" id="painel-notas-caso">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+    <h5 style="margin:0;font-size:14px">Notas Analíticas & Hipóteses do Investigador</h5>
+    <div class="acoes" style="margin:0">
+      <button type="button" class="btn sm" id="b-salvar-consulta-atual">Salvar Consulta Deste Caso</button>
+    </div>
+  </div>
+  <p class="muted" style="margin:0 0 8px;font-size:12px">Hipóteses de trabalho e notas de campo. Não constituem fato documentado nos autos.</p>
+  <div style="display:flex;gap:8px;margin-bottom:8px">
+    <input id="inp-nova-nota-caso" placeholder="Adicionar nota analítica para este caso..." style="flex:1">
+    <button type="button" class="btn sm pri" id="b-salvar-nota-caso">Adicionar Nota</button>
+  </div>
+  <div id="lista-notas-caso"></div>
+ </div>
+</section>`;
 }
 
 let origemVisualizador=null;
@@ -252,7 +348,17 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;if(edCaso&&edC
  const explorar=busca=>explorarCasoNoAstra(id,c.ordem_servico||id,busca);
  if($("#b-explorar-astra"))$("#b-explorar-astra").onclick=()=>explorar();
  if($("#b-caso-explorar-identificador"))$("#b-caso-explorar-identificador").onclick=()=>{const busca=$("#astra-identificador").value.trim();if(busca)explorar(busca);else $("#astra-identificador").focus()};
- const conferirFontes=()=>{$("#astra-fontes").hidden=false;irPara("astra-fontes")};
+ if($("#b-caso-conferencia-lado-a-lado"))$("#b-caso-conferencia-lado-a-lado").onclick=()=>abrirConferenciaDocumental(id);
+ if($("#b-salvar-nota-caso"))$("#b-salvar-nota-caso").onclick=()=>{
+   const inp=$("#inp-nova-nota-caso");
+   if(inp&&inp.value.trim()){salvarNotaCaso(id,inp.value);inp.value="";}
+ };
+ if($("#b-salvar-consulta-atual"))$("#b-salvar-consulta-atual").onclick=()=>{
+   salvarNotaCaso(id,`Consulta salva pelo operador: O.S. ${c.ordem_servico||id} status ${c.status||""}`);
+   toast("Consulta e filtros salvos para este caso.");
+ };
+ carregarNotasDoCaso(id);
+const conferirFontes=()=>{$("#astra-fontes").hidden=false;irPara("astra-fontes")};
  $("#b-caso-conferir-fontes").onclick=conferirFontes;
  if($("#b-caso-ver-fluxo"))$("#b-caso-ver-fluxo").onclick=()=>{if(!confirmarSaidaEditor())return;const sel=$("#fx-caso-sel");sel.value=Array.from(sel.options).some(o=>o.value===id)?id:"";abrirAba("fluxograma")};
  if($("#b-caso-hipotese"))$("#b-caso-hipotese").onclick=()=>{if(!$("#modal-vinculo").hidden)return;explorar();if($("#grafo").classList.contains("on")){$("#f-vinculo").reset();grAbrirModalVinculo()}};
@@ -400,3 +506,182 @@ async function atualizarIA(dados){
  }
  return todos;
 }
+
+
+// ---------------- Conferência Documental Lado a Lado (AG-R07)
+let estadoConferencia = {
+  casoId: null,
+  docCaminho: null,
+  paginas: [],
+  paginaAtual: 1,
+  pdfUrl: ""
+};
+
+async function abrirConferenciaDocumental(casoId, docCaminho, paginaInicial, folhaInicial) {
+  const m = $("#modal-conferencia-documental");
+  if (!m) return;
+  estadoConferencia.casoId = casoId;
+  estadoConferencia.docCaminho = docCaminho || "01-extracao/autos/transcricao.md";
+  estadoConferencia.paginaAtual = parseInt(paginaInicial) || 1;
+
+  let pdfArquivo = "";
+  try {
+    const j = await api("/api/casos/" + enc(casoId));
+    const arqs = j.arquivos || [];
+    const pdfOrig = arqs.find(a => a.caminho.startsWith("00-originais/") && /\.pdf$/i.test(a.caminho));
+    if (pdfOrig) {
+      pdfArquivo = "/arquivo/" + enc(casoId) + "/" + pdfOrig.caminho.split("/").map(enc).join("/");
+    }
+  } catch(e) {}
+
+  estadoConferencia.pdfUrl = pdfArquivo;
+  const linkPdf = $("#conf-pdf-link");
+  if (linkPdf) {
+    linkPdf.href = pdfArquivo || "#";
+    linkPdf.style.display = pdfArquivo ? "inline" : "none";
+  }
+
+  let textoMd = "";
+  try {
+    const resp = await fetch("/arquivo/" + enc(casoId) + "/" + estadoConferencia.docCaminho.split("/").map(enc).join("/"));
+    if (resp.ok) textoMd = await resp.text();
+  } catch(e) {
+    textoMd = "Não foi possível carregar a transcrição documental.";
+  }
+
+  const secoes = textoMd.split(/(?=^## Página \d+)/m);
+  const paginas = [];
+  secoes.forEach((sec, idx) => {
+    const mPag = sec.match(/^## Página (\d+)/m);
+    const num = mPag ? parseInt(mPag[1]) : (idx + 1);
+    const mFls = sec.match(/Fls\.?\s*([\d\s\-,]+)/i);
+    const fls = mFls ? mFls[1].trim() : "—";
+    paginas.push({ num, fls, texto: sec.trim() });
+  });
+
+  if (!paginas.length) {
+    paginas.push({ num: 1, fls: folhaInicial || "—", texto: textoMd || "Sem transcrição disponível." });
+  }
+
+  estadoConferencia.paginas = paginas;
+
+  const sel = $("#conf-doc-pag");
+  if (sel) {
+    sel.innerHTML = paginas.map(p => '<option value="' + p.num + '">Pág. ' + p.num + ' (Fls. ' + p.fls + ')</option>').join("");
+    sel.value = estadoConferencia.paginaAtual;
+    sel.onchange = () => exibirPaginaConferencia(parseInt(sel.value));
+  }
+
+  const bAnt = $("#b-conf-pag-ant");
+  const bProx = $("#b-conf-pag-prox");
+  if (bAnt) bAnt.onclick = () => {
+    if (estadoConferencia.paginaAtual > 1) {
+      exibirPaginaConferencia(estadoConferencia.paginaAtual - 1);
+    }
+  };
+  if (bProx) bProx.onclick = () => {
+    if (estadoConferencia.paginaAtual < estadoConferencia.paginas.length) {
+      exibirPaginaConferencia(estadoConferencia.paginaAtual + 1);
+    }
+  };
+
+  const bFechar = $("#b-conf-fechar");
+  if (bFechar) bFechar.onclick = fecharConferenciaDocumental;
+
+  m.hidden = false;
+  exibirPaginaConferencia(estadoConferencia.paginaAtual);
+}
+
+function exibirPaginaConferencia(numPag) {
+  estadoConferencia.paginaAtual = numPag;
+  const sel = $("#conf-doc-pag");
+  if (sel) sel.value = numPag;
+
+  const pag = estadoConferencia.paginas.find(p => p.num === numPag) || estadoConferencia.paginas[0];
+  const frame = $("#conf-pdf-frame");
+  if (frame && estadoConferencia.pdfUrl) {
+    frame.src = estadoConferencia.pdfUrl + "#page=" + numPag;
+  }
+
+  const mdConteudo = $("#conf-md-conteudo");
+  if (mdConteudo && pag) {
+    mdConteudo.textContent = pag.texto;
+  }
+
+  const pagNum = $("#conf-md-pag-num");
+  if (pagNum) pagNum.textContent = String(numPag);
+
+  const flsEl = $("#conf-md-fls");
+  if (flsEl && pag) flsEl.textContent = pag.fls;
+}
+
+function fecharConferenciaDocumental() {
+  const m = $("#modal-conferencia-documental");
+  if (m) m.hidden = true;
+  const frame = $("#conf-pdf-frame");
+  if (frame) frame.removeAttribute("src");
+}
+
+// ---------------- Notas Analíticas do Investigador (AG-R09)
+function carregarNotasDoCaso(id) {
+  const lista = $("#lista-notas-caso");
+  if (!lista) return;
+  const chave = "cpj_notas_" + id;
+  let notas = [];
+  try {
+    notas = JSON.parse(localStorage.getItem(chave) || "[]");
+  } catch(e) {}
+
+  if (!notas.length) {
+    lista.innerHTML = '<div class="muted" style="font-size:12px;padding:6px 0">Nenhuma nota ou hipótese registrada ainda.</div>';
+    return;
+  }
+
+  lista.innerHTML = notas.map((n, idx) => `
+    <div class="card" style="padding:8px 10px;margin-bottom:6px;border-left:3px solid var(--astra-green, #31D96D);background:var(--surface-2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span class="badge alerta" style="font-size:10px;font-weight:700">[HIPÓTESE / NOTA DO INVESTIGADOR — NÃO CONSTITUI FATO DOCUMENTADO]</span>
+        <button type="button" class="btn sm dan" style="font-size:10px;padding:2px 6px" onclick="excluirNotaCaso('${esc(id)}', ${idx})">Excluir</button>
+      </div>
+      <div style="font-size:13px;line-height:1.4">${esc(n.texto)}</div>
+      <div class="muted" style="font-size:11px;margin-top:4px">${esc(n.data || '')}</div>
+    </div>
+  `).join("");
+}
+
+function salvarNotaCaso(id, texto) {
+  if (!id || !texto || !texto.trim()) return;
+  const chave = "cpj_notas_" + id;
+  let notas = [];
+  try {
+    notas = JSON.parse(localStorage.getItem(chave) || "[]");
+  } catch(e) {}
+  notas.unshift({
+    texto: texto.trim(),
+    data: new Date().toLocaleString("pt-BR")
+  });
+  localStorage.setItem(chave, JSON.stringify(notas));
+  carregarNotasDoCaso(id);
+}
+
+function excluirNotaCaso(id, idx) {
+  const chave = "cpj_notas_" + id;
+  let notas = [];
+  try {
+    notas = JSON.parse(localStorage.getItem(chave) || "[]");
+  } catch(e) {}
+  if (idx >= 0 && idx < notas.length) {
+    notas.splice(idx, 1);
+    localStorage.setItem(chave, JSON.stringify(notas));
+    carregarNotasDoCaso(id);
+  }
+}
+
+window.CPJCasos = {
+  abrirConferenciaDocumental,
+  exibirPaginaConferencia,
+  fecharConferenciaDocumental,
+  salvarNotaCaso,
+  excluirNotaCaso,
+  carregarNotasDoCaso
+};

@@ -2,7 +2,7 @@
 
 const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
 
-const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 const dt=s=>s?String(s).slice(0,10).split("-").reverse().join("/"):"—", kb=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
 
