@@ -425,6 +425,7 @@
     document.getElementById("b-mapa-voltar-radar").addEventListener("click", () => ativarModoPesquisa("correlacoes"));
     document.getElementById("b-mapa-fit-pontos").addEventListener("click", () => enquadrarPontosMapa());
     document.getElementById("b-mapa-reset-zoom").addEventListener("click", () => {
+      estadoMapa.enquadrarAoCarregar = false;
       estadoMapa.zoom = 1;
       estadoMapa.panX = 0;
       estadoMapa.panY = 0;
@@ -676,14 +677,18 @@
     if (f.uf) qs.set("uf", f.uf);
     if (f.municipio) qs.set("municipio", f.municipio);
     if (f.correlacao_id) qs.set("correlacao_id", f.correlacao_id);
+    if (!estadoMapa.jaCarregou) {
+      estadoMapa.jaCarregou = true;
+      estadoMapa.enquadrarAoCarregar = true;
+    }
 
     try {
       const res = await chamarApi(`/api/inteligencia/mapa?${qs.toString()}`);
-      const primeiraCarga = !estadoMapa.jaCarregou;
+
       Object.assign(estadoMapa, res);
       estadoMapa.jaCarregou = true;
       renderizarPainelMapa();
-      if (primeiraCarga || estadoMapa.enquadrarAoCarregar || f.correlacao_id) {
+      if (estadoMapa.enquadrarAoCarregar) {
         estadoMapa.enquadrarAoCarregar = false;
         enquadrarPontosMapa(true);
       } else {
@@ -705,6 +710,7 @@
   }
 
   function enquadrarCaixaLatLon(latMin, lonMin, latMax, lonMax, silencioso) {
+    estadoMapa.enquadrarAoCarregar = false;
     const [x1, y2] = projetarLatLon(latMin, lonMin);
     const [x2, y1] = projetarLatLon(latMax, lonMax);
     const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
@@ -750,6 +756,7 @@
   }
 
   function aplicarZoomCentro(fator, refX, refY) {
+    estadoMapa.enquadrarAoCarregar = false;
     const cx = refX !== undefined ? refX : 400;
     const cy = refY !== undefined ? refY : 280;
     const zAnt = estadoMapa.zoom || 1;

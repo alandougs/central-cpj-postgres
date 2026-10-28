@@ -109,19 +109,51 @@ class SegredosAuditoria(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "Ensaio específico dos volumes Windows")
     def test_volume_sem_acl_real_com_perfil_sintetico_ntfs(self):
         import seguranca_local as S
-        volume = Path(__file__).anchor
-        if S.suporta_acl(volume): self.skipTest("Volume do código possui ACL; exFAT não disponível")
+        exigir = (
+            os.environ.get("CPJ_SEC22_EXIGIR_VOLUME_SEM_ACL") == "1"
+            or os.environ.get("CPJ_SEC22_REQUIRE_VOLUME") == "1"
+        )
+        volume_env = (
+            os.environ.get("CPJ_SEC22_VOLUME_SEM_ACL_DIR")
+            or os.environ.get("CPJ_SEC22_VOLUME_DIR")
+            or ""
+        ).strip()
+        perfil_env = (
+            os.environ.get("CPJ_SEC22_PERFIL_NTFS_DIR")
+            or os.environ.get("CPJ_SEC22_PROFILE_DIR")
+            or ""
+        ).strip()
+        if volume_env:
+            volume = Path(volume_env)
+            self.assertTrue(volume.is_dir(), f"Fixture explícita de volume sem ACL não é diretório existente: {volume}")
+            self.assertFalse(S.suporta_acl(volume), f"Fixture explícita precisa estar em volume sem ACL: {volume}")
+        else:
+            if exigir:
+                self.fail("Fixture obrigatória CPJ_SEC22_VOLUME_SEM_ACL_DIR / CPJ_SEC22_VOLUME_DIR não informada.")
+            if S.suporta_acl(self.ws):
+                self.skipTest("Volume do código possui ACL; exFAT não disponível")
+            volume = self.ws
+        if perfil_env:
+            perfil_base = Path(perfil_env)
+            self.assertTrue(perfil_base.is_dir(), f"Perfil explícito não é diretório existente: {perfil_base}")
+            self.assertTrue(S.suporta_acl(perfil_base), f"Perfil explícito exige volume com ACL: {perfil_base}")
+            perfil = perfil_base / "perfil"
+        else:
+            self.assertTrue(S.suporta_acl(self.ws), "Perfil sintético exige volume com ACL.")
+            perfil = self.ws / "perfil"
+        perfil.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="cpj-sec22-volume-", dir=volume) as ws, \
-             patch.dict(os.environ, {"LOCALAPPDATA": str(self.ws / "perfil") }):
-            (self.ws / "perfil").mkdir()
+             patch.dict(os.environ, {"LOCALAPPDATA": str(perfil)}):
             cfg = Path(ws) / "config" / "chaves_llm.json"
             S.salvar_cfg_llm(cfg, self.dados)
+            self.assertFalse(S.restringir_arquivo(cfg))
             self.assertNotIn("SEGREDO-SINTETICO-SEC22", cfg.read_text())
             self.assertEqual(S.carregar_cfg_llm(cfg), self.dados)
             a = auth.Auth(ws)
             a.auditar("ficticio", "local", "volume_sem_acl")
             self.assertTrue(a.verificar_auditoria()["integra"])
-            self.assertTrue(str(S.caminho_ancora_auditoria(ws)).startswith(str(self.ws / "perfil")))
+            self.assertFalse((Path(ws) / "config" / "auditoria.estado").exists())
+            self.assertTrue(str(S.caminho_ancora_auditoria(ws)).startswith(str(perfil)))
 
     def test_snapshot_remapeia_ancora_preserva_historico_e_continua(self):
         import seguranca_local as S

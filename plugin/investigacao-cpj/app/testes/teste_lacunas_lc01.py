@@ -20,6 +20,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[4]
 BASE = ROOT / "plugin/investigacao-cpj/skills/base-cpj/scripts"
+CACHE_EMBEDDINGS = os.environ.get("CPJ_EMBEDDINGS_CACHE") or str(ROOT / "rag" / "modelos")
+os.environ.setdefault("CPJ_EMBEDDINGS_CACHE", CACHE_EMBEDDINGS)
 
 
 def _carregar(nome):
@@ -99,7 +101,7 @@ class BuscaHibridaLC01(unittest.TestCase):
         cls.env = dict(os.environ, CPJ_WORKSPACE=str(cls.ws),
                        PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8",
                        CPJ_SEM_AGENTE_EMBUTIDO="1",
-                       CPJ_EMBEDDINGS_CACHE=str(ROOT / "rag" / "modelos"))
+                       PYTHONUTF8="1", CPJ_EMBEDDINGS_CACHE=CACHE_EMBEDDINGS)
         (cls.ws / "modelos").mkdir()
         docs = {
             ("OS-9801-2099", "autos-lc01"): (
@@ -119,7 +121,7 @@ class BuscaHibridaLC01(unittest.TestCase):
     def cli(cls, script, *args, timeout=900):
         r = subprocess.run([sys.executable, str(BASE / script), *args], cwd=cls.ws,
                            env=cls.env, capture_output=True, text=True,
-                           encoding="utf-8", timeout=timeout)
+                           encoding="utf-8", errors="replace", timeout=timeout)
         if r.returncode:
             raise AssertionError(f"CLI {script} falhou ({r.returncode}):\n{r.stdout}\n{r.stderr}")
         return r.stdout
@@ -192,7 +194,7 @@ class RegressaoDefeitosLC01(unittest.TestCase):
         cls.env = dict(os.environ, CPJ_WORKSPACE=str(cls.ws),
                        PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8",
                        CPJ_SEM_AGENTE_EMBUTIDO="1",
-                       CPJ_EMBEDDINGS_CACHE=str(ROOT / "rag" / "modelos"))
+                       PYTHONUTF8="1", CPJ_EMBEDDINGS_CACHE=CACHE_EMBEDDINGS)
         (cls.ws / "modelos").mkdir()
         casos = {
             "OS-7001-2099": f"## Página 1\nFls. 11\n{cls.LEXICAL}\n\n## Página 2\nFls. 12\n{cls.PARAFRASE}\n\n## Página 3\nFls. 13\n{cls.ALHEIO}\n",
@@ -210,7 +212,7 @@ class RegressaoDefeitosLC01(unittest.TestCase):
     def cli(cls, script, *args, timeout=900):
         r = subprocess.run([sys.executable, str(BASE / script), *args], cwd=cls.ws,
                            env=cls.env, capture_output=True, text=True,
-                           encoding="utf-8", timeout=timeout)
+                           encoding="utf-8", errors="replace", timeout=timeout)
         return r
 
     @classmethod
@@ -345,7 +347,7 @@ class RegressaoDefeitosLC01(unittest.TestCase):
             "print(json.dumps({'antes': antes, 'depois': len(sys.path), 'repetidas': repetidas}))\n"
         )
         r = subprocess.run([sys.executable, "-c", codigo], cwd=self.ws, env=self.env,
-                           capture_output=True, text=True, encoding="utf-8", timeout=600)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
         self.assertEqual(r.returncode, 0, f"{r.stdout}\n{r.stderr}")
         medida = json.loads(r.stdout.strip().splitlines()[-1])
         # Inserir a pasta uma vez é legítimo; o defeito era inserir a cada consulta.
@@ -375,7 +377,7 @@ class RegressaoDefeitosLC01(unittest.TestCase):
             "print(json.dumps({'cargas': cargas['n']}))\n"
         )
         r = subprocess.run([sys.executable, "-c", codigo], cwd=self.ws, env=self.env,
-                           capture_output=True, text=True, encoding="utf-8", timeout=600)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
         self.assertEqual(r.returncode, 0, f"{r.stdout}\n{r.stderr}")
         medida = json.loads(r.stdout.strip().splitlines()[-1])
         self.assertEqual(medida["cargas"], 1,
@@ -399,7 +401,7 @@ class RegressaoDefeitosLC01(unittest.TestCase):
             "print(json.dumps({'mudou': m._CACHE['chave'] != ch1, 'tinha': len(ids1) > 0}))\n"
         )
         r = subprocess.run([sys.executable, "-c", codigo], cwd=self.ws, env=self.env,
-                           capture_output=True, text=True, encoding="utf-8", timeout=600)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
         self.assertEqual(r.returncode, 0, f"{r.stdout}\n{r.stderr}")
         medida = json.loads(r.stdout.strip().splitlines()[-1])
         self.assertTrue(medida["tinha"], "a primeira busca deveria ter populado o cache")
@@ -421,7 +423,7 @@ class RegressaoDefeitosLC01(unittest.TestCase):
             "'casos_b': sorted({r['caso'] for r in b}), 'injecao': len(inj)}))\n"
         )
         r = subprocess.run([sys.executable, "-c", codigo], cwd=self.ws, env=self.env,
-                           capture_output=True, text=True, encoding="utf-8", timeout=600)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
         self.assertEqual(r.returncode, 0, f"{r.stdout}\n{r.stderr}")
         medida = json.loads(r.stdout.strip().splitlines()[-1])
         self.assertEqual(medida["casos_a"], ["OS-7002-2099"], "híbrido com filtro vazou outro caso")

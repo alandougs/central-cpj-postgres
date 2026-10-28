@@ -334,7 +334,7 @@ class BackupConsistente(unittest.TestCase):
         restaurado = self.base / "restaurado"
         def suporta(path):
             p = Path(path).resolve()
-            if p == self.ws or self.ws in p.parents or p == restaurado or restaurado in p.parents: return False
+            if any(p == r or r in p.parents for r in (self.ws.resolve(), restaurado.resolve())): return False
             return suporte_original(path)
         with mock.patch.dict(os.environ, {"LOCALAPPDATA": str(perfil)}), mock.patch.object(S, "suporta_acl", suporta):
             a = auth.Auth(str(self.ws))

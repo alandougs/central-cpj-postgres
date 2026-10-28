@@ -56,7 +56,17 @@ def _host_sem_link_simbolico() -> bool:
 
 
 PADROES_PRIVILEGIO = (re.compile(r"links? simbólicos?|symlink", re.I),)
+def _sem_fastembed() -> bool:
+    try:
+        import fastembed  # noqa: F401
+        import numpy  # noqa: F401
+        return False
+    except Exception:
+        return True
+
+
 SKIPS_TOLERADOS = PADROES_PRIVILEGIO if _host_sem_link_simbolico() else ()
+PADROES_OPCIONAIS = (re.compile(r"fastembed/numpy ausentes", re.I),) if _sem_fastembed() else ()
 
 
 def motivos_de_skip(texto: str) -> list[str]:
@@ -96,7 +106,14 @@ def clonar_codigo(destino: Path) -> Path:
             shutil.copytree(skill, destino_skill)
         else:
             shutil.copy2(skill, destino_skill)
-    for nome in ("MEMORIA.md", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "PRD.md", "TAREFAS-COMPARTILHADAS.md", "Central CPJ.bat"):
+    for nome in (
+        "MEMORIA.md", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "PRD.md",
+        "TAREFAS-COMPARTILHADAS.md", "Central CPJ.bat",
+        "LEIA-ME.md", "APRESENTACAO-SISTEMA.md", "PILOTO-2026.md",
+        "PROMPT-AGENTE-PLANTAO.md", "PROMPT-PIPELINE-PDF.md",
+        "PROMPT-RODADA-ENXUTA.md", "PROMPT-RODADA-F.md",
+        "REVISAO-TECNICA-2026-09-27.md",
+    ):
         origem = ROOT / nome
         if origem.is_file():
             shutil.copy2(origem, raiz_teste / nome)
@@ -197,6 +214,8 @@ def rodar_suíte(nome: str, extra: tuple[str, ...] = ()) -> tuple[int, float, st
         env = os.environ.copy()
         env["CPJ_WORKSPACE"] = str(ws)
         env["CPJ_SEM_AGENTE_EMBUTIDO"] = "1"
+        if (ROOT / "rag" / "modelos").is_dir():
+            env.setdefault("CPJ_EMBEDDINGS_CACHE", str(ROOT / "rag" / "modelos"))
         inicio = time.monotonic()
         try:
             proc = subprocess.run(comando_python(script) + list(extra), cwd=raiz_teste, env=env,
@@ -306,6 +325,8 @@ def rodar_central() -> tuple[int, float, str]:
         env = os.environ.copy()
         env["CPJ_WORKSPACE"] = str(ws)
         env["CPJ_SEM_AGENTE_EMBUTIDO"] = "1"
+        if (ROOT / "rag" / "modelos").is_dir():
+            env.setdefault("CPJ_EMBEDDINGS_CACHE", str(ROOT / "rag" / "modelos"))
         log_path = raiz_teste / "servidor.log"
         inicio = time.monotonic()
         with log_path.open("w", encoding="utf-8") as log:
@@ -343,6 +364,11 @@ def rodar_central() -> tuple[int, float, str]:
 
 
 def main() -> int:
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     args = argumentos()
     try:
         nomes = selecionar_testes(args.rapido, args.incluir)
@@ -369,7 +395,7 @@ def main() -> int:
                 if not motivos:      # saída silenciosa: repete a suíte em modo verboso só para conhecer o motivo
                     _, _, detalhe_v = rodar_suíte(nome, ("-v",))
                     motivos = motivos_de_skip(detalhe_v)
-                criticos = [m for m in (motivos or ["motivo não identificado"]) if not any(p.search(m) for p in SKIPS_TOLERADOS)]
+                criticos = [m for m in (motivos or ["motivo não identificado"]) if not any(p.search(m) for p in (*SKIPS_TOLERADOS, *PADROES_OPCIONAIS))]
                 skips_criticos.extend((nome, m) for m in criticos)
 
     if not args.rapido:

@@ -251,13 +251,23 @@ def _semantico(db, q, caso, tipo, modalidade, n):
     `leitura` (falha ao ler/montar os vetores). Descarta candidatos abaixo de SIMILARIDADE_MINIMA."""
     try:
         EMB = _modulo_embeddings()
+    except Exception:
+        return [], "ambiente"
+    extra, filtros = _filtros(caso, tipo, modalidade)
+    try:
+        tem_vetor = (bool(db.execute("SELECT 1 FROM trechos t WHERE t.embedding IS NOT NULL" + extra + " LIMIT 1",
+                                     filtros).fetchone())
+                     if extra else cobertura_vetores(db)[0] > 0)
+    except sqlite3.OperationalError:
+        tem_vetor = False
+    if not tem_vetor: return [], "sem_vetores"
+    if not EMB.disponivel(): return [], "ambiente"
+    try:
         import numpy as np
     except Exception:
         return [], "ambiente"
-    if not EMB.disponivel(): return [], "ambiente"
     em_cache = getattr(EMB, "modelo_em_cache", None)
     if em_cache is not None and not em_cache(): return [], "modelo"
-    extra, filtros = _filtros(caso, tipo, modalidade)
     try:
         ids, mat = _empilhar(db, EMB, np, extra, filtros) if extra else _matriz(db, EMB, np)
     except Exception:

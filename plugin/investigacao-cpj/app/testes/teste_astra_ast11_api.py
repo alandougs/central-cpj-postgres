@@ -270,7 +270,7 @@ class Persistencia(unittest.TestCase):
         backup=self.ws.parent/(self.ws.name+'-backup');backup.mkdir();self.addCleanup(shutil.rmtree,backup)
         r=subprocess.run(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(self.ws/'ferramentas/backup.ps1'),'-Origem',str(self.ws),'-Destino',str(backup),'-Offline','-MidiaProtegida','-Python',sys.executable],capture_output=True,text=True)
         self.assertEqual(r.returncode,0,r.stdout+r.stderr)
-        snapshot=Path(r.stdout.strip().splitlines()[-1]);self.assertTrue(snapshot.is_relative_to(backup))
+        snapshot=Path(r.stdout.strip().splitlines()[-1]).resolve();self.assertTrue(snapshot.is_relative_to(backup.resolve()))
         # Fonte posterior continua intacta; restauração recupera o snapshot em pasta nova.
         pasta=(self.ws/'consulta').resolve();self.assertTrue(pasta.is_relative_to(self.ws.resolve()))
         shutil.rmtree(pasta)

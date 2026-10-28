@@ -42,6 +42,21 @@ def _multipart(campos, arquivos):
     return b"".join(partes), f"multipart/form-data; boundary={limite}"
 
 
+def _ler_json(caminho, tentativas=25, pausa=.015):
+    p = Path(caminho)
+    for i in range(tentativas):
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            if i >= 2:
+                return {}
+            time.sleep(.005)
+        except (OSError, json.JSONDecodeError):
+            if i + 1 < tentativas:
+                time.sleep(pausa)
+    return {}
+
+
 class InterrupcaoReal(unittest.TestCase):
     def setUp(self):
         self.ws = Path(tempfile.mkdtemp(prefix="cpj-un17-interrupcao-"))
@@ -57,6 +72,12 @@ class InterrupcaoReal(unittest.TestCase):
         self.url = f"http://127.0.0.1:{self.porta}"
         self.env = dict(os.environ, CPJ_WORKSPACE=str(self.ws), CPJ_SEM_AGENTE_EMBUTIDO="1", CPJ_IA_LOCAL_MODELO="",
                         PYTHONIOENCODING="utf-8", APPDATA=str(self.ws / "appdata-ficticio"))
+        if not self.env.get("TESSDATA_PREFIX"):
+            for cand in (APP.parents[2] / "ferramentas/tessdata", APP.parents[3] / "CPJ - BACKUP/ferramentas/tessdata",
+                         Path(r"C:\Program Files\Tesseract-OCR\tessdata")):
+                if (cand / "por.traineddata").is_file():
+                    self.env["TESSDATA_PREFIX"] = str(cand)
+                    break
         self.env.pop("CPJ_WORKSPACES", None)
         self.processo = None
         self.addCleanup(self.parar)
@@ -98,8 +119,7 @@ class InterrupcaoReal(unittest.TestCase):
             return json.load(r)["caso"]
 
     def processamento(self, caso):
-        return json.loads((self.ws / "casos" / caso / "processamento.json").read_text(encoding="utf-8")) \
-            if (self.ws / "casos" / caso / "processamento.json").is_file() else {}
+        return _ler_json(self.ws / "casos" / caso / "processamento.json")
 
     def concluido(self, caso):
         d = self.ws / "casos" / caso
@@ -121,7 +141,9 @@ class InterrupcaoReal(unittest.TestCase):
             trabalhos = self.processamento(caso).get("trabalhos", [])
             estados = list((self.ws / "casos" / caso).glob("01-extracao/*/.checkpoint/estado.json"))
             if estados:
-                paginas_antes = json.loads(estados[0].read_text(encoding="utf-8")).get("paginas", {})
+                paginas = _ler_json(estados[0]).get("paginas", {})
+                if paginas:
+                    paginas_antes = paginas
             if trabalhos and any(t.get("status") == "processando" for t in trabalhos) and 2 <= len(paginas_antes) < 10:
                 self.processo.kill()
                 self.processo.wait(timeout=10)
@@ -143,7 +165,7 @@ class InterrupcaoReal(unittest.TestCase):
         self.assertTrue(self.concluido(caso), json.dumps(self.processamento(caso), ensure_ascii=False)[:1500])
         transcricao = next((self.ws / "casos" / caso).glob("01-extracao/*/transcricao.md")).read_text(encoding="utf-8")
         self.assertIn("## Página 10", transcricao, "todas as páginas (inclusive as escaneadas) devem estar na transcrição")
-        estado_final = json.loads(next((self.ws / "casos" / caso).glob("01-extracao/*/.checkpoint/estado.json")).read_text(encoding="utf-8"))
+        estado_final = _ler_json(next((self.ws / "casos" / caso).glob("01-extracao/*/.checkpoint/estado.json")))
         self.assertGreaterEqual(estado_final["relatorio"]["paginas_reaproveitadas"], len(paginas_antes))
         for numero, pagina in paginas_antes.items():
             self.assertEqual(estado_final["paginas"][numero], pagina, "Checkpoint íntegro anterior à queda deve ser preservado.")

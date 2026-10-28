@@ -39,7 +39,8 @@ class AmbientePortatil(unittest.TestCase):
         if local:
             portatil.mkdir(parents=True, exist_ok=True)
             (portatil / 'tesseract.exe').write_bytes(b'fixture nao executar')
-        with patch.object(self.c, 'PLUGIN', str(base / 'plugin/investigacao-cpj')), patch.object(self.c, 'WS', str(base)), patch.dict(os.environ, {'CPJ_TESSERACT': explicito, 'PATH': str(rival)}):
+        isfile = os.path.isfile
+        with patch.object(self.c, 'PLUGIN', str(base / 'plugin/investigacao-cpj')), patch.object(self.c, 'WS', str(base)), patch.dict(os.environ, {'CPJ_TESSERACT': explicito, 'PATH': str(rival)}), patch('os.path.isfile', side_effect=lambda p: isfile(p) and Path(p).resolve().is_relative_to(self.ws.resolve())):
             return Path(self.c._achar_tesseract()), portatil, rival
 
     def test_portatil_do_projeto_precede_path(self):
@@ -73,9 +74,13 @@ class AmbientePortatil(unittest.TestCase):
         shutil.copytree(SCRIPTS, scripts, ignore=shutil.ignore_patterns('__pycache__'))
         origem = os.environ.get('CPJ_EN01_ENGINE')
         engine = Path(origem) if origem else ROOT / 'ferramentas/tesseract'
+        if not origem and not (engine / 'tesseract.exe').is_file():
+            engine = Path(self.c._achar_tesseract())
+        if engine.name.lower() == 'tesseract.exe':
+            engine = engine.parent
         self.assertTrue((engine / 'tesseract.exe').is_file(), 'EN01 exige runtime real; nao ignorar')
-        shutil.copytree(engine, base / 'ferramentas/tesseract')
-        tessdata = Path(os.environ.get('TESSDATA_PREFIX', str(ROOT / 'ferramentas/tessdata')))
+        shutil.copytree(engine, base / 'ferramentas/tesseract', ignore=shutil.ignore_patterns('tessdata'))
+        tessdata = Path(os.environ.get('TESSDATA_PREFIX') or str(ROOT / 'ferramentas/tessdata'))
         idiomas = base / 'ferramentas/tessdata'
         idiomas.mkdir()
         shutil.copy2(tessdata / 'por.traineddata', idiomas)

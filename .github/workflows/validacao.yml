@@ -5,7 +5,8 @@
 #   sigilo  (ubuntu)  : git, Python 3.12 — varredura de sigilo, portáteis, adaptadores e testes do verificador.
 #   suite   (windows) : Python 3.12 + dependências de requirements-dev.txt (quickjs, Playwright), Node 24.19.0 +
 #                       Playwright 1.62.1 (mesma pilha local), Microsoft Edge (canal msedge), Tesseract 5.4 com
-#                       dados `por` de tessdata_best fixados por commit e SHA-256, PowerShell.
+#                       dados `por` de tessdata_best fixados por commit e SHA-256, PowerShell e volume exFAT
+#                       descartável em RUNNER_TEMP para o ensaio físico SEC22.
 #   desempenho (windows, só sob demanda): medição comparável baseline × candidato; não bloqueia a regressão.
 name: validacao
 
@@ -99,8 +100,12 @@ jobs:
           $por = Join-Path $dados 'por.traineddata'
           Invoke-WebRequest -UseBasicParsing -OutFile $por 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/e12c65a915945e4c28e237a9b52bc4a8f39a0cec/por.traineddata'
           if ((Get-FileHash $por -Algorithm SHA256).Hash.ToLower() -ne '711de9dbb8052067bd42f16b9119967f30bada80d57e2ef24f65d09f531adb04') { throw 'por.traineddata com hash inesperado' }
+          $engine = Join-Path $env:RUNNER_TEMP 'tesseract-engine'
+          Copy-Item -Recurse -Force $tess $engine
+          Copy-Item -Force $por (Join-Path $engine 'tessdata\por.traineddata')
           Add-Content $env:GITHUB_PATH $tess
           Add-Content $env:GITHUB_ENV "TESSDATA_PREFIX=$dados"
+          Add-Content $env:GITHUB_ENV "CPJ_EN01_ENGINE=$engine"
       - name: Runtime Node e Playwright no caminho que as suites esperam
         shell: pwsh
         run: |
@@ -111,6 +116,13 @@ jobs:
           if ($LASTEXITCODE) { throw 'Playwright nao instalado' }
       - name: Brasao sintetico (o emblema real fica fora do Git)
         run: python -c "from PIL import Image; Image.new('RGBA', (120, 120), (255, 255, 255, 255)).save(r'plugin/investigacao-cpj/app/static/brasao-pcsp.png')"
+      - name: Volume exFAT descartavel para ensaio fisico SEC22
+        shell: pwsh
+        env:
+          CPJ_CI_EXFAT_ENABLE: "1"
+        run: |
+          pwsh -NoProfile -NonInteractive -File ferramentas/ci-volume-exfat.ps1 mount
+          if ($LASTEXITCODE) { throw 'Volume exFAT descartavel nao provisionado' }
       - name: Capacidades do job
         shell: pwsh
         run: |
@@ -121,6 +133,8 @@ jobs:
           tesseract --version
           $idiomas = (tesseract --list-langs) -join ' '
           if ($idiomas -notmatch '\bpor\b') { throw "Tesseract sem idioma por: $idiomas" }
+          if (-not (Test-Path (Join-Path $env:CPJ_EN01_ENGINE 'tesseract.exe'))) { throw 'CPJ_EN01_ENGINE sem tesseract.exe' }
+          if ($env:CPJ_SEC22_EXIGIR_VOLUME_SEM_ACL -ne '1' -or -not (Test-Path $env:CPJ_SEC22_VOLUME_SEM_ACL_DIR)) { throw 'Fixture SEC22 exFAT ausente' }
           $edge = Get-Item "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
           "Edge $($edge.VersionInfo.ProductVersion)"
           python -c "import quickjs, playwright, reportlab; print('quickjs, playwright e reportlab importados')"
@@ -138,6 +152,14 @@ jobs:
       - name: Suite completa em modo estrito
         if: ${{ !cancelled() }}
         run: python ferramentas/ci-executar.py "Suite completa em modo estrito" -- python ferramentas/testar-tudo.py --estrito
+      - name: Desmontar e remover volume exFAT descartavel
+        if: always()
+        shell: pwsh
+        env:
+          CPJ_CI_EXFAT_ENABLE: "1"
+        run: |
+          pwsh -NoProfile -NonInteractive -File ferramentas/ci-volume-exfat.ps1 dismount
+          if ($LASTEXITCODE) { throw 'Falha ao desmontar volume exFAT descartavel' }
 
   desempenho:
     name: desempenho (Windows, sob demanda; medicao, nao bloqueia regressao)
@@ -174,8 +196,12 @@ jobs:
           $por = Join-Path $dados 'por.traineddata'
           Invoke-WebRequest -UseBasicParsing -OutFile $por 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/e12c65a915945e4c28e237a9b52bc4a8f39a0cec/por.traineddata'
           if ((Get-FileHash $por -Algorithm SHA256).Hash.ToLower() -ne '711de9dbb8052067bd42f16b9119967f30bada80d57e2ef24f65d09f531adb04') { throw 'por.traineddata com hash inesperado' }
+          $engine = Join-Path $env:RUNNER_TEMP 'tesseract-engine'
+          Copy-Item -Recurse -Force $tess $engine
+          Copy-Item -Force $por (Join-Path $engine 'tessdata\por.traineddata')
           Add-Content $env:GITHUB_PATH $tess
           Add-Content $env:GITHUB_ENV "TESSDATA_PREFIX=$dados"
+          Add-Content $env:GITHUB_ENV "CPJ_EN01_ENGINE=$engine"
       - name: Runtime Node e Playwright no caminho que as suites esperam
         shell: pwsh
         run: |
