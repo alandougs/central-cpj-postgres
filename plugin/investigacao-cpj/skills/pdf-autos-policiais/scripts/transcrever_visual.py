@@ -5,6 +5,9 @@ import json
 from pathlib import Path
 import tempfile
 import os
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import estado_extracao as estado
 
 
 def caminho(pasta, relativo):
@@ -16,7 +19,7 @@ def caminho(pasta, relativo):
 
 def ler_json(pasta, nome):
     p = caminho(pasta, nome)
-    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+    return estado.ler(pasta, nome)
 
 
 def paginas_pendentes(pasta):
@@ -69,7 +72,9 @@ def assinatura_checkpoints(pasta):
     raiz = caminho(pasta, ".checkpoint")
     h = hashlib.sha256()
     for p in sorted(raiz.glob("*.json")):
-        if p.name != "meta.json" and not (p.name.startswith("p") and p.name[1:5].isdigit()): continue
+        if estado.arquivo(pasta).exists():
+            if p.name != "estado.json": continue
+        elif p.name != "meta.json" and not (p.name.startswith("p") and p.name[1:5].isdigit()): continue
         seguro = caminho(pasta, ".checkpoint/" + p.name)
         h.update(p.name.encode()); h.update(seguro.read_bytes())
     return h.hexdigest()

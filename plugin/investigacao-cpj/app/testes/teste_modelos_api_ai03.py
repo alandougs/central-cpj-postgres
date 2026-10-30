@@ -96,7 +96,8 @@ class Catalogos(unittest.TestCase):
         app = Flask(__name__); app.register_blueprint(sistema.bp_sistema)
         with tempfile.TemporaryDirectory(prefix="cpj-ai03-rota-") as pasta:
             cfg = Path(pasta) / "chaves_llm.json"
-            cfg.write_text(json.dumps({"openai": {"chave": "FICTICIA", "modelo": "escolha-manual", "ativo": False}}), encoding="utf-8")
+            from seguranca_local import salvar_cfg_llm
+            salvar_cfg_llm(cfg, {"openai": {"chave": "FICTICIA", "modelo": "escolha-manual", "ativo": False}})
             antes = cfg.read_bytes()
             with patch.object(sistema, "CONFIG_LLM", str(cfg)), \
                  patch.object(comum, "usuario", return_value={"login": "ficticio", "perfil": "admin"}), \

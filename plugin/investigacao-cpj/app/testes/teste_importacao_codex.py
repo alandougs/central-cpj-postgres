@@ -40,7 +40,7 @@ class ImportacaoCPJ(unittest.TestCase):
 
     def importar(self, pacote):
         tid = self.tarefas.nova("importacao", "Importação fictícia", "teste")
-        return tid, self.tarefas.importar(tid, str(pacote))
+        return tid, self.tarefas.importar(tid, str(pacote), permitir_legado=True)
 
     def test_recusa_escopo_invalido_antes_de_escrever(self):
         pacote = self.pacote({"config/usuarios.json": "NAO IMPORTAR"})
@@ -70,7 +70,7 @@ class ImportacaoCPJ(unittest.TestCase):
             if tarefa == tid and kw.get("etapa", "").startswith("verificando") and not cancelou:
                 cancelou = self.tarefas.cancelar(tid)
         self.tarefas.at = acompanhar
-        resultado = self.tarefas.importar(tid, str(pacote))
+        resultado = self.tarefas.importar(tid, str(pacote), permitir_legado=True)
         self.assertIsNone(resultado, "cancelamento síncrono é consumido pelo contrato da importação")
         self.assertEqual(self.tarefas.obter(tid)["status"], "cancelada")
         self.assertTrue(cancelou)
@@ -86,7 +86,7 @@ class ImportacaoCPJ(unittest.TestCase):
             if tarefa == tid and kw.get("etapa", "").startswith("verificando"):
                 self.tarefas.cancelar(tid)
         self.tarefas.at = acompanhar
-        self.tarefas.rodar(tid, self.tarefas.importar, str(pacote))
+        self.tarefas.rodar(tid, self.tarefas.importar, str(pacote), None, True)
         limite = time.monotonic() + 5
         while pacote.exists() and time.monotonic() < limite:
             time.sleep(0.01)

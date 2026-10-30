@@ -5,7 +5,7 @@ Valida os 8 fluxos principais da Central CPJ:
 1. Abertura da Central em modo solo (bypass de login e restrições solo).
 2. Cadastro de Nova O.S. com PDF sintético (gerado com texto, extrato e imagem OCR).
 3. Acompanhamento do progresso do OCR em tempo real até conclusão.
-4. Abertura do caso com inspeção de transcricao.md e tabelas CSV.
+4. Abertura do caso com inspeção do Markdown por página.
 5. Edição e salvamento de minuta investigativa fictícia.
 6. Geração de relatório DOCX no modelo oficial CPJ 2026.
 7. Definição do relatório como FINAL e baixa na produção.
@@ -38,6 +38,29 @@ from testes.e2e.navegador_aux import (  # noqa: E402
 )
 from testes.e2e.pdf_aux import gerar_pdf_sintetico_e2e  # noqa: E402
 from testes.e2e.servidor_aux import ServidorTesteE2E  # noqa: E402
+
+
+class TesteFixtureF03(unittest.TestCase):
+    def test_servidor_gera_modelo_sintetico_sem_copiar_fonte(self):
+        import tempfile
+        from unittest.mock import patch
+        from docx import Document
+        from testes.fixtures_docx import NOME
+        with tempfile.TemporaryDirectory(prefix="cpj-f03-sentinela-") as td:
+            raiz = Path(td)
+            (raiz / "modelos").mkdir()
+            sentinela = raiz / "modelos/modelo-sentinela.docx"
+            sentinela.write_bytes(b"MODELO DE ORIGEM SINTETICO: NAO COPIAR")
+            servidor = ServidorTesteE2E()
+            try:
+                with patch("testes.e2e.servidor_aux.ROOT_DIR", raiz):
+                    servidor.iniciar()
+                self.assertFalse((servidor.ws / "modelos/modelo-sentinela.docx").exists())
+                self.assertEqual(Document(servidor.ws / "modelos" / NOME).core_properties.title,
+                                 "FIXTURE SINTÉTICA CPJ — SOMENTE TESTES")
+                self.assertEqual(sentinela.read_bytes(), b"MODELO DE ORIGEM SINTETICO: NAO COPIAR")
+            finally:
+                servidor.parar()
 
 
 class TesteE2EF03CentralCPJ(unittest.TestCase):
@@ -132,7 +155,7 @@ class TesteE2EF03CentralCPJ(unittest.TestCase):
             # 3. Acompanhamento do progresso do OCR em tempo real
             # -------------------------------------------------------------
             # Aguarda a fila processar o arquivo até concluir (ou sair da fila)
-            # O trabalhador em background roda OCR, extração de texto, tabelas e entidades.
+            # O trabalhador em background roda OCR e extração de Markdown por página.
             limite_ocr = time.monotonic() + 90.0
             concluido = False
             ultimo_texto = ""
@@ -155,7 +178,7 @@ class TesteE2EF03CentralCPJ(unittest.TestCase):
             )
 
             # -------------------------------------------------------------
-            # 4. Abertura do caso: inspeção de transcricao.md e CSV
+            # 4. Abertura do caso: inspeção de transcricao.md e O.S. em Markdown
             # -------------------------------------------------------------
             page.locator("#nav button[data-a='casos']").click()
             page.wait_for_selector("#casos.on", timeout=5000)
@@ -169,13 +192,15 @@ class TesteE2EF03CentralCPJ(unittest.TestCase):
             detalhe_h3 = page.locator("#detalhe h3").inner_text()
             self.assertIn(caso_id, detalhe_h3)
 
-            # Verifica links dos arquivos de extração (transcricao.md e tabelas CSV)
+            # Verifica links dos arquivos de extração documental somente em Markdown
             links_arquivos = page.locator("#detalhe .arqs a").all_inner_texts()
             tem_transcricao = any(l.endswith("transcricao.md") for l in links_arquivos)
             tem_csv = any(l.endswith(".csv") for l in links_arquivos)
 
             self.assertTrue(tem_transcricao, f"transcricao.md não listada nos arquivos: {links_arquivos}")
-            self.assertTrue(tem_csv, f"Nenhum arquivo CSV gerado na extração: {links_arquivos}")
+            self.assertFalse(tem_csv, f"Nova extração não deve gerar CSV: {links_arquivos}")
+            self.assertTrue(any("ordens-de-servico/" in l and l.endswith(".md") for l in links_arquivos),
+                            f"O.S. transcrita não listada: {links_arquivos}")
 
             # Verifica conteúdo do transcricao.md via requisição do navegador
             link_transcricao = [l for l in links_arquivos if l.endswith("transcricao.md")][0]
@@ -223,14 +248,14 @@ class TesteE2EF03CentralCPJ(unittest.TestCase):
 
             # AST12: salvar conserva o editor; DOCX exige ação própria.
             page.locator("#ed-salvar").click()
-            page.wait_for_function("document.querySelector('#editor').dataset.estado === 'salvo'")
+            page.wait_for_function("() => document.querySelector('#editor').dataset.estado === 'salvo'")
             self.assertTrue(page.locator("#editor").is_visible())
             antes_docx = page.request.get(f"{self.servidor.url}/api/casos/{caso_id}").json()
             self.assertFalse(any(a["caminho"].lower().endswith(".docx") for a in antes_docx["arquivos"]))
             with page.expect_response(lambda r: r.url.endswith("/docx") and r.request.method == "POST", timeout=30000) as captura_docx:
                 page.locator("#ed-docx").click()
             self.assertEqual(captura_docx.value.status, 200, captura_docx.value.text())
-            page.wait_for_function("document.querySelector('#ed-msg').textContent.includes('DOCX gerado')")
+            page.wait_for_function("() => document.querySelector('#ed-msg').textContent.includes('DOCX gerado')")
             page.locator("#ed-cancelar").click()
             page.locator("#editor").wait_for(state="hidden", timeout=15000)
 

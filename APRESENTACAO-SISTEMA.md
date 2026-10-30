@@ -1,5 +1,7 @@
 # Central CPJ: apresentação técnica
 
+> **Para agentes de IA:** a entrada vigente é `MEMORIA.md` na raiz, com as fontes canônicas (`AGENTS.md`, `PRD.md`, `docs/ESPINHA-DORSAL.md`, a fila e `calibracao/licoes-aprendidas.md`). Este documento descreve o sistema para leitura humana e não substitui aquelas fontes.
+
 > Visão geral da arquitetura para revisão por um desenvolvedor. **Não contém dados de casos.**
 > Estado em 27/09/2026. Plugin `investigacao-cpj` 0.2.0 (versão 0.3.0 em integração).
 

@@ -1,5 +1,7 @@
 # Piloto Controlado da Central CPJ — 2026
 
+> **Registro histórico — não é fonte de regra.** A entrada vigente para qualquer agente é `MEMORIA.md` na raiz, com as fontes canônicas (`AGENTS.md`, `PRD.md`, `docs/ESPINHA-DORSAL.md`, a fila e `calibracao/licoes-aprendidas.md`). Em divergência, prevalece a determinação explícita vigente do operador registrada nessas fontes, não este arquivo.
+
 **Estado em 10/10/2026:** piloto executado e auditado. Tentativa 1 falhou explicitamente em 403,85 s; tentativa 2 concluiu as quatro ações em 859,75 s com plugin 0.3.2, preservando as evidências anteriores. A minuta automática precisou de correção Codex v02 e de três registros obrigatórios ausentes. P01 conclui a medição e auditoria do piloto fictício, sem certificar conformidade integral automática ou uso oficial. A execução fictícia foi autorizada em 09/10/2026; OAuth foi especificamente autorizado e confirmado pelo integrador antes da inferência.
 
 ## Objetivo

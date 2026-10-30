@@ -1,7 +1,8 @@
 """Tarefas em segundo plano da Central CPJ com progresso real:
 exportação/importação do banco de dados, importação de bases de consulta e referências, e agentes de IA.
 """
-import datetime, hashlib, io, json, os, re, shutil, subprocess, sys, threading, time, uuid, zipfile, queue
+import datetime, hashlib, io, json, os, re, shutil, subprocess, sys, tempfile, threading, time, uuid, zipfile, queue
+from pathlib import Path
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.dirname(AQUI)
@@ -13,6 +14,7 @@ EXPORT_SCHEMA = "cpj-export/1"
 SEM_COMPRESSAO = (".pdf", ".png", ".jpg", ".jpeg", ".docx", ".xlsx", ".zip", ".sqlite")
 MAX_IMPORT_ARQUIVOS = 10_000
 MAX_IMPORT_BYTES = 2 * 1024 * 1024 * 1024
+MAX_IMPORT_VINCULOS_BYTES = 64 * 1024 * 1024
 
 
 def agora(): return datetime.datetime.now().isoformat(timespec="seconds")
@@ -33,6 +35,19 @@ def _apagar(p):
         except PermissionError: time.sleep(0.4)
 
 
+def _confinado(ws, caminho):
+    """Bloqueia links/junções estáticos; a conta/volume continua fronteira de confiança."""
+    raiz, alvo = Path(ws).absolute(), Path(caminho).absolute()
+    try: relativos = alvo.relative_to(raiz).parts
+    except ValueError: raise ValueError("Caminho fora do confinamento do workspace.") from None
+    atual = raiz
+    for parte in (None, *relativos):
+        if parte is not None: atual /= parte
+        if atual.is_symlink() or getattr(atual, "is_junction", lambda: False)():
+            raise ValueError("Caminho contém link ou junção não permitida.")
+    if not alvo.resolve().is_relative_to(raiz.resolve()): raise ValueError("Caminho fora do confinamento do workspace.")
+
+
 class ImportacaoCancelada(ValueError):
     def __init__(self, msg="Tarefa cancelada"):
         super().__init__(msg)
@@ -45,6 +60,9 @@ def _caminho_importavel(caminho):
     partes = caminho.split("/")
     # ":" bloqueia unidade de disco ("D:") e fluxo alternativo NTFS ("a.txt:x") em qualquer componente
     if any(not p or p in (".", "..") or ":" in p for p in partes): return False
+    reservado = [p.rstrip(" .").casefold() for p in partes[:2]] == ["consulta", "_grafo-manual"]
+    if reservado and (len(partes) == 2 or partes[:2] != ["consulta", "_grafo-manual"]):
+        return False
     raiz = partes[0]
     if len(partes) >= 2 and raiz == 'consulta' and partes[1].rstrip(' .').casefold() == '_grafo-manual':
         if len(partes) != 4 or partes[1] != '_grafo-manual': return False
@@ -59,6 +77,7 @@ def _caminho_importavel(caminho):
 
 sys.path.insert(0, AQUI)
 import plantao as PL  # noqa: E402  (fila de pedidos de IA e agentes de plantão)
+import pacote_seguro as PS
 sys.path.insert(0, S_BASE)
 import vinculos_manuais as VM  # noqa: E402
 import conferencias_grafo as CG  # noqa: E402
@@ -78,6 +97,7 @@ def plantao_config(ws):
 class Tarefas:
     def __init__(self, ws, caso_mod, auth, iniciar_agente=True):
         self.ws, self.C, self.auth = ws, caso_mod, auth
+        PS.limpar_preparacao_orfa(ws)
         self.t, self.trava, self.procs = {}, threading.Lock(), {}
         self.plantao = PL.Plantao(ws)
         self.parar_agente = threading.Event()
@@ -172,25 +192,31 @@ class Tarefas:
         W = self.ws; itens = []
         def add_dir(rel, filtro=None):
             base = os.path.join(W, rel)
+            _confinado(W, base)
             for raiz, dirs, arqs in os.walk(base):
                 dirs[:] = [d for d in dirs if d not in ("__pycache__",)]
+                for d in dirs: _confinado(W, os.path.join(raiz, d))
                 for a in arqs:
                     p = os.path.join(raiz, a); r = os.path.relpath(p, W).replace("\\", "/")
                     if a.endswith(".tmp") or a.startswith("~$"): continue
                     if r.startswith('consulta/_grafo-manual/') and not _caminho_importavel(r): continue
                     if filtro and not filtro(r): continue
+                    _confinado(W, p)
                     itens.append((p, r))
         leve = lambda r: not (re.search(r"/00-originais/|/paginas_visao/", r))
         sem_modelo = lambda r: not r.startswith("casos/_MODELO-CASO/")
         add_dir("casos", (lambda r: leve(r) and sem_modelo(r)) if modo == "dados" else sem_modelo)
         for d in ("calibracao", "consulta", "referencias"): add_dir(d)
         for f in ("producao/config.json", "producao/base.csv", "producao/base.json", "modelos/dados-padrao.json"):
+            _confinado(W, os.path.join(W, f))
             if os.path.exists(os.path.join(W, f)): itens.append((os.path.join(W, f), f))
         if incluir_modelo:
             add_dir("modelos", lambda r: r.lower().endswith(".docx"))
         return itens
 
-    def exportar(self, tid, modo, incluir_modelo):
+    def exportar(self, tid, modo, incluir_modelo, senha=None):
+        PS.validar_senha(senha)
+        if modo not in ("dados", "completo"): raise ValueError("Modo de exportação inválido.")
         self.at(tid, etapa="atualizando a base"); self.indexar()
         prefixo = 'consulta/_grafo-manual/eventos/'
         eventos = {prefixo+n: b for n,b in VM.exportar_eventos(self.ws).items()}
@@ -200,122 +226,181 @@ class Tarefas:
                  if not r.casefold().startswith('consulta/_grafo-manual/')]
         itens.extend((None,r) for r in eventos)
         total = sum(len(eventos[r]) if r in eventos else os.path.getsize(p) for p,r in itens) or 1
+        if total > MAX_IMPORT_BYTES or len(itens) > MAX_IMPORT_ARQUIVOS:
+            raise ValueError("Exportação excede o limite de 2 GiB ou 10000 arquivos.")
         os.makedirs(os.path.join(self.ws, "exportacoes"), exist_ok=True)
-        nome = f"CPJ-export-{modo}-{datetime.datetime.now():%Y%m%d-%H%M%S}.zip"
+        nome = f"CPJ-export-{modo}-{datetime.datetime.now():%Y%m%d-%H%M%S}-{tid}.cpjenc"
         destino = os.path.join(self.ws, "exportacoes", nome); tmp = destino + ".parcial"
-        feito, manifesto = 0, []
-        with zipfile.ZipFile(tmp, "w", allowZip64=True) as z:
-            for i, (p, r) in enumerate(itens, 1):
-                if self.obter(tid)["status"] == "cancelada": break
-                comp = zipfile.ZIP_STORED if r.lower().endswith(SEM_COMPRESSAO) else zipfile.ZIP_DEFLATED
-                h = hashlib.sha256()
-                zi = zipfile.ZipInfo('dados/'+r) if r in eventos else zipfile.ZipInfo.from_file(p, "dados/" + r)
-                zi.compress_type = comp
-                with (io.BytesIO(eventos[r]) if r in eventos else open(p, "rb")) as f, z.open(zi, "w", force_zip64=True) as w:
-                    for b in iter(lambda: f.read(1 << 20), b""):
-                        w.write(b); h.update(b); feito += len(b)
-                        self.at(tid, progresso=min(99, int(98 * feito / total)), etapa=f"compactando {i}/{len(itens)} arquivos",
-                                detalhe=f"{feito / 1048576:.1f} de {total / 1048576:.1f} MB")
-                manifesto.append({"caminho": r, "tamanho": len(eventos[r]) if r in eventos else os.path.getsize(p), "sha256": h.hexdigest()})
-            casos = sorted({m["caminho"].split("/")[1] for m in manifesto if m["caminho"].startswith("casos/")} - {"_MODELO-CASO"})
-            z.writestr("manifest.json", json.dumps({"schema": EXPORT_SCHEMA, "gerado_em": agora(), "modo": modo,
-                       "inclui_modelo_docx": incluir_modelo, "casos": casos, "arquivos": manifesto}, ensure_ascii=False, indent=1))
-        if self.obter(tid)["status"] == "cancelada":
-            os.remove(tmp); return None
-        os.replace(tmp, destino)
-        return {"arquivo": nome, "url": f"/exportacoes/{nome}", "casos": len(casos), "mb": round(os.path.getsize(destino) / 1048576, 1)}
-
-    # ------------------------------------------------------------ importação
-    def importar(self, tid, zip_path):
-        W = self.ws
-        temporaria = os.path.join(W, "exportacoes", "_importando", tid)
-        novos, pulados, copiados = set(), set(), 0
         def cancelar():
             if self.obter(tid)["status"] == "cancelada": raise ImportacaoCancelada()
         try:
-            with zipfile.ZipFile(zip_path) as z:
-                try: man = json.loads(z.read("manifest.json"))
-                except KeyError: raise ValueError("Pacote inválido: manifest.json ausente (use um arquivo exportado pela Central CPJ).")
-                if man.get("schema") != EXPORT_SCHEMA: raise ValueError(f"Versão de pacote não suportada: {man.get('schema')}")
-                arqs = man.get("arquivos")
-                if not isinstance(arqs, list) or not arqs: raise ValueError("Pacote inválido: lista de arquivos ausente ou vazia.")
-                if len(arqs) > MAX_IMPORT_ARQUIVOS: raise ValueError("Pacote grande demais: muitos arquivos.")
-                vistos, total = set(), 0
-                arquivos_zip = [i for i in z.infolist() if not i.is_dir()]
-                infos = {i.filename: i for i in arquivos_zip}
-                if len(infos) != len(arquivos_zip): raise ValueError("Pacote contém nomes de arquivo duplicados.")
-                for a in arqs:
-                    if not isinstance(a, dict) or not _caminho_importavel(a.get("caminho")):
-                        raise ValueError(f"Pacote com caminho não permitido: {a.get('caminho') if isinstance(a, dict) else a}")
-                    r, tamanho, h = a["caminho"], a.get("tamanho"), a.get("sha256")
-                    nome_zip = "dados/" + r
-                    if r in vistos or not isinstance(tamanho, int) or tamanho < 0 or not re.fullmatch(r"[0-9a-f]{64}", str(h)):
-                        raise ValueError(f"Manifesto inválido para: {r}")
-                    if nome_zip not in infos or infos[nome_zip].file_size != tamanho:
-                        raise ValueError(f"Arquivo ausente ou com tamanho divergente: {r}")
-                    vistos.add(r); total += tamanho
-                if total > MAX_IMPORT_BYTES: raise ValueError("Pacote descompactado excede o limite permitido.")
-                esperados = {"manifest.json"} | {"dados/" + r for r in vistos}
-                if set(infos) - esperados: raise ValueError("Pacote contém arquivos fora do manifesto.")
-                # 1) verificar tudo antes de criar qualquer arquivo do pacote.
-                feito = 0
-                for i, a in enumerate(arqs, 1):
-                    h = hashlib.sha256()
-                    with z.open("dados/" + a["caminho"]) as f:
-                        for b in iter(lambda: f.read(1 << 20), b""):
-                            cancelar(); h.update(b); feito += len(b)
-                            self.at(tid, progresso=int(45 * feito / (total or 1)), etapa=f"verificando integridade {i}/{len(arqs)}")
-                    if h.hexdigest() != a["sha256"]: raise ValueError(f"Arquivo corrompido no pacote: {a['caminho']}")
-                eventos = {a['caminho'].split('/')[-1]: z.read('dados/'+a['caminho']) for a in arqs
-                           if a['caminho'].startswith('consulta/_grafo-manual/eventos/')}
-                legados = {a['caminho'].split('/')[-1]: z.read('dados/'+a['caminho']) for a in arqs
-                           if a['caminho'].startswith('consulta/_grafo-manual/legados/')}
-                conferencias = {a['caminho'].split('/')[-1]: z.read('dados/'+a['caminho']) for a in arqs
-                                if a['caminho'].startswith('consulta/_grafo-manual/conferencias/')}
-                VM.validar_importacao(W, eventos, legados, conferencias)
-                # 2) preparar fora das pastas operacionais. Cada caso só aparece ao final, por os.replace().
-                shutil.rmtree(temporaria, ignore_errors=True); os.makedirs(temporaria)
-                existentes = set(os.listdir(os.path.join(W, "casos"))) if os.path.isdir(os.path.join(W, "casos")) else set()
-                casos_pacote = {a["caminho"].split("/")[1] for a in arqs if a["caminho"].startswith("casos/")}
-                pulados = casos_pacote & existentes; novos = casos_pacote - existentes
-                for i, a in enumerate(arqs, 1):
-                    cancelar(); r = a["caminho"]; partes = r.split("/")
-                    if r.startswith('consulta/_grafo-manual/'): continue
-                    if partes[0] == "casos" and partes[1] in pulados: continue
-                    destino = os.path.join(temporaria, *partes)
-                    base = os.path.normcase(os.path.abspath(temporaria))
-                    if os.path.commonpath([base, os.path.normcase(os.path.abspath(destino))]) != base:
-                        raise ValueError(f"Caminho fora da pasta de importação: {r}")
-                    os.makedirs(os.path.dirname(destino), exist_ok=True)
-                    with z.open("dados/" + r) as f, open(destino, "wb") as w:
-                        for b in iter(lambda: f.read(1 << 20), b""):
-                            cancelar(); w.write(b)
-                    copiados += 1
-                    self.at(tid, progresso=45 + int(40 * i / len(arqs)), etapa=f"preparando {i}/{len(arqs)}")
-            # 3) confirmar. A partir daqui a operação é curta e não cancelável: cada caso
-            # entra inteiro por renomeação atômica, nunca como uma pasta parcialmente copiada.
-            cancelar(); self.at(tid, etapa="confirmando importação")
-            VM.importar_eventos(W, eventos, legados, conferencias)
-            for caso in sorted(novos):
-                origem, destino = os.path.join(temporaria, "casos", caso), os.path.join(W, "casos", caso)
-                if os.path.isdir(origem) and not os.path.exists(destino):
-                    os.makedirs(os.path.dirname(destino), exist_ok=True); os.replace(origem, destino)
-                else: pulados.add(caso); novos.discard(caso)
-            for raiz, _, arquivos in os.walk(temporaria):
-                for nome in arquivos:
-                    origem = os.path.join(raiz, nome); rel = os.path.relpath(origem, temporaria)
-                    if rel.split(os.sep)[0] == "casos": continue
-                    destino = os.path.join(W, rel)
-                    if os.path.exists(destino): continue
-                    os.makedirs(os.path.dirname(destino), exist_ok=True); os.replace(origem, destino)
-            self.at(tid, progresso=92, etapa="reindexando a base")
-            try: self.indexar()
-            except Exception as e: raise RuntimeError(f"Importação confirmada, mas a indexação falhou: {e}") from e
-            return {"casos_novos": sorted(novos), "casos_ja_existentes": sorted(pulados), "arquivos": copiados}
+            return self._exportar_cifrado(tid, itens, total, nome, destino, tmp, modo, incluir_modelo, senha, cancelar, eventos)
+        except ImportacaoCancelada:
+            return None
+        finally:
+            _apagar(tmp)
+
+    def _exportar_cifrado(self, tid, itens, total, nome, destino, tmp, modo, incluir_modelo, senha, cancelar, eventos=None):
+        with open(tmp, "xb") as saida:
+            fluxo = PS.Escritor(saida, senha, cancelar)
+            with zipfile.ZipFile(fluxo, "w", allowZip64=True) as z:
+                self._escrever_exportacao(z, tid, itens, total, modo, incluir_modelo, cancelar, eventos)
+            fluxo.finalizar()
+            os.fsync(saida.fileno())
+        cancelar()
+        os.replace(tmp, destino)
+        casos = {r.split("/")[1] for _, r in itens if r.startswith("casos/")}
+        return {"arquivo": nome, "url": f"/exportacoes/{nome}", "casos": len(casos), "mb": round(os.path.getsize(destino) / 1048576, 1)}
+
+    def _escrever_exportacao(self, z, tid, itens, total, modo, incluir_modelo, cancelar, eventos=None):
+        eventos = eventos or {}
+        feito, manifesto = 0, []
+        for i, (p, r) in enumerate(itens, 1):
+            cancelar()
+            if r not in eventos:
+                _confinado(self.ws, p)
+                antes = os.stat(p)
+                if os.path.islink(p): raise ValueError("Exportação não aceita links simbólicos.")
+            comp = zipfile.ZIP_STORED if r.lower().endswith(SEM_COMPRESSAO) else zipfile.ZIP_DEFLATED
+            h = hashlib.sha256()
+            zi = zipfile.ZipInfo("dados/"+r) if r in eventos else zipfile.ZipInfo.from_file(p, "dados/" + r); zi.compress_type = comp
+            with (io.BytesIO(eventos[r]) if r in eventos else open(p, "rb")) as f, z.open(zi, "w", force_zip64=True) as w:
+                for b in iter(lambda: f.read(1 << 20), b""):
+                    cancelar()
+                    w.write(b); h.update(b); feito += len(b)
+                    self.at(tid, progresso=min(99, int(98 * feito / total)), etapa=f"compactando {i}/{len(itens)} arquivos",
+                            detalhe=f"{feito / 1048576:.1f} de {total / 1048576:.1f} MB")
+            tamanho = len(eventos[r]) if r in eventos else os.stat(p).st_size
+            if r not in eventos:
+                depois = os.stat(p)
+                if (antes.st_size, antes.st_mtime_ns) != (depois.st_size, depois.st_mtime_ns):
+                    raise ValueError("Arquivo mudou durante a exportação; tente novamente com o caso parado.")
+            manifesto.append({"caminho": r, "tamanho": tamanho, "sha256": h.hexdigest()})
+        casos = sorted({m["caminho"].split("/")[1] for m in manifesto if m["caminho"].startswith("casos/")} - {"_MODELO-CASO"})
+        z.writestr("manifest.json", json.dumps({"schema": EXPORT_SCHEMA, "gerado_em": agora(), "modo": modo,
+                   "inclui_modelo_docx": incluir_modelo, "casos": casos, "arquivos": manifesto}, ensure_ascii=False, indent=1))
+
+    # ------------------------------------------------------------ importação
+    def importar(self, tid, zip_path, senha=None, permitir_legado=False):
+        W = self.ws
+        temporaria = os.path.join(W, "exportacoes", "_importando", str(os.getpid()) + "-" + tid)
+        def cancelar():
+            if self.obter(tid)["status"] == "cancelada": raise ImportacaoCancelada()
+        try:
+            with open(zip_path, "rb") as pacote:
+                cifrado = pacote.read(8) == PS.MAGIC
+                pacote.seek(0)
+                if not cifrado and permitir_legado is not True:
+                    raise ValueError("Pacote ZIP legado sem cifra: confirme expressamente o risco para importar.")
+                fluxo = PS.Leitor(pacote, senha, cancelar) if cifrado else PS.LeituraLimitada(pacote)
+                return self._importar_zip(tid, fluxo, temporaria, cancelar)
         except ImportacaoCancelada:
             return None
         finally:
             shutil.rmtree(temporaria, ignore_errors=True); _apagar(zip_path)
+
+    def _importar_zip(self, tid, fluxo, temporaria, cancelar):
+        W = self.ws
+        novos, pulados, copiados = set(), set(), 0
+        with zipfile.ZipFile(fluxo) as z:
+            if len(z.infolist()) > MAX_IMPORT_ARQUIVOS + 1: raise ValueError("Pacote grande demais: muitos arquivos.")
+            try:
+                if z.getinfo("manifest.json").file_size > 8 * 1024**2: raise ValueError("Manifesto grande demais.")
+                man = json.loads(z.read("manifest.json"))
+            except KeyError: raise ValueError("Pacote inválido: manifest.json ausente (use um arquivo exportado pela Central CPJ).")
+            if man.get("schema") != EXPORT_SCHEMA: raise ValueError(f"Versão de pacote não suportada: {man.get('schema')}")
+            arqs = man.get("arquivos")
+            if not isinstance(arqs, list) or not arqs: raise ValueError("Pacote inválido: lista de arquivos ausente ou vazia.")
+            if len(arqs) > MAX_IMPORT_ARQUIVOS: raise ValueError("Pacote grande demais: muitos arquivos.")
+            vistos, total = set(), 0
+            vinculos, total_vinculos = {"eventos": {}, "legados": {}, "conferencias": {}}, 0
+            arquivos_zip = [i for i in z.infolist() if not i.is_dir()]
+            infos = {i.filename: i for i in arquivos_zip}
+            if len(infos) != len(arquivos_zip): raise ValueError("Pacote contém nomes de arquivo duplicados.")
+            for a in arqs:
+                if not isinstance(a, dict) or not _caminho_importavel(a.get("caminho")):
+                    raise ValueError(f"Pacote com caminho não permitido: {a.get('caminho') if isinstance(a, dict) else a}")
+                r, tamanho, h = a["caminho"], a.get("tamanho"), a.get("sha256")
+                _confinado(W, os.path.join(W, *r.split("/")))
+                nome_zip = "dados/" + r
+                if r in vistos or not isinstance(tamanho, int) or tamanho < 0 or not re.fullmatch(r"[0-9a-f]{64}", str(h)):
+                    raise ValueError(f"Manifesto inválido para: {r}")
+                if nome_zip not in infos or infos[nome_zip].file_size != tamanho:
+                    raise ValueError(f"Arquivo ausente ou com tamanho divergente: {r}")
+                if r.startswith("consulta/_grafo-manual/"):
+                    partes = r.split("/")
+                    if r != "consulta/_grafo-manual/.vinculos.lock":
+                        if len(partes) != 4 or partes[2] not in vinculos or not partes[3].endswith(".json"):
+                            raise ValueError("Caminho inválido na fonte dos vínculos manuais.")
+                        total_vinculos += tamanho
+                        if total_vinculos > MAX_IMPORT_VINCULOS_BYTES:
+                            raise ValueError("Histórico de vínculos do pacote excede o limite de 64 MiB.")
+                vistos.add(r); total += tamanho
+            if total > MAX_IMPORT_BYTES: raise ValueError("Pacote descompactado excede o limite permitido.")
+            esperados = {"manifest.json"} | {"dados/" + r for r in vistos}
+            if set(infos) - esperados: raise ValueError("Pacote contém arquivos fora do manifesto.")
+            # 1) verificar tudo antes de criar qualquer arquivo do pacote.
+            feito = 0
+            for i, a in enumerate(arqs, 1):
+                h = hashlib.sha256()
+                with z.open("dados/" + a["caminho"]) as f:
+                    for b in iter(lambda: f.read(1 << 20), b""):
+                        cancelar(); h.update(b); feito += len(b)
+                        self.at(tid, progresso=int(45 * feito / (total or 1)), etapa=f"verificando integridade {i}/{len(arqs)}")
+                if h.hexdigest() != a["sha256"]: raise ValueError(f"Arquivo corrompido no pacote: {a['caminho']}")
+            # 2) preparar fora das pastas operacionais. Cada caso só aparece ao final, por os.replace().
+            PS.proteger_preparacao(os.path.dirname(temporaria))
+            PS.proteger_preparacao(temporaria)
+            existentes = set(os.listdir(os.path.join(W, "casos"))) if os.path.isdir(os.path.join(W, "casos")) else set()
+            casos_pacote = {a["caminho"].split("/")[1] for a in arqs if a["caminho"].startswith("casos/")}
+            pulados = casos_pacote & existentes; novos = casos_pacote - existentes
+            for i, a in enumerate(arqs, 1):
+                cancelar(); r = a["caminho"]; partes = r.split("/")
+                if partes[0] == "casos" and partes[1] in pulados: continue
+                destino = os.path.join(temporaria, *partes)
+                base = os.path.normcase(os.path.abspath(temporaria))
+                if os.path.commonpath([base, os.path.normcase(os.path.abspath(destino))]) != base:
+                    raise ValueError(f"Caminho fora da pasta de importação: {r}")
+                os.makedirs(os.path.dirname(destino), exist_ok=True)
+                with z.open("dados/" + r) as f, open(destino, "wb") as w:
+                    for b in iter(lambda: f.read(1 << 20), b""):
+                        cancelar(); w.write(b)
+                copiados += 1
+                self.at(tid, progresso=45 + int(40 * i / len(arqs)), etapa=f"preparando {i}/{len(arqs)}")
+            for a in arqs:
+                partes = a["caminho"].split("/")
+                if len(partes) == 4 and partes[:2] == ["consulta", "_grafo-manual"]:
+                    vinculos[partes[2]][partes[3]] = Path(temporaria, *partes).read_bytes()
+            from metadados_importacao import validar_casos_preparados
+            validar_casos_preparados(Path(temporaria) / "casos", novos)
+        # 3) confirmar. A partir daqui a operação é curta e não cancelável: cada caso
+        # entra inteiro por renomeação atômica, nunca como uma pasta parcialmente copiada.
+        cancelar(); self.at(tid, etapa="confirmando importação")
+        if any(vinculos.values()):
+            # A união é validada sob trava antes de publicar casos ou outros
+            # arquivos; IDs divergentes nunca são ignorados como extras comuns.
+            sys.path.insert(0, S_BASE)
+            import vinculos_manuais as VM
+            VM.importar_eventos(W, vinculos["eventos"], vinculos["legados"], vinculos["conferencias"])
+        for caso in sorted(novos):
+            origem, destino = os.path.join(temporaria, "casos", caso), os.path.join(W, "casos", caso)
+            _confinado(W, origem); _confinado(W, destino)
+            if os.path.isdir(origem) and not os.path.exists(destino):
+                os.makedirs(os.path.dirname(destino), exist_ok=True); os.replace(origem, destino)
+            else: pulados.add(caso); novos.discard(caso)
+        for raiz, _, arquivos in os.walk(temporaria):
+            for nome in arquivos:
+                origem = os.path.join(raiz, nome); rel = os.path.relpath(origem, temporaria)
+                if rel.split(os.sep)[0] == "casos": continue
+                if rel.replace(os.sep, "/").startswith("consulta/_grafo-manual/"): continue
+                destino = os.path.join(W, rel)
+                _confinado(W, origem); _confinado(W, destino)
+                if os.path.exists(destino): continue
+                os.makedirs(os.path.dirname(destino), exist_ok=True); os.replace(origem, destino)
+        self.at(tid, progresso=92, etapa="reindexando a base")
+        try: self.indexar()
+        except Exception as e: raise RuntimeError(f"Importação confirmada, mas a indexação falhou: {e}") from e
+        return {"casos_novos": sorted(novos), "casos_ja_existentes": sorted(pulados), "arquivos": copiados}
 
     # ------------------------------------------------------------ bases de consulta e referências
     def importar_consulta(self, tid, arquivo, nome):
@@ -377,16 +462,79 @@ class Tarefas:
 
 # ------------------------------------------------------------ relatório: DOCX / PDF
 def gerar_docx(ws, id_, minuta_nome, sem_assinatura=False):
+    import caso as C
+    if Path(C.WS).resolve() != Path(ws).resolve() or not re.fullmatch(r"minuta-v\d+\.md", minuta_nome):
+        raise RuntimeError("Workspace ou minuta inválidos para geração do DOCX.")
     d = os.path.join(ws, "casos", id_, "03-relatorios")
     v = re.findall(r"\d+", minuta_nome)[0]
     saida = os.path.join(d, f"RELATORIO-{id_}-v{v}.docx")
-    cmd = [PY, os.path.join(S_REL, "gerar_docx.py"), os.path.join(d, minuta_nome), "--saida", saida]
-    if sem_assinatura: cmd.append("--sem-assinatura")
-    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=SEM_JANELA,
-                       env=dict(os.environ, PYTHONIOENCODING="utf-8"))
-    if r.returncode != 0: raise RuntimeError((r.stderr or r.stdout)[-400:])
-    pend = re.search(r"preencher\):\s*(.+)", r.stdout)
-    return {"docx": os.path.basename(saida), "pendentes": pend.group(1).strip() if pend else ""}
+    minuta = os.path.join(d, minuta_nome)
+    temporario = os.path.join(d, ".docx-geracao-" + uuid.uuid4().hex + ".docx")
+    fonte_snapshot = None
+    copia_anterior = None
+    with C.trava(id_):
+        try:
+            _confinado(ws, minuta)
+            _confinado(ws, saida)
+            with open(minuta, "rb") as f:
+                conteudo_minuta = f.read()
+            sha_minuta = hashlib.sha256(conteudo_minuta).hexdigest()
+            # Mesmo diretório preserva imagens relativas e descoberta do fluxo do caso.
+            with tempfile.NamedTemporaryFile(mode="wb", dir=d, prefix=".minuta-fonte-", suffix=".md.tmp", delete=False) as f:
+                fonte_snapshot = f.name
+                f.write(conteudo_minuta)
+                f.flush()
+                os.fsync(f.fileno())
+            cmd = [PY, os.path.join(S_REL, "gerar_docx.py"), fonte_snapshot, "--saida", temporario]
+            if sem_assinatura: cmd.append("--sem-assinatura")
+            r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=SEM_JANELA,
+                               env=dict(os.environ, CPJ_WORKSPACE=str(ws), PYTHONIOENCODING="utf-8"), timeout=180)
+            if r.returncode != 0: raise RuntimeError((r.stderr or r.stdout)[-400:])
+            if _sha(minuta) != sha_minuta:
+                raise RuntimeError("Minuta alterada durante a geração; DOCX não publicado.")
+            from docx import Document
+            try:
+                Document(temporario)
+            except Exception as e:
+                raise RuntimeError("A geração não produziu um DOCX válido; arquivo anterior preservado.") from e
+            sha_docx = _sha(temporario)
+            if os.path.exists(saida):
+                historico = os.path.join(d, "historico-docx")
+                _confinado(ws, historico)
+                os.makedirs(historico, exist_ok=True)
+                sha_antigo = _sha(saida)
+                copia = os.path.join(historico, sha_antigo + "-" + os.path.basename(saida))
+                _confinado(ws, copia)
+                if not os.path.exists(copia):
+                    with open(saida, "rb") as origem, open(copia, "xb") as destino:
+                        shutil.copyfileobj(origem, destino)
+                if _sha(copia) != sha_antigo or _sha(saida) != sha_antigo:
+                    raise RuntimeError("Não foi possível preservar o DOCX anterior.")
+                copia_anterior = copia
+            from vinculos_docx import emitir
+            vinculo = emitir(ws, id_, minuta_nome, os.path.basename(saida), sha_minuta, sha_docx, agora())
+            os.replace(temporario, saida)
+            def registrar(c):
+                itens = c.setdefault("vinculos_docx", [])
+                if not isinstance(itens, list): raise ValueError("Histórico de DOCX inválido.")
+                itens.append(vinculo)
+            try:
+                C.atualizar(id_, registrar)
+            except (OSError, ValueError):
+                # Se o vínculo não puder ser persistido, restaura a versão anterior.
+                if copia_anterior:
+                    shutil.copyfile(copia_anterior, temporario)
+                    os.replace(temporario, saida)
+                else:
+                    os.remove(saida)
+                raise
+            pend = re.search(r"preencher\):\s*(.+)", r.stdout)
+            return {"docx": os.path.basename(saida), "pendentes": pend.group(1).strip() if pend else ""}
+        except (OSError, ValueError, subprocess.TimeoutExpired) as e:
+            raise RuntimeError("Falha ao gerar ou vincular o DOCX; confira os arquivos preservados.") from e
+        finally:
+            if os.path.isfile(temporario): _apagar(temporario)
+            if fonte_snapshot is not None: _apagar(fonte_snapshot)
 
 
 def soffice():
@@ -401,8 +549,29 @@ def gerar_pdf(ws, id_, docx_nome):
         raise RuntimeError("Conversão automática para PDF requer o LibreOffice (gratuito). Alternativa: Abrir no Word → "
                            "Imprimir → impressora 'Microsoft Print to PDF'.")
     d = os.path.join(ws, "casos", id_, "03-relatorios")
-    r = subprocess.run([exe, "--headless", "--convert-to", "pdf", "--outdir", d, os.path.join(d, docx_nome)],
-                       capture_output=True, text=True, timeout=180, creationflags=SEM_JANELA)
+    if os.path.basename(docx_nome) != docx_nome or not docx_nome.lower().endswith(".docx"):
+        raise RuntimeError("Informe um DOCX do caso.")
+    origem = os.path.join(d, docx_nome)
     pdf = os.path.splitext(docx_nome)[0] + ".pdf"
-    if not os.path.exists(os.path.join(d, pdf)): raise RuntimeError("Falha na conversão: " + (r.stderr or r.stdout)[-300:])
+    destino = os.path.join(d, pdf)
+    try:
+        _confinado(ws, origem)
+        _confinado(ws, destino)
+        # O conversor recebe uma cópia estável e só publica uma saída desta execução.
+        with tempfile.TemporaryDirectory(prefix=".pdf-", dir=d) as tmp:
+            copia = os.path.join(tmp, docx_nome)
+            shutil.copyfile(origem, copia)
+            r = subprocess.run([exe, "--headless", "--convert-to", "pdf", "--outdir", tmp, copia],
+                               capture_output=True, text=True, timeout=180, creationflags=SEM_JANELA)
+            novo = os.path.join(tmp, pdf)
+            _confinado(ws, novo)
+            if r.returncode != 0 or not os.path.isfile(novo):
+                raise RuntimeError("Falha na conversão: " + (r.stderr or r.stdout)[-300:])
+            with open(novo, "rb") as f:
+                if f.read(5) != b"%PDF-":
+                    raise RuntimeError("O conversor não gerou um PDF válido.")
+            _confinado(ws, destino)
+            os.replace(novo, destino)
+    except (OSError, ValueError, subprocess.TimeoutExpired) as e:
+        raise RuntimeError("Falha na conversão; PDF anterior preservado.") from e
     return {"pdf": pdf}

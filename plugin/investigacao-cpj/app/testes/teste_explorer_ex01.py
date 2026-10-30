@@ -113,11 +113,19 @@ class ExplorerEX01(ExplorerFixture, unittest.TestCase):
         self.abrir.assert_not_called()
 
     def test_ficha_informa_se_acesso_e_local(self):
-        for ip, local in (("127.0.0.1", True), ("203.0.113.2", False)):
-            with self.subTest(ip=ip):
-                r = self.client.get(f"/api/casos/{self.id}", environ_overrides={"REMOTE_ADDR": ip})
-                self.assertEqual(r.status_code, 200)
-                self.assertIs(r.json.get("local"), local)
+        r = self.client.get(f"/api/casos/{self.id}", environ_overrides={"REMOTE_ADDR": "127.0.0.1"})
+        self.assertEqual(r.status_code, 200)
+        self.assertIs(r.json.get("local"), True)
+        remoto = {"REMOTE_ADDR": "203.0.113.2"}
+        self.assertEqual(self.client.get(f"/api/casos/{self.id}", environ_overrides=remoto).status_code, 403)
+        anterior = self.s.app.config.get("REDE_ATIVA", False)
+        self.s.app.config["REDE_ATIVA"] = True
+        try:
+            r = self.client.get(f"/api/casos/{self.id}", base_url="https://localhost", environ_overrides=remoto)
+            self.assertEqual(r.status_code, 200)
+            self.assertIs(r.json.get("local"), False)
+        finally:
+            self.s.app.config["REDE_ATIVA"] = anterior
 
 
 if __name__ == "__main__":

@@ -3,6 +3,8 @@ description: Executa o pipeline completo do IP - caso, processamento, análise, 
 argument-hint: <ID do caso> [caminho do PDF/MD] [observações]
 ---
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 Execute o pipeline completo para: $ARGUMENTS
 
 Sequência (pare e peça confirmação nos pontos ⏸):

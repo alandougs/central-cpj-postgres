@@ -1,2 +1,2 @@
-iniciar();
 
+iniciar();

@@ -47,7 +47,8 @@ def montar_ws(destino):
     """Workspace fictício mínimo: plugin\\, modelos\\, casos\\_MODELO-CASO (modelo vazio) e config\\ vazio."""
     ign = shutil.ignore_patterns("__pycache__", "*.pyc", "testes")
     shutil.copytree(os.path.join(RAIZ, "plugin"), os.path.join(destino, "plugin"), ignore=ign)
-    shutil.copytree(os.path.join(RAIZ, "modelos"), os.path.join(destino, "modelos"))
+    from fixtures_docx import criar_modelo
+    criar_modelo(os.path.join(destino, "modelos"))
     shutil.copytree(os.path.join(RAIZ, "casos", "_MODELO-CASO"), os.path.join(destino, "casos", "_MODELO-CASO"))
     os.makedirs(os.path.join(destino, "config"))
     return destino

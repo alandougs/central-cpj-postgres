@@ -22,6 +22,11 @@ atualizarTarefas.vistos=new Set();
 
 $("#chip-tarefas").onclick=()=>abrirAba("sistema");
 
+async function carregarAuditoria(){const destino=$("#lista-aud");destino.innerHTML="";
+ const aviso=texto=>{const p=document.createElement("p");p.setAttribute("role","alert");p.textContent=texto;destino.append(p)};
+ try{const ai=await api("/api/auditoria/integridade");if(!ai.integra)aviso("INTEGRIDADE DA AUDITORIA COMPROMETIDA. Preserve o log e a âncora para conferência.")}catch(x){aviso("Não foi possível verificar a integridade da auditoria: "+x.message)}
+ try{const au=await api("/api/auditoria");destino.insertAdjacentHTML("beforeend",`<table><tbody>${au.map(a=>`<tr><td class="muted">${esc(a.ts.replace("T"," "))}</td><td>${esc(a.usuario)}</td><td>${esc(a.acao)}</td><td>${esc(a.alvo)}</td><td class="muted">${esc(a.ip)}</td></tr>`).join("")}</tbody></table>`)}catch(x){aviso("Leitura dos registros indisponível: "+x.message)}}
+
 async function carregarSistema(leve){atualizarTarefas();preencherConta();carregarLLM();carregarConfigIA();
 
  const mp=await api("/api/minha-pasta");$("#minha-pasta").innerHTML=mp.arquivos.map(a=>`<div><a href="/minha-pasta/${a.caminho.split("/").map(enc).join("/")}">${esc(a.caminho)}</a><span class="muted">${kb(a.tamanho)}</span></div>`).join("")||`<span class="muted">Vazia${mp.pasta?" — "+esc(mp.pasta):""}</span>`;
@@ -30,7 +35,7 @@ async function carregarSistema(leve){atualizarTarefas();preencherConta();carrega
 
  if(pode("usuarios")&&!leve){carregarPerfis();const cfg=await api("/api/os/ia-local");$("#os-modelo-local").value=cfg.modelo;$("#os-modelo-local").disabled=cfg.ambiente;$("#b-os-modelo").disabled=cfg.ambiente;$("#os-modelo-msg").textContent=cfg.ambiente?"Modelo definido pelo ambiente":"";}
 
- if(pode("dados")){const ex=await api("/api/exportacoes");$("#lista-exp").innerHTML=ex.map(e=>`<div><a href="${e.url}">${esc(e.arquivo)}</a><span class="muted">${e.mb} MB</span></div>`).join("")||'<span class="muted">—</span>';
+ if(pode("dados")){const ex=await api("/api/exportacoes");$("#lista-exp").innerHTML=ex.map(e=>`<div><a href="${esc(e.url)}">${esc(e.arquivo)}</a><span class="muted">${e.mb} MB${e.arquivo.toLowerCase().endsWith('.zip')?' · ZIP legado — sem criptografia':' · criptografado'}</span></div>`).join("")||'<span class="muted">—</span>';
 
   const resumoAnt=b=>{const a=b.com_antecedentes||{};const est=x=>x&&typeof x==="object"?Object.entries(x).filter(([,n])=>n).map(([e,n])=>`${n} ${e}`).join(", "):"";
 
@@ -52,7 +57,7 @@ async function carregarSistema(leve){atualizarTarefas();preencherConta();carrega
 
   $$("[data-rmu]").forEach(b=>b.onclick=async()=>{if(!confirm(`Remover o usuário ${b.dataset.rmu}?`))return;try{await api(`/api/usuarios/${enc(b.dataset.rmu)}/remover`,{method:"POST"});carregarSistema()}catch(x){toast(x.message)}});
 
-   const au=await api("/api/auditoria");$("#lista-aud").innerHTML=`<table><tbody>${au.map(a=>`<tr><td class="muted">${esc(a.ts.replace("T"," "))}</td><td>${esc(a.usuario)}</td><td>${esc(a.acao)}</td><td>${esc(a.alvo)}</td><td class="muted">${esc(a.ip)}</td></tr>`).join("")}</tbody></table>`;
+   await carregarAuditoria();
 
    const rd=await api("/api/rede");$("#rede-on").checked=rd.compartilhar;$("#rede-https").checked=rd.https;
 
@@ -72,9 +77,9 @@ async function listarRefs(){const rs=await api("/api/referencias?autor="+enc($("
 
 $("#rf-filtro").oninput=()=>{clearTimeout(tq);tq=setTimeout(listarRefs,300)};
 
-$("#b-exportar").onclick=async()=>{const modo=document.querySelector('input[name=modo]:checked').value;try{await api("/api/exportar",{json:{modo,incluir_modelo:$("#exp-modelo").checked}});toast("Exportação iniciada — acompanhe em Tarefas");atualizarTarefas()}catch(x){toast(x.message)}};
+$("#b-exportar").onclick=async()=>{const modo=document.querySelector('input[name=modo]:checked').value,senha=$("#exp-senha").value;if(senha.length<12||senha.length>1024){toast("Informe uma senha de 12 a 1024 caracteres");return}$("#exp-senha").value="";try{await api("/api/exportar",{json:{modo,incluir_modelo:$("#exp-modelo").checked,senha}});toast("Exportação criptografada iniciada — acompanhe em Tarefas");atualizarTarefas()}catch(x){toast(x.message)}};
 
-$("#b-importar").onclick=async()=>{const f=$("#imp-zip").files[0];if(!f){toast("Escolha o pacote .zip");return}const fd=new FormData();fd.append("arquivo",f);
+$("#b-importar").onclick=async()=>{const f=$("#imp-zip").files[0];if(!f){toast("Escolha o pacote .cpjenc ou .zip legado");return}const legado=f.name.toLowerCase().endsWith(".zip"),senha=$("#imp-senha").value;if(legado&&!confirm("Este ZIP legado está sem criptografia e pode expor dados sigilosos. Confirma que a origem é autorizada e deseja importar?"))return;if(!legado&&(senha.length<12||senha.length>1024)){toast("Informe a senha de 12 a 1024 caracteres do pacote");return}const fd=new FormData();fd.append("arquivo",f);if(legado)fd.append("permitir_legado","true");else fd.append("senha",senha);$("#imp-senha").value="";
 
  try{await enviar("/api/importar",fd,$("#prog-imp"),$("#msg-imp"));$("#msg-imp").textContent="Enviado — verificação e importação em Tarefas";$("#imp-zip").value=""}catch(x){$("#msg-imp").textContent=x.message}};
 

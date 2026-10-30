@@ -14,7 +14,7 @@ OUT = os.path.join(WS, "portatil")
 SK = os.path.join(PL, "skills")
 
 PACOTES = [
-    ("01-processar-ip", "Receber e processar o material do IP (PDF → OCR → Markdown por página, CSV, entidades)",
+    ("01-processar-ip", "Receber e processar o material do IP (PDF → OCR → Markdown por página)",
      ["commands/novo-caso.md", "commands/processar-ip.md", "skills/pdf-autos-policiais/SKILL.md"]),
     ("02-analisar-ip", "Analisar IP de fraude/estelionato com rastreabilidade",
      ["commands/analisar-ip.md", "skills/analise-ip-fraude/SKILL.md", "skills/analise-documental/SKILL.md",
@@ -95,7 +95,7 @@ def gerar(agora):
     """Conteúdo esperado de cada arquivo de portatil\\, sem escrever nada."""
     saidas, indice = {}, []
     for nome, titulo, partes in PACOTES:
-        corpo = [f"# {titulo}", "",
+        corpo = [f"# {titulo}", "", "No workspace, comece pela memória central `MEMORIA.md` e pelas fontes vivas ali indicadas; este portátil é um instantâneo para uso fora dele.", "",
                  f"*Arquivo portátil gerado em {agora} a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. "
                  "Não edite aqui — edite o plugin e rode `ferramentas\\exportar-portatil.py`.*", "",
                  "## Regras obrigatórias", "", regras().split("\n", 1)[1].strip(), "",

@@ -242,15 +242,16 @@ class Persistencia(unittest.TestCase):
         tarefa=self.tarefas(self.ws)
         for modo in ('dados','completo'):
             tid=tarefa.nova('exportacao','Fictícia','teste')
-            pacote=self.ws/'exportacoes'/tarefa.exportar(tid,modo,False)['arquivo']
-            with zipfile.ZipFile(pacote) as z:
+            pacote=self.ws/'exportacoes'/tarefa.exportar(tid,modo,False,'ficticia-segura-2026')['arquivo']
+            import pacote_seguro as PS
+            with pacote.open('rb') as arquivo, zipfile.ZipFile(PS.Leitor(arquivo,'ficticia-segura-2026')) as z:
                 self.assertEqual(len([n for n in z.namelist() if n.startswith('dados/consulta/_grafo-manual/conferencias/')]),2)
                 self.assertFalse(any(n.endswith('.lock') for n in z.namelist()))
             destino=self.ws/('importado-'+modo);destino.mkdir()
             importador=self.tarefas(destino)
             for n in range(2):
                 entrada=destino/f'entrada-{n}.zip';shutil.copy2(pacote,entrada)
-                itid=importador.nova('importacao','Fictícia','teste');importador.importar(itid,str(entrada))
+                itid=importador.nova('importacao','Fictícia','teste');importador.importar(itid,str(entrada),senha='ficticia-segura-2026')
             self.assertEqual(cg.exportar(destino),cg.exportar(self.ws))
         import vinculos_manuais as vm
         eventos=cg.exportar(self.ws);incompleto={nome:b for nome,b in eventos.items() if json.loads(b)['versao']==2}
@@ -262,17 +263,23 @@ class Persistencia(unittest.TestCase):
         cg,a,ref=self.dados();cg.revisar(self.ws,a,lambda _:ref,'marcar_candidato','ficticio',0)
         antes=cg.exportar(self.ws)
         for nome in ('casos','modelos','calibracao','producao','referencias','config','usuarios','ferramentas'):(self.ws/nome).mkdir(exist_ok=True)
-        for nome in ('backup.ps1','restaurar.ps1'):shutil.copy2(ROOT/'ferramentas'/nome,self.ws/'ferramentas'/nome)
-        backup=self.ws/'destino-backup';backup.mkdir()
-        r=subprocess.run(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(self.ws/'ferramentas/backup.ps1'),'-Destino',str(backup)],capture_output=True,text=True)
+        for nome in ('backup.ps1','restaurar.ps1','backup_consistente.py'):shutil.copy2(ROOT/'ferramentas'/nome,self.ws/'ferramentas'/nome)
+        app=self.ws/'plugin/investigacao-cpj/app';app.mkdir(parents=True)
+        for nome in ('seguranca_local.py','auth.py'):shutil.copy2(ROOT/'plugin/investigacao-cpj/app'/nome,app/nome)
+        # Snapshot e restore atuais exigem origem explícita/offline e destino novo.
+        backup=self.ws.parent/(self.ws.name+'-backup');backup.mkdir();self.addCleanup(shutil.rmtree,backup)
+        r=subprocess.run(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(self.ws/'ferramentas/backup.ps1'),'-Origem',str(self.ws),'-Destino',str(backup),'-Offline','-MidiaProtegida','-Python',sys.executable],capture_output=True,text=True)
         self.assertEqual(r.returncode,0,r.stdout+r.stderr)
-        # Remove exclusivamente o subconjunto fictício que será recuperado pelo backup real.
+        snapshot=Path(r.stdout.strip().splitlines()[-1]).resolve();self.assertTrue(snapshot.is_relative_to(backup.resolve()))
+        # Fonte posterior continua intacta; restauração recupera o snapshot em pasta nova.
         pasta=(self.ws/'consulta').resolve();self.assertTrue(pasta.is_relative_to(self.ws.resolve()))
         shutil.rmtree(pasta)
-        r=subprocess.run(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(self.ws/'ferramentas/restaurar.ps1'),'-Origem',str(backup/'CPJ-TRABALHO-backup')],capture_output=True,text=True)
+        destino=self.ws.parent/(self.ws.name+'-restaurado');self.addCleanup(lambda:shutil.rmtree(destino,ignore_errors=True))
+        r=subprocess.run(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(self.ws/'ferramentas/restaurar.ps1'),'-Origem',str(snapshot),'-Destino',str(destino),'-MidiaProtegida','-Python',sys.executable],capture_output=True,text=True)
         self.assertEqual(r.returncode,0,r.stdout+r.stderr)
-        self.assertEqual(cg.exportar(self.ws),antes)
-        self.assertFalse((self.ws/'rag/cpj.sqlite').exists())
+        self.assertEqual(cg.exportar(destino),antes)
+        self.assertEqual(cg.exportar(self.ws),{})
+        self.assertFalse((destino/'rag/cpj.sqlite').exists())
 
     def test_cas_entre_processos_e_reinicio_nao_perdem_revisao(self):
         cg,a,ref=self.dados();cg.revisar(self.ws,a,lambda _:ref,'marcar_candidato','ficticio',0)
@@ -296,7 +303,7 @@ except c.Conflito:sys.exit(7)
         (self.ws/'casos/OS-999-2099').mkdir(parents=True);(self.ws/'modelos').mkdir()
         (self.ws/'casos/OS-999-2099/caso.json').write_text(json.dumps({'id':'OS-999-2099','status':'recebido','ip':{},'datas':{}}),encoding='utf-8')
         tarefa=self.tarefas(self.ws);tid=tarefa.nova('exportacao','Fictícia','teste')
-        pacote=self.ws/'exportacoes'/tarefa.exportar(tid,'dados',False)['arquivo']
+        pacote=self.ws/'exportacoes'/tarefa.exportar(tid,'dados',False,'ficticia-segura-2026')['arquivo']
         destino=self.ws/'destino-conflitante';destino.mkdir()
         eventos=cg.exportar(self.ws);nome,conteudo=next(iter(eventos.items()))
         divergente=json.loads(conteudo);divergente['usuario']='outro_ficticio';divergente['revisao']['usuario']='outro_ficticio'
@@ -305,7 +312,7 @@ except c.Conflito:sys.exit(7)
         importador=self.tarefas(destino);tid=importador.nova('importacao','Fictícia','teste')
         entrada=destino/'entrada.zip';shutil.copy2(pacote,entrada)
         antes=cg.exportar(destino)
-        with self.assertRaises(ValueError):importador.importar(tid,str(entrada))
+        with self.assertRaises(ValueError):importador.importar(tid,str(entrada),senha='ficticia-segura-2026')
         self.assertFalse((destino/'casos/OS-999-2099').exists())
         self.assertEqual(cg.exportar(destino),antes)
 

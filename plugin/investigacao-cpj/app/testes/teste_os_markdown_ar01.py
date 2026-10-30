@@ -43,7 +43,10 @@ class OrdensMD(unittest.TestCase):
         self.assertIn('## Página 298',md)
         self.assertIn(sha,md)
         self.assertEqual(hashlib.sha256(trans.read_bytes()).hexdigest(),sha)
-        self.assertEqual(json.loads((self.pasta/'ordens-de-servico/indice.json').read_text(encoding='utf-8')),info)
+        indice=(self.pasta/'ordens-de-servico/indice.md').read_text(encoding='utf-8')
+        self.assertIn(sha,indice)
+        self.assertIn(info['ordens'][0]['arquivo'].split('/')[-1],indice)
+        self.assertIn('298',indice)
 
     def test_multiplas_os_ultimas_paginas_primeiro_sem_presumir_vigencia(self):
         self.escrever('## Página 2\nORDEM DE SERVICO Nº 900/2099\nData: 15/10/2099\na) Primeira determinação.\n## Página 99\nORDEM DE SERVIÇO NÚMERO 901/2099\nData: 14/10/2099\na) Outra determinação.\n')
@@ -64,7 +67,8 @@ class OrdensMD(unittest.TestCase):
         info=self.modulo().extrair_ordens(self.pasta)
         self.assertEqual(info['ordens'],[])
         self.assertEqual(info['situacao'],'nao_localizada')
-        self.assertEqual(list((self.pasta/'ordens-de-servico').glob('*.md')),[])
+        self.assertEqual(list((self.pasta/'ordens-de-servico').glob('os-*.md')),[])
+        self.assertIn('nao_localizada',(self.pasta/'ordens-de-servico/indice.md').read_text(encoding='utf-8'))
 
     def test_cabecalho_quebrado_em_linhas_e_primeiro_item_na_continuacao(self):
         self.escrever('## Página 8\nORDEM\nDE\nSERVIÇO\nNº 901/2099\nDetermino o seguinte:\n## Página 9\na) Identificar o destinatário.\nb) Conferir os comprovantes.\n')
@@ -103,9 +107,10 @@ class OrdensMD(unittest.TestCase):
         sha=hashlib.sha256(pdf.read_bytes()).hexdigest()
         r=subprocess.run([sys.executable,'-X','utf8',str(SCRIPTS/'extrair.py'),str(pdf),'--saida',str(self.pasta),'--sem-reaproveitar'],env=dict(os.environ,CPJ_WORKSPACE=str(self.base)),capture_output=True,text=True,encoding='utf-8')
         self.assertEqual(r.returncode,0,r.stdout+r.stderr)
-        indice=self.pasta/'ordens-de-servico/indice.json'
+        indice=self.pasta/'ordens-de-servico/indice.md'
         self.assertTrue(indice.is_file(),'CLI extrai texto, mas não separa a O.S.')
-        info=json.loads(indice.read_text(encoding='utf-8'))
+        info=json.loads(r.stdout)['ordens_servico']
+        self.assertIn(info['ordens'][0]['arquivo'].split('/')[-1],indice.read_text(encoding='utf-8'))
         self.assertEqual(info['ordens'][0]['paginas'],[6])
         self.assertEqual(hashlib.sha256(pdf.read_bytes()).hexdigest(),sha)
 

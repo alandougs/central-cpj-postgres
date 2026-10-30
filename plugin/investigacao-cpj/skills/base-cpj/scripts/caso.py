@@ -395,13 +395,22 @@ def set_campos(id_, pares, revisao_esperada=None):
     return atualizar(id_, lambda c: aplicar_campos(c, pares), revisao_esperada=revisao_esperada)
 
 
-def importar_ip(id_, rel_json):
+def importar_ip(id_, rel_json=None, *, relatorio=None, pasta=None):
     def _mutar(c):
-        with open(rel_json, encoding="utf-8") as f:
-            r = json.load(f)
+        if relatorio is None:
+            with open(rel_json, encoding="utf-8") as f:
+                r = json.load(f)
+        else:
+            r = relatorio
+        pasta_documento = pasta
+        if relatorio is None:
+            pasta_documento = os.path.basename(os.path.dirname(rel_json))
+            if pasta_documento == ".checkpoint" and "relatorio" in r:
+                r = r["relatorio"]
+                pasta_documento = os.path.basename(os.path.dirname(os.path.dirname(rel_json)))
         doc = {"arquivo": r.get("arquivo"), "paginas": r.get("paginas"), "sha256": r.get("sha256_original"),
                "metodos": r.get("metodos", {}), "pendentes": len(r.get("pendentes_transcricao_visual", [])),
-               "conferir": len(r.get("conferir_visualmente", [])), "pasta": os.path.basename(os.path.dirname(rel_json))}
+               "conferir": len(r.get("conferir_visualmente", [])), "pasta": pasta_documento}
         c["documentos"] = [d for d in c.get("documentos", []) if d.get("arquivo") != doc["arquivo"]] + [doc]
         met = {}
         for d in c["documentos"]:

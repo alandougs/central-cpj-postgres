@@ -171,3 +171,51 @@ details summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:500}
 
 .ft-in{max-width:1380px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
 
+
+.linha-concluida>td{background:var(--good-soft)}
+
+/* FX91 — fluxograma financeiro vertical: uma faixa por camada, lida de cima para baixo */
+.fx-fluxo{display:flex;flex-direction:column;align-items:stretch;max-width:1100px;margin:0 auto;font-size:15px}
+.fx-fluxo[hidden]{display:none}
+.fx-camada{min-width:0;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--fx-cor,var(--line));border-radius:14px;padding:18px 20px;box-shadow:var(--shadow)}
+.fx-camada-topo{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.fx-camada-topo h3{margin:0;font-size:20px;line-height:1.25;color:var(--fx-cor,var(--ink))}
+.fx-subtotal{font-size:18px;font-weight:700;color:var(--fx-cor,var(--ink));border:1px solid var(--fx-cor,var(--line));border-radius:999px;padding:3px 14px;white-space:nowrap}
+.fx-camada-corpo{display:flex;flex-direction:column;gap:12px}
+.fx-vazio{font-size:14px;padding:8px 0}
+.fx-tx{min-width:0;background:var(--page);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:15px}
+.fx-tx-topo{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.fx-valor{font-size:26px;line-height:1.1;color:var(--good)}
+.fx-tx-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.fx-partes{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px}
+.fx-parte{display:flex;flex-direction:column;gap:2px;min-width:0;overflow-wrap:anywhere}
+.fx-parte b{font-size:16px}
+.fx-seta{font-size:26px;line-height:1;color:var(--muted)}
+.fx-tx-rodape{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);font-size:14px;color:var(--muted)}
+.fx-conector{display:flex;flex-direction:column;align-items:center;height:44px;justify-content:center;position:relative;color:var(--muted)}
+.fx-conector::before{content:"";position:absolute;top:0;bottom:16px;left:50%;width:2px;margin-left:-1px;background:var(--line)}
+.fx-conector span{position:relative;font-size:18px;line-height:1;margin-top:auto;background:var(--page)}
+@media (max-width:700px){.fx-camada{padding:14px 12px}.fx-camada-topo h3{font-size:17px}.fx-valor{font-size:22px}.fx-partes{grid-template-columns:minmax(0,1fr)}.fx-seta{transform:rotate(90deg);justify-self:center}}
+@media print{.fx-camada,.fx-tx,.fx-conector{break-inside:avoid;box-shadow:none}.fx-fluxo{max-width:none}}
+
+/* MP91 — mapa real (Leaflet + OpenStreetMap) */
+#mapa-real{width:100%;height:530px;background:#0c1c36;z-index:0;font:inherit}
+#mapa-real-aviso{position:absolute;left:12px;right:12px;bottom:58px;z-index:7;margin:0;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--surface)}
+#mapa-real-aviso[hidden]{display:none}
+.mapa-real-icone{background:none;border:0}
+.mapa-real-marcador,.mapa-real-satelite{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.mapa-real-icone .mrk-disco{display:flex;align-items:center;justify-content:center;border-radius:50%;box-sizing:border-box;color:#fff;font:700 13px/1 system-ui,sans-serif}
+.mrk-pf .mrk-disco,.mrk-pj .mrk-disco{width:16px;height:16px;background:#0ea5e9;border:2px solid #fff;box-shadow:0 0 0 6px rgba(14,165,233,.22),0 1px 4px rgba(0,0,0,.5)}
+.mrk-pj .mrk-disco{width:14px;height:14px;border-radius:3px;background:#10b981;transform:rotate(45deg);box-shadow:0 0 0 6px rgba(16,185,129,.22),0 1px 4px rgba(0,0,0,.5)}
+.mrk-cluster .mrk-disco{background:#0369a1;border:2px solid #e0f2fe;box-shadow:0 0 0 5px rgba(56,189,248,.28),0 1px 5px rgba(0,0,0,.55)}
+.mrk-agrupado .mrk-disco{background:#1e3a8a;border-color:#fff}
+.mrk-doc .mrk-disco{outline:2px solid #fbbf24;outline-offset:3px}
+.mrk-destaque .mrk-disco{background:#b45309;border-color:#fde68a;box-shadow:0 0 0 6px rgba(251,191,36,.35),0 1px 4px rgba(0,0,0,.5)}
+.mrk-sel .mrk-disco{outline:3px solid #fbbf24;outline-offset:3px}
+.mapa-real-icone .mrk-rotulo{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:-6px;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;background:rgba(6,13,24,.9);color:#f1f5f9;border:1px solid #1e3a5f;border-radius:4px;padding:2px 7px;font:600 12.5px/1.3 system-ui,sans-serif}
+.mapa-real-tip.leaflet-tooltip{background:rgba(7,15,28,.96);color:#f1f5f9;border:1px solid #38bdf8;border-radius:7px;padding:8px 10px;width:max-content;max-width:290px;white-space:normal;font-size:11.5px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.mapa-real-tip.leaflet-tooltip-top::before{border-top-color:#38bdf8}
+.mapa-real-tip .muted{color:#94a3b8}.mapa-real-tip .badge{background:#1e293b;color:#e2e8f0;border-color:#334155}
+#mapa-real .leaflet-control-attribution{font-size:11px}
+#mapa-real :focus-visible{outline:3px solid #fbbf24;outline-offset:2px}
+@media (max-width:700px){#mapa-real{height:420px}#mapa-real-aviso{bottom:70px}}

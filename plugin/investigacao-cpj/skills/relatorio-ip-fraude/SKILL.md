@@ -5,6 +5,8 @@ description: Redige o RelatÃ³rio de InvestigaÃ§Ã£o no modelo oficial da CP
 
 # RelatÃ³rio de InvestigaÃ§Ã£o â€” IP de fraude/estelionato (modelo CPJ)
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 Produz a minuta do relatório **sobre a análise já feita** (`02-analise\`), nunca direto do PDF bruto. Estilo e estrutura seguem o **modelo DOCX do investigador** (`modelos\MODELO RELATORIO DE INVESTIGACAO - CPJ 2026.docx`) e o "Modelo Alan" da skill `relatorio-investigacao-policial` (método PTCFREE). Onde divergirem, **prevalece o modelo DOCX**.
 
 ## Antes de redigir (obrigatório)

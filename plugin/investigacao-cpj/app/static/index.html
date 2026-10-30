@@ -4,19 +4,19 @@
 
 <title>ASTRA — Polícia Civil SP</title>
 
-<link rel="icon" href="/static/brasao-pcsp.png">
+<link rel="icon" type="image/svg+xml" href="/static/astra-logo.svg?v=lg01">
 
 <meta name="theme-color" content="#09111e" media="(prefers-color-scheme: dark)">
 
 <meta name="theme-color" content="#f1f5f9" media="(prefers-color-scheme: light)">
 
-<link rel="stylesheet" href="/static/css/central.css"></head><body>
+<link rel="stylesheet" href="/static/css/central.css"><link rel="stylesheet" href="/static/css/apple-cpj.css?v=ap37"><link rel="stylesheet" href="/static/css/astra-brand.css?v=lg01"></head><body>
 
 
 
 <!-- LOGIN -->
 
-<div class="tela" id="tela-login" hidden><div class="login-box"><div class="login-brand"><img src="/static/brasao-pcsp.png" alt="Brasão da Polícia Civil do Estado de São Paulo" class="brasao-lg"><div class="org-sub">Polícia Civil do Estado de São Paulo</div><h1 class="org-tit">ASTRA</h1><p class="org-dep">DEINTER 8 · Seccional de Presidente Prudente<br><span class="muted">Setor de Investigação de Fraudes Patrimoniais</span></p></div><form class="card" id="f-login"><h3>Acesso ao Sistema</h3><p class="sub">Autenticação institucional de Polícia Judiciária</p>
+<div class="tela" id="tela-login" hidden><div class="login-box"><div class="login-brand"><img src="/static/astra-logo.svg?v=lg01" alt="Logo ASTRA" class="astra-mark"><div class="org-sub">Polícia Civil do Estado de São Paulo</div><h1 class="org-tit">ASTRA</h1><p class="org-dep">DEINTER 8 · Seccional de Presidente Prudente<br><span class="muted">Setor de Investigação de Fraudes Patrimoniais</span></p></div><form class="card" id="f-login"><h3>Acesso ao Sistema</h3><p class="sub">Autenticação institucional de Polícia Judiciária</p>
 
 <label>Usuário, CPF, nome completo ou e-mail</label><input name="login" autocomplete="username" required><div style="height:10px"></div>
 
@@ -28,7 +28,7 @@
 
 <!-- CONFIGURAÇÃO INICIAL -->
 
-<div class="tela" id="tela-setup" hidden><div class="login-box"><div class="login-brand"><img src="/static/brasao-pcsp.png" alt="Brasão da Polícia Civil do Estado de São Paulo" class="brasao-lg"><div class="org-sub">Polícia Civil do Estado de São Paulo</div><h1 class="org-tit">Configuração Inicial</h1><p class="org-dep">Central CPJ · DEINTER 8</p></div><form class="card" id="f-setup"><h1>Configuração inicial</h1>
+<div class="tela" id="tela-setup" hidden><div class="login-box"><div class="login-brand"><img src="/static/astra-logo.svg?v=lg01" alt="Logo ASTRA" class="astra-mark"><div class="org-sub">Polícia Civil do Estado de São Paulo</div><h1 class="org-tit">Configuração Inicial</h1><p class="org-dep">Central CPJ · DEINTER 8</p></div><form class="card" id="f-setup"><h1>Configuração inicial</h1>
 
 <p class="sub">Crie o usuário administrador. Depois, em Sistema → Usuários, cadastre delegados, escrivães e investigadores.</p>
 
@@ -52,7 +52,7 @@
 
 <!-- TROCA OBRIGATÓRIA DE SENHA -->
 
-<div class="tela" id="tela-trocar" hidden><div class="login-box"><div class="login-brand"><img src="/static/brasao-pcsp.png" alt="Brasão da Polícia Civil do Estado de São Paulo" class="brasao-lg"><div class="org-sub">Polícia Civil do Estado de São Paulo</div><h1 class="org-tit">Segurança de Acesso</h1><p class="org-dep">Central CPJ · DEINTER 8</p></div><form class="card" id="f-trocar"><h1>Troque sua senha</h1>
+<div class="tela" id="tela-trocar" hidden><div class="login-box"><div class="login-brand"><img src="/static/astra-logo.svg?v=lg01" alt="Logo ASTRA" class="astra-mark"><div class="org-sub">Polícia Civil do Estado de São Paulo</div><h1 class="org-tit">Segurança de Acesso</h1><p class="org-dep">Central CPJ · DEINTER 8</p></div><form class="card" id="f-trocar"><h1>Troque sua senha</h1>
 
 <p class="sub">Sua senha é temporária. Por segurança dos dados sigilosos, defina uma nova senha (mínimo 8 caracteres, com letras e números).</p>
 
@@ -70,7 +70,7 @@
 
 <div id="app" hidden>
 
-<header><div class="hd"><div class="brand"><img src="/static/brasao-pcsp.png" alt="Brasão da Polícia Civil do Estado de São Paulo" class="brasao-hd"><div class="logo">ASTRA<small>Setor de Investigação de Fraudes Patrimoniais · CPJ Presidente Prudente</small></div></div>
+<header><div class="hd"><div class="brand"><img src="/static/astra-logo.svg?v=lg01" alt="Logo ASTRA" class="astra-mark"><div class="logo">ASTRA<small>Setor de Investigação de Fraudes Patrimoniais · CPJ Presidente Prudente</small></div></div>
 
 <nav id="nav"></nav>
 
@@ -96,7 +96,7 @@
 
 
 
-<section class="aba" id="nova"><h2>Nova Ordem de Serviço</h2><p class="sub">Cadastre a O.S. e envie o PDF do IP (ou peças). O sistema organiza pela O.S. e processa automaticamente: OCR, Markdown por página, tabelas em CSV e indexação. O investigador é avisado no Início.</p>
+<section class="aba" id="nova"><h2>Nova Ordem de Serviço</h2><p class="sub">Cadastre a O.S. e envie o PDF do IP (ou peças). O sistema organiza pela O.S. e processa automaticamente: OCR local, extração Markdown por página, rastreabilidade e indexação. O investigador é avisado no Início.</p>
 
 <div class="g2"><form class="card" id="f-os">
 
@@ -184,7 +184,7 @@
 
 <section class="aba" id="pesquisa"><h2>Pesquisa</h2><p class="sub">Relacional: combine nome, mãe, pai, CPF, telefone, CNPJ, endereço… em qualificações extraídas dos autos e nas bases de consulta. Clique em um valor para cruzá-lo. Bases de consulta servem só para pesquisa — não são fonte do relatório.</p>
 
-<div class="seg"><button data-m="pessoas" class="on">Pessoas (relacional)</button><button data-m="texto">Texto nos documentos</button><button data-m="correlacoes" id="b-seg-correlacoes">Correlações (Radar)</button><button data-m="mapa" id="b-seg-mapa">Mapa (Offline)</button></div>
+<div class="seg"><button data-m="pessoas" class="on">Pessoas (relacional)</button><button data-m="texto">Texto nos documentos</button><button data-m="correlacoes" id="b-seg-correlacoes">Correlações (Radar)</button></div>
 
 <div id="m-pessoas"><form class="card" id="f-pessoas"><div class="campos">
 
@@ -213,10 +213,10 @@
 <div id="m-texto" hidden><form class="barra" id="f-busca"><input id="q-busca" placeholder="Ex.: falsa central · 123.456.789-00 · chave pix aleatória"><select id="tp-busca"><option value="">todos</option><option value="transcricao">transcrição</option><option value="analise">análise</option><option value="relatorio">relatório final</option><option value="referencia">referência</option><option value="acervo">acervo</option></select><button class="btn pri">Buscar</button></form><div id="r-busca"></div></div>
 
 <div id="m-correlacoes" hidden></div>
-<div id="m-mapa" hidden></div>
 
 </section>
 
+<section class="aba" id="mapa" aria-labelledby="titulo-mapa"><div id="m-mapa"></div></section>
 
 
 <section class="aba" id="grafo">
@@ -239,7 +239,7 @@
 
     <button class="btn sm" id="b-gr-foto">Salvar PNG</button>
     <button type="button" class="btn sm" id="b-gr-correlacoes">Correlações</button>
-    <button type="button" class="btn sm" id="b-gr-mapa">Mapa Offline</button>
+
 
   </div>
 
@@ -318,7 +318,7 @@
 
 <div class="g2" data-perm="dados">
 
- <div class="card"><h3>Exportar banco de dados</h3><p class="muted">Pacote ZIP estruturado (com verificação de integridade) para backup ou para abrir em outro computador. Contém dados sigilosos: guarde em local autorizado.</p>
+ <div class="card"><h3>Exportar casos</h3><p class="muted">Pacote .cpjenc criptografado com senha para transferência a outro computador. Não substitui o backup completo da Central: não inclui usuários, credenciais nem a fila. Guarde a senha separadamente e use local autorizado.</p>
 
   <label><input type="radio" name="modo" value="dados" checked style="width:auto"> Só dados (leve: sem os PDFs originais)</label>
 
@@ -326,11 +326,12 @@
 
   <label><input type="checkbox" id="exp-modelo" style="width:auto"> Incluir modelo DOCX (contém timbre e assinatura)</label>
 
+  <label for="exp-senha">Senha do pacote (12 a 1024 caracteres)</label><input type="password" id="exp-senha" minlength="12" maxlength="1024" autocomplete="new-password">
   <div class="acoes"><button class="btn pri" id="b-exportar">Exportar</button></div><h4 style="margin-top:12px">Pacotes gerados</h4><div id="lista-exp" class="arqs"></div></div>
 
  <div class="card"><h3>Importar banco de dados</h3><p class="muted">Envie um pacote exportado pela Central. Os arquivos são verificados; casos novos são acrescentados e casos existentes <b>não</b> são sobrescritos.</p>
 
-  <input type="file" id="imp-zip" accept=".zip"><div class="prog" id="prog-imp" hidden><i aria-hidden="true"></i></div><div class="acoes"><button class="btn pri" id="b-importar">Importar</button><span class="muted" id="msg-imp"></span></div></div>
+  <input type="file" id="imp-zip" accept=".cpjenc,.zip"><label for="imp-senha">Senha do pacote criptografado</label><input type="password" id="imp-senha" minlength="12" maxlength="1024" autocomplete="off"><p class="muted">ZIP legado não tem criptografia; a importação exige confirmação do risco.</p><div class="prog" id="prog-imp" hidden><i aria-hidden="true"></i></div><div class="acoes"><button class="btn pri" id="b-importar">Importar</button><span class="muted" id="msg-imp"></span></div></div>
 
 </div>
 
@@ -625,6 +626,47 @@
 <div id="final-ressalva-lista" style="max-height:220px;overflow:auto;margin-bottom:12px;font-size:12px;border:1px solid var(--borda,#ddd);border-radius:6px;padding:8px"></div>
 <div style="margin-bottom:12px"><label style="display:block;font-weight:600;margin-bottom:4px;font-size:13px">Justificativa para entrega com ressalva (mínimo 15 caracteres):</label><textarea id="final-ressalva-texto" rows="3" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px" placeholder="Descreva a justificativa para prosseguir mesmo com as pendências acima..."></textarea></div>
 <div style="display:flex;justify-content:flex-end;gap:8px"><button type="button" class="btn sm" id="b-canc-final-ressalva">Cancelar</button><button type="button" class="btn sm b-ok" id="b-confirmar-final-ressalva">Definir FINAL com ressalva</button></div></div></div>
+
+
+<div class="modal" id="modal-conferencia-documental" role="dialog" aria-modal="true" aria-labelledby="conf-doc-titulo" hidden>
+  <div class="card card-conferencia" style="max-width:1240px;width:96vw;height:90vh;display:flex;flex-direction:column;padding:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:10px">
+      <div>
+        <h3 id="conf-doc-titulo" style="margin:0;font-size:18px">Conferência Documental — Autos Originais × Extração</h3>
+        <p class="muted" id="conf-doc-sub" style="margin:2px 0 0;font-size:12px">Comparação direta da peça original com a transcrição textual gerada.</p>
+      </div>
+      <div class="acoes" style="margin:0;display:flex;align-items:center;gap:8px">
+        <label for="conf-doc-pag" style="font-size:13px;margin:0">Página:</label>
+        <button type="button" class="btn sm" id="b-conf-pag-ant" title="Página anterior">◀ Anterior</button>
+        <select id="conf-doc-pag" style="width:auto;min-width:90px"></select>
+        <button type="button" class="btn sm" id="b-conf-pag-prox" title="Próxima página">Próxima ▶</button>
+        <button type="button" class="btn sm" id="b-conf-fechar">Fechar</button>
+      </div>
+    </div>
+    <div class="conf-doc-body" style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:14px;min-height:0;overflow:hidden">
+      <div class="conf-coluna" style="display:flex;flex-direction:column;min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden">
+        <div class="conf-coluna-hd" style="padding:8px 12px;background:var(--surface-2);border-bottom:1px solid var(--line);font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+          <span id="conf-pdf-label">PDF dos Autos Originais</span>
+          <a class="lk" id="conf-pdf-link" href="#" target="_blank" rel="noopener">Abrir original em nova aba</a>
+        </div>
+        <iframe id="conf-pdf-frame" title="PDF original dos autos" style="flex:1;width:100%;border:none;background:#525659"></iframe>
+      </div>
+      <div class="conf-coluna" style="display:flex;flex-direction:column;min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden">
+        <div class="conf-coluna-hd" style="padding:8px 12px;background:var(--surface-2);border-bottom:1px solid var(--line);font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center">
+          <span id="conf-md-label">Transcrição Markdown</span>
+          <span class="chip" id="conf-md-metodo" style="font-size:11px">Método: —</span>
+        </div>
+        <div id="conf-md-conteudo" style="flex:1;padding:14px;overflow-y:auto;background:var(--surface);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:13px;line-height:1.6;white-space:pre-wrap"></div>
+        <div id="conf-md-avisos" class="muted" style="padding:6px 12px;font-size:11.5px;border-top:1px solid var(--line);background:var(--surface-2)">
+          <span>Folhas dos autos: <b id="conf-md-fls">—</b> · Página do PDF: <b id="conf-md-pag-num">—</b></span>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:11.5px;color:var(--muted);text-align:right">
+      Aviso: A transcrição em Markdown é material derivado para análise. A conferência com o PDF original dos autos é mandatória.
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 

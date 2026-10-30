@@ -156,9 +156,11 @@ def montar_prompt(job, ws, modo="auto", agente=None):
             fim = ("Ao final, atualize caso.json com caso.py quando a skill indicar e responda com um resumo de até 6 linhas: o que foi "
                    "feito, arquivos gerados e pendências para o investigador conferir.")
     return (
-        f"PEDIDO {job['id']} — {titulo} — acionado na Central CPJ por '{job['solicitante']}'. Execute sem fazer perguntas: siga as "
-        "recomendações padrão dos procedimentos; onde faltar dado, use placeholders {...} e liste as pendências no resumo final.\n"
-        f"Workspace: {ws}. Caso: {id_} (pasta casos\\{id_}). Siga AGENTS.md (e CLAUDE.md, se for Claude) deste workspace.\n"
+        f"PEDIDO {job['id']} — {titulo} — acionado na Central CPJ por '{job['solicitante']}'. Resolva decisões rotineiras sem perguntas "
+        "pelas recomendações dos procedimentos; os bloqueios de AGENTS.md prevalecem. Sem O.S. vigente localizada ou com "
+        "extração incompleta, não redija o relatório: registre a lacuna e avise o operador antes da redação. Para outros dados "
+        "faltantes, use placeholders {...} e liste as pendências, sem contornar bloqueios.\n"
+        f"Workspace: {ws}. Caso: {id_} (pasta casos\\{id_}). Leia primeiro MEMORIA.md, ponto de entrada comum deste workspace, e as fontes vigentes AGENTS.md e calibracao/licoes-aprendidas.md antes dos procedimentos. Regras vigentes prevalecem sobre cópias antigas em skills/portáteis; fatos permanecem somente neste caso.\n"
         "Fonte dos fatos: SOMENTE os documentos do próprio caso (IP e peças enviadas). Bases de consulta (consulta\\, Muralha "
         "Paulista) e relatórios de referência (referencias\\) NÃO são fonte de fatos; referências servem só como exemplo de "
         "estrutura e estilo. Não acesse a internet. Não altere 00-originais.\n"
@@ -410,7 +412,7 @@ class Plantao:
         Pedido com chamada externa sem resultado registrado nunca volta à fila: vai para o operador conferir.
         Retorna os pedidos alterados, para o registro de fluxos ser alinhado depois do commit."""
         tocados = []
-        for p in c.execute("SELECT p.id, p.tentativas, a.modo, a.visto_em FROM pedidos p LEFT JOIN agentes a ON a.nome=p.agente "
+        for p in c.execute("SELECT p.id, p.tentativas, p.cancelar, a.modo, a.visto_em FROM pedidos p LEFT JOIN agentes a ON a.nome=p.agente "
                            "WHERE p.estado='executando'").fetchall():
             if time.time() - _ts(p["visto_em"]) <= SILENCIO_MAX.get(p["modo"] or "auto", 60): continue
             tocados.append(p["id"])
@@ -420,6 +422,9 @@ class Plantao:
                 c.execute("UPDATE pedidos SET estado='erro', erro=?, fim=? WHERE id=?",
                           ("O agente parou de responder depois de iniciar uma chamada externa sem resultado registrado "
                            "(resultado incerto): conferir no provedor antes de repetir.", agora(), p["id"]))
+            elif p["cancelar"]:
+                c.execute("UPDATE pedidos SET estado='cancelada', etapa='cancelada após interrupção do agente', fim=? WHERE id=?",
+                          (agora(), p["id"]))
             elif p["tentativas"] >= TENTATIVAS_MAX:
                 c.execute("UPDATE pedidos SET estado='erro', erro='O agente parou de responder (tentativas esgotadas).', fim=? "
                           "WHERE id=?", (agora(), p["id"]))
@@ -777,6 +782,11 @@ def _executar_sessao(pl, job, nome, tipo):
         return EL.executar_com_fallback(ws, prov, tentar, dest)
     import executores_llm as EL
     if tipo in TIPOS_CLI_AUTO: EL.validar_consentimento(job, "cli:" + tipo)
+    from execucao_isolada import validar_executor
+    validar_executor(tipo)
+    if tipo == "claude":
+        from execucao_isolada import executar_claude
+        return executar_claude(pl, job, nome)
     orcamento = EL.OrcamentoIA(ws, job, pl)
     orcamento.verificar_cli(inicio=True)
     prompt = montar_prompt(job, ws, "auto")
@@ -787,31 +797,7 @@ def _executar_sessao(pl, job, nome, tipo):
     if job.get("_etapa", {}).get("tipo") == "blocos":
         pfile = os.path.join(ws, "casos", id_, "ia-progresso-" + job["_etapa"]["id"] + ".json")
     if os.path.exists(pfile): os.remove(pfile)
-    if tipo == "claude":
-        cmd = [claude_exe(), "-p", prompt, "--output-format", "stream-json", "--verbose", "--permission-mode", "acceptEdits",
-               "--allowedTools", "Read", "Write", "Edit", "Glob", "Grep", "Skill", "Task", "TodoWrite",
-               "Bash(python *)", "Bash(python.exe *)", "PowerShell(python *)", "PowerShell(python.exe *)",
-               "--disallowedTools", "WebFetch", "WebSearch", "--strict-mcp-config"]
-    elif tipo == "codex":
-        # sandbox workspace-write: comandos escrevem só no workspace e sem rede
-        cmd = [codex_exe(), "exec", "-C", ws, "-s", "workspace-write", "--skip-git-repo-check", "--json", "-o", ultima, prompt]
-    elif tipo == "gemini":
-        import shutil
-        exe = shutil.which("gemini")
-        if not exe: raise RuntimeError("Gemini CLI não encontrado.")
-        cmd = [exe, "-p", prompt, "--approval-mode=yolo", "--output-format", "stream-json"]
-    elif tipo == "copilot":
-        import shutil
-        exe = shutil.which("copilot")
-        if not exe: raise RuntimeError("GitHub Copilot CLI não encontrado.")
-        modelo = ""
-        try:
-            with open(os.path.join(ws, "config", "chaves_llm.json"), encoding="utf-8") as f:
-                modelo = ((json.load(f).get("copilot") or {}).get("modelo") or "").strip()
-        except (OSError, ValueError, TypeError): pass
-        cmd = [exe, "-p", prompt, "--allow-tool=read,write,shell", "--deny-tool=url"]
-        if modelo: cmd += ["--model", modelo]
-    elif tipo == "simulado":   # somente testes automatizados (CPJ_PLANTAO_SIMULADO=1)
+    if tipo == "simulado":   # somente testes automatizados (CPJ_PLANTAO_SIMULADO=1)
         cmd = [sys.executable, "-c", os.environ.get("CPJ_PLANTAO_SIMULADO_CMD", "import time; time.sleep(2); print('{\"type\": \"result\", \"subtype\": \"success\", \"result\": \"ok\"}')")]
     else:
         raise RuntimeError(f"Tipo {tipo} sem modo automático.")

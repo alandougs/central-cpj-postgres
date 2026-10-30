@@ -1,5 +1,7 @@
 # Ambiente de Investigação CPJ — guia rápido
 
+> **Para agentes de IA:** a entrada vigente é `MEMORIA.md` na raiz, com as fontes canônicas (`AGENTS.md`, `PRD.md`, `docs/ESPINHA-DORSAL.md`, a fila e `calibracao/licoes-aprendidas.md`). Este documento descreve o sistema para leitura humana e não substitui aquelas fontes.
+
 Versão do plugin nos manifestos: **0.3.3**, instalada e habilitada em 10/10/2026, com hashes fonte/staging/cache conferidos. Confira a versão instalada com `claude plugin list --json`; o número no manifesto, sozinho, não comprova instalação. Abra uma nova sessão Claude Code para carregar a atualização. As versões 0.3.0–0.3.2 foram instaladas neste loop; o piloto foi executado com 0.3.2.
 
 ## Guia de uso local

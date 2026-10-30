@@ -7,7 +7,7 @@ description: "Desenvolver ou manter a Central CPJ, o plugin investigacao-cpj e s
 
 # Manutenção da Central CPJ
 
-Leia [PRD.md](../../../PRD.md) e [AGENTS.md](../../../AGENTS.md) na raiz antes de alterar o sistema. O PRD descreve a arquitetura, o estado e os próximos passos; consulte os arquivos atuais para confirmar o que está implementado.
+Leia primeiro [MEMORIA.md](../../../MEMORIA.md), entrada comum dos agentes, e depois [PRD.md](../../../PRD.md) e [AGENTS.md](../../../AGENTS.md) na raiz antes de alterar o sistema. O PRD descreve a arquitetura, o estado e os próximos passos; consulte os arquivos atuais para confirmar o que está implementado.
 
 - Trabalhe apenas no escopo solicitado. Central: `plugin/investigacao-cpj/app/`; procedimentos: `commands/`, `skills/`, `agents/`; manutenção: `ferramentas/`.
 - Preserve `caso.json` como fonte da verdade, índice SQLite regenerável, permissões por perfil, auditoria, cabeçalho `X-CPJ: 1` em POST e acesso local por padrão. Alterações de integração do Codex não autorizam trocar o executor Claude em `tarefas.py`.

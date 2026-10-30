@@ -55,10 +55,14 @@ try:
     saida = os.path.join(WS, "extracao")
     cmd = [sys.executable, EXTRAIR, pdf, "--saida", saida, "--ocr", "visao"]
     subprocess.run(cmd, capture_output=True, check=True)
-    ck = os.path.join(saida, ".checkpoint", "p0001.json"); est = json.load(open(ck, encoding="utf-8"))
+    sys.path.insert(0, os.path.dirname(EXTRAIR))
+    import estado_extracao as E_MD
+    est = E_MD.ler(saida, ".checkpoint/p0001.json")
     est["flag"] = "conferir"
     est["reg"] = {"pagina": 1, "metodo": "ocr-tesseract", "confianca_media": 40.0, "texto": "OCR DUVIDOSO 12?45", "conferir": True}
-    json.dump(est, open(ck, "w", encoding="utf-8"), ensure_ascii=False)
+    dados_checkpoint = json.load(open(E_MD.arquivo(saida), encoding="utf-8"))
+    dados_checkpoint["paginas"]["1"] = est
+    E_MD.gravar(saida, dados_checkpoint)
     open(os.path.join(saida, "transcricoes_visuais", "p0001.md"), "w", encoding="utf-8").write("TEXTO CONFERIDO 12345")
     subprocess.run(cmd, capture_output=True, check=True)
     md = open(os.path.join(saida, "transcricao.md"), encoding="utf-8").read()

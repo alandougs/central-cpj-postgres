@@ -12,7 +12,7 @@ from pathlib import Path
 MARCA = "<!-- Gerado por ferramentas/configurar-codex.py; edite o gerador. -->"
 # nome, procedimento, título de interface, descrição de descoberta, resumo de interface
 TAREFAS = [
-    ("cpj-processar-ip", "01-processar-ip", "CPJ: processar IP", "Receber e extrair PDF, MD ou CSV de um caso CPJ, com OCR local, páginas, tabelas, entidades e registro de tratamento.", "OCR e extração local dos documentos do IP"),
+    ("cpj-processar-ip", "01-processar-ip", "CPJ: processar IP", "Receber documentos de um caso CPJ: novos PDFs geram Markdown por página, O.S. transcritas e checkpoint essencial, com OCR local e rastreabilidade; preservar importação e leitura de MD/CSV legados.", "OCR e extração local dos documentos do IP"),
     ("cpj-analisar-ip", "02-analisar-ip", "CPJ: analisar IP", "Analisar um IP de fraude ou estelionato no workspace CPJ: cronologia, pessoas, vínculos, elementos documentados e lacunas.", "Análise rastreável de fraude e estelionato"),
     ("cpj-analista-financeiro", "03-analista-financeiro", "CPJ: fluxo financeiro", "Normalizar extratos e comprovantes de um caso CPJ e reconstruir o caminho do dinheiro, com valores, camadas e fontes.", "Extratos, comprovantes e caminho do dinheiro"),
     ("cpj-relatorio-ip", "04-relatorio-ip", "CPJ: relatório", "Redigir minuta de investigação de um caso CPJ a partir da análise, revisar as fontes e gerar DOCX no modelo oficial CPJ 2026.", "Minuta, rastreabilidade e DOCX no modelo CPJ"),
@@ -27,11 +27,11 @@ TAREFAS = [
 
 REGRAS = """## Uso no Codex
 
-- Leia `AGENTS.md` na raiz antes de acessar material do caso. Siga as regras de fonte, sigilo, originais imutáveis e saída como minuta.
-- Execução de arquivos no PC não implica inferência local: não carregue autos reais, imagens, extrações, consultas ou resultados identificáveis no contexto de um modelo externo. Sem ambiente/conta compatível com a regra 6 de `AGENTS.md`, limite-se a procedimentos, código e dados fictícios; processamento de autos permanece no fluxo local autorizado.
+- Leia primeiro `MEMORIA.md` na raiz, entrada comum de todos os agentes, e as fontes vivas ali indicadas, especialmente `AGENTS.md`. Regras vigentes prevalecem sobre snapshots dos procedimentos.
+- Execução de arquivos no PC não implica inferência local. Siga as autorizações e restrições vigentes de sigilo em `AGENTS.md`; a memória e os adaptadores não autorizam provedor externo, publicação nem troca do runtime.
 - Confirme o ID e a etapa solicitada; não selecione um caso por proximidade ou data. Leia a versão viva de `calibracao/licoes-aprendidas.md` antes de analisar ou redigir, em vez de depender do instantâneo portátil.
 - Comandos `/...` e `$ARGUMENTS` nos procedimentos significam a tarefa e os argumentos do usuário; não exigem Claude CLI. Skills e agentes citados são instruções no plugin/portátil, não dependências instaladas do Codex. Use os scripts existentes no plugin; não copie scripts nem o modelo DOCX para a skill.
-- Execute as instruções de agentes em sequência, conforme a adaptação do `AGENTS.md`. Em IP extenso, trabalhe por blocos e consolide as fontes. Não inicie tarefas automáticas da Central ao atender uma tarefa interativa.
+- Execute as instruções de agentes conforme a coordenação, autorização e adaptação de `MEMORIA.md` e `AGENTS.md`. Em IP extenso, trabalhe por blocos e consolide as fontes. Não inicie tarefas automáticas da Central ao atender uma tarefa interativa.
 - Resolva caminhos relativos à raiz CPJ. Se aparecer `<base da skill>`, use a pasta original em `plugin/investigacao-cpj/skills/`, nunca esta pasta adaptadora. Scripts usam `python` em PowerShell; confira `--help` quando necessário. Em teste isolado, defina `CPJ_WORKSPACE` para a pasta fictícia.
 - Atualize status/campos documentados com `caso.py` e indexe após concluir a etapa. Não registre entrega nem crie arquivo `FINAL` ao apenas produzir minuta: a indexação pode dar baixa automaticamente por esse nome.
 - Preserve pontos de aprovação explícitos do procedimento quando não houver autorização prévia. Produza o resultado concreto revisável antes de solicitar aprovação. Calibração só guarda lições genéricas aprovadas; aprovação de uma minuta não autoriza divulgação externa.
@@ -61,7 +61,7 @@ def arquivos_projeto(ws):
         arquivos[base / nome / "agents" / "openai.yaml"] = interface(titulo, resumo)
     corpo = """# Manutenção da Central CPJ
 
-Leia [PRD.md](../../../PRD.md) e [AGENTS.md](../../../AGENTS.md) na raiz antes de alterar o sistema. O PRD descreve a arquitetura, o estado e os próximos passos; consulte os arquivos atuais para confirmar o que está implementado.
+Leia primeiro [MEMORIA.md](../../../MEMORIA.md), entrada comum dos agentes, e depois [PRD.md](../../../PRD.md) e [AGENTS.md](../../../AGENTS.md) na raiz antes de alterar o sistema. O PRD descreve a arquitetura, o estado e os próximos passos; consulte os arquivos atuais para confirmar o que está implementado.
 
 - Trabalhe apenas no escopo solicitado. Central: `plugin/investigacao-cpj/app/`; procedimentos: `commands/`, `skills/`, `agents/`; manutenção: `ferramentas/`.
 - Preserve `caso.json` como fonte da verdade, índice SQLite regenerável, permissões por perfil, auditoria, cabeçalho `X-CPJ: 1` em POST e acesso local por padrão. Alterações de integração do Codex não autorizam trocar o executor Claude em `tarefas.py`.
@@ -78,12 +78,12 @@ Leia [PRD.md](../../../PRD.md) e [AGENTS.md](../../../AGENTS.md) na raiz antes d
 
 def arquivos_usuario(ws, destino):
     linhas = ["# Projeto CPJ", "", f"Workspace local: `{ws}`.", "",
-              "Use somente para pedidos sobre este projeto. Leia o `AGENTS.md` desse workspace; para desenvolvimento, leia também `PRD.md`. Não aplique as regras CPJ a projetos alheios.", "",
+              "Use somente para pedidos sobre este projeto. Leia primeiro `MEMORIA.md` e as fontes vivas ali indicadas, incluindo `AGENTS.md` desse workspace; para desenvolvimento, leia também `PRD.md`. Não aplique as regras CPJ a projetos alheios.", "",
               "Escolha a skill da etapa na pasta `.agents/skills/` do workspace e leia seu `SKILL.md` antes de agir. Os caminhos abaixo são locais; não exigem conectores ou Claude CLI.", "", "| Pedido | Instrução local |", "|---|---|"]
     for nome, _, titulo, _, _ in TAREFAS:
         linhas.append(f"| {titulo} | `{ws / '.agents' / 'skills' / nome / 'SKILL.md'}` |")
     linhas += [f"| Manter a Central/plugin/scripts | `{ws / '.agents' / 'skills' / 'cpj-desenvolver' / 'SKILL.md'}` |", "",
-               "Não carregue conteúdo de autos reais em modelo externo. Execução local de scripts não é inferência local. Use ambiente autorizado pelo órgão para material sigiloso e dados fictícios para manutenção.", "",
+               "Execução local de scripts não é inferência local. Siga as autorizações e restrições vigentes de AGENTS.md para material sigiloso; use dados fictícios para manutenção.", "",
                "Se o workspace não existir, informe o caminho ausente; não crie casos nem reconstrua documentos por dedução."]
     return {
         destino / "cpj-projeto" / "SKILL.md": manifesto("cpj-projeto", "Localizar os procedimentos e skills do projeto Central CPJ / investigacao-cpj no computador do investigador. Use somente para este workspace CPJ.", "\n".join(linhas)),

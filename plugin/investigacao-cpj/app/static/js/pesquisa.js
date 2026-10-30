@@ -132,13 +132,29 @@ async function verVinculos(tipo,valor,rotulo,voltar){if(!valor){toast("Registro 
 
   $("#r-vinc").scrollIntoView({behavior:"smooth"})}catch(x){$("#r-vinc").innerHTML=`<div class="aviso alerta">${esc(x.message)}</div>`}}
 
+// Protocolo de marcação: a busca devolve `trecho` sem marcador nenhum e `marcas` com os
+// intervalos [inicio,fim) a destacar, em unidade UTF-16. Nada no texto é lido como marcador —
+// colchete vindo dos autos ("[dígito incerto]", "[PESQUISAR: CNPJ]", regras 3 e 17) é conteúdo,
+// não termo casado. Marca malformada derruba só o destaque: o texto segue escapado e inteiro.
+function trechoHTML(r){
+ const t=String(r&&r.trecho!=null?r.trecho:""),m=Array.isArray(r&&r.marcas)?r.marcas:[];
+ let fim=0,h="";
+ for(const par of m){
+  if(!Array.isArray(par)||par.length!==2)return esc(t);
+  const i=par[0],j=par[1];
+  if(!Number.isInteger(i)||!Number.isInteger(j)||i<fim||j<=i||j>t.length)return esc(t);
+  h+=esc(t.slice(fim,i))+"<mark>"+esc(t.slice(i,j))+"</mark>";fim=j;
+ }
+ return h+esc(t.slice(fim));
+}
+
 $("#f-busca").onsubmit=async e=>{e.preventDefault();const q=$("#q-busca").value.trim();if(!q)return;$("#r-busca").innerHTML=barraHTML(0,true);
 
  try{const j=await api(`/api/busca?q=${enc(q)}&tipo=${$("#tp-busca").value}`);let h=j.aviso?`<div class="aviso">${esc(j.aviso)}</div>`:"";
 
  if(j.entidades.length)h+=`<div class="card" style="margin-bottom:12px"><h4>Identificador em ${new Set(j.entidades.map(x=>x.caso)).size} caso(s)</h4><table><tbody>${j.entidades.map(x=>`<tr><td><b>${esc(x.caso)}</b></td><td>${esc(x.tipo)}</td><td>${esc(x.valor)}</td><td>pág. ${esc(x.pagina??"—")}</td></tr>`).join("")}</tbody></table></div>`;
 
- h+=`<div class="card">${j.trechos.length?j.trechos.map(r=>`<div class="res"><div class="meta"><b>${esc(r.caso||"—")}</b> · ${esc(r.tipo)} · ${r.pagina?"pág. "+r.pagina:esc(r.secao||"")}${r.fls?" · fls. "+esc(r.fls):""} · ${r.caso?`<a class="lk" href="/arquivo/${enc(r.caso)}/${r.arquivo.split(/[\\/]/).slice(2).map(enc).join("/")}" target="_blank">abrir</a>`:esc(r.arquivo)}</div><div class="tx">${esc(r.trecho).replace(/\[([^\]]+)\]/g,"<mark>$1</mark>")}</div></div>`).join(""):'<div class="vazio">Nada encontrado</div>'}</div>`;$("#r-busca").innerHTML=h}catch(x){$("#r-busca").innerHTML=`<div class="aviso">${esc(x.message)}</div>`}};
+ h+=`<div class="card">${j.trechos.length?j.trechos.map(r=>`<div class="res"><div class="meta"><b>${esc(r.caso||"—")}</b> · ${esc(r.tipo)} · ${r.pagina?"pág. "+r.pagina:esc(r.secao||"")}${r.fls?" · fls. "+esc(r.fls):""} · ${r.caso?`<a class="lk" href="/arquivo/${enc(r.caso)}/${r.arquivo.split(/[\\/]/).slice(2).map(enc).join("/")}" target="_blank">abrir</a>`:esc(r.arquivo)}</div><div class="tx">${trechoHTML(r)}</div></div>`).join(""):'<div class="vazio">Nada encontrado</div>'}</div>`;$("#r-busca").innerHTML=h}catch(x){$("#r-busca").innerHTML=`<div class="aviso">${esc(x.message)}</div>`}};
 
 
 

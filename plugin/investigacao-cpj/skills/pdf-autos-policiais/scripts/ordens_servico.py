@@ -30,7 +30,7 @@ def continuacao(texto):
     inicio='\n'.join(linhas[:18])
     if re.search(r'(?m)^(?:DESPACHO|CERTIDAO|TERMO DE |RELATORIO DE |OFICIO|CONCLUSAO|AUTO DE )',inicio):
         return False
-    return bool(re.search(r'(?mi)^\s*(?:continua[cç][aã]o|[a-z]\)|[1-9]\.)',texto))
+    return bool(re.search(r'(?mi)^\s*(?:continua[cç][aã]o|[a-z]\)|[1-9]\d*\.)',texto))
 
 
 def gravar(caminho, texto):
@@ -80,7 +80,10 @@ def extrair_ordens(pasta):
     info={'schema':'cpj-ordens-extraidas/1','fonte':'transcricao.md','sha256_transcricao':sha,
           'situacao':'localizada' if ordens else 'nao_localizada','ordens':ordens,'vigente':None,
           'criterio':'Candidatas das páginas finais primeiro; conferir datas, integralidade e vigência nos autos.'}
-    gravar(diretorio/'indice.json',json.dumps(info,ensure_ascii=False,indent=2)+'\n')
+    indice = f"# Índice das Ordens de Serviço\n\nFonte: `../transcricao.md`\n\nSHA-256: `{sha}`\n\nSituação: {info['situacao']}\n\n{info['criterio']}\n\n"
+    for ordem in ordens:
+        indice += f"- [{Path(ordem['arquivo']).name}]({Path(ordem['arquivo']).name}) — páginas {', '.join(str(n) for n in ordem['paginas'])}; conferir integralidade.\n"
+    gravar(diretorio/'indice.md', indice)
     return info
 
 

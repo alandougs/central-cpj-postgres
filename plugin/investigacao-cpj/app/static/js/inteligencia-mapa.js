@@ -1,9 +1,17 @@
 /* Inteligência Relacional e Geográfica — Etapa 1 (Central CPJ)
  * Escopo estrito: Radar de coincidências documentadas entre procedimentos distintos
- * e Mapa de referência offline (100% local, zero requisições externas).
+ * e Mapa (MP91): "Mapa real" (Leaflet local + tiles do OpenStreetMap, padrão) ou "Por estados (offline)",
+ * mapa de referência do IBGE 100% local. O único acesso externo é a imagem dos tiles em
+ * tile.openstreetmap.org, que recebe só z/x/y (a área exibida); nenhum dado de caso sai daqui.
  */
 (function () {
   "use strict";
+
+  const TILES_OSM = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+  const URL_ATRIBUICAO_OSM = "https://www.openstreetmap.org/copyright"; // só link de navegação (clique), não carrega recurso
+  const ATRIBUICAO_OSM = `© <a href="${URL_ATRIBUICAO_OSM}" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors`;
+  const BRASIL_LIMITES = [[-34.2, -74.5], [5.8, -34.0]];
+  const RAIO_AGRUPAMENTO_PX = 46;
 
   const MOTIVOS_GEO_ROTULO = {
     sem_endereco: "Sem endereço documentado",
@@ -56,6 +64,7 @@
     motivo_desatualizado: null,
     selecionado: null,
     grupoAberto: null,
+    modo: "real", // "real" (OpenStreetMap) ou "estados" (SVG offline do IBGE)
     zoom: 1,
     panX: 0,
     panY: 0,
@@ -132,18 +141,20 @@
 
   function montarUrlFonte(casoId, fonteObj) {
     if (!casoId || !fonteObj) return null;
+    if (!/^[\w.-]+$/.test(casoId) || casoId === "." || casoId === "..") return null;
+    if (fonteObj.caso && fonteObj.caso !== casoId) return null;
     let arq = String(fonteObj.arquivo || "").replace(/\\/g, "/").trim();
-    if (!arq) return null;
+    if (!arq || arq.startsWith("/") || /^[a-z]:/i.test(arq) || /[\u0000-\u001f\u007f]/.test(arq)) return null;
     if (arq.startsWith(`casos/${casoId}/`)) {
       arq = arq.slice(`casos/${casoId}/`.length);
     } else if (arq.startsWith("casos/")) {
-      const partes = arq.split("/");
-      if (partes.length >= 3) arq = partes.slice(2).join("/");
+      return null;
     }
+    if (arq.split("/").some(parte => !parte || parte === "." || parte === "..")) return null;
     if (!arq || arq.startsWith("caso.json")) return null;
     const urlBase = `/arquivo/${encUri(casoId)}/${arq.split("/").map(encUri).join("/")}`;
     const pag = fonteObj.pagina;
-    if (pag && Number.isInteger(Number(pag)) && arq.toLowerCase().endsWith(".pdf")) {
+    if ((typeof pag === "number" || typeof pag === "string") && Number.isSafeInteger(Number(pag)) && Number(pag) > 0 && arq.toLowerCase().endsWith(".pdf")) {
       return `${urlBase}#page=${Number(pag)}`;
     }
     return urlBase;
@@ -168,19 +179,22 @@
   // ---------------------------------------------------------------- Inicialização de sub-modos em Pesquisa e Grafo
 
   function ativarModoPesquisa(modo) {
+    if (modo === "mapa") {
+      if (typeof window.abrirAba === "function") window.abrirAba("mapa");
+      return;
+    }
+    if (typeof window.abrirAba === "function" && !document.getElementById("pesquisa")?.classList.contains("on")) window.abrirAba("pesquisa");
     const segBtns = document.querySelectorAll("#pesquisa .seg button");
     segBtns.forEach((b) => b.classList.toggle("on", b.dataset.m === modo));
     const paineis = {
       pessoas: document.getElementById("m-pessoas"),
       texto: document.getElementById("m-texto"),
       correlacoes: document.getElementById("m-correlacoes"),
-      mapa: document.getElementById("m-mapa"),
     };
     Object.entries(paineis).forEach(([k, el]) => {
       if (el) el.hidden = k !== modo;
     });
     if (modo === "correlacoes") carregarCorrelacoes();
-    if (modo === "mapa") carregarMapa();
   }
 
   function construirContainersDom() {
@@ -199,9 +213,9 @@
     if (!mMapa) {
       mMapa = document.createElement("div");
       mMapa.id = "m-mapa";
-      mMapa.hidden = true;
-      secPesquisa.appendChild(mMapa);
+      document.getElementById("mapa").appendChild(mMapa);
     }
+    if (document.getElementById("f-correlacoes-filtros") && document.getElementById("f-mapa-filtros")) return;
 
     mCorr.innerHTML = `
       <div class="card" style="margin-bottom:12px">
@@ -212,7 +226,7 @@
           </div>
           <div class="acoes" style="margin:0">
             <button type="button" class="btn sm" id="b-corr-atualizar">Atualizar lista</button>
-            <button type="button" class="btn sm" id="b-corr-ir-mapa">Abrir Mapa Offline</button>
+            <button type="button" class="btn sm" id="b-corr-ir-mapa">Abrir Mapa</button>
           </div>
         </div>
         <div id="corr-aviso-desatualizado" hidden class="aviso alerta" style="margin-bottom:10px"></div>
@@ -274,10 +288,14 @@
       <div class="card" style="margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
           <div>
-            <h3 style="margin:0">Mapa Tático de Referência — Malha Oficial IBGE (5.570 Municípios)</h3>
-            <p class="muted" style="margin:2px 0 0">Cartografia vetorial oficial das 27 UFs e sedes municipais do IBGE (100% local, zero requisições externas).</p>
+            <h2 id="titulo-mapa" style="margin:0">Mapa <span id="mapa-carregando" class="chip" style="font-size:12px;font-weight:normal" hidden>Carregando…</span></h2>
+            <p class="muted" style="margin:2px 0 0">Mapa real (OpenStreetMap) ou mapa por estados offline (IBGE, local). A posição municipal é aproximada; coordenadas exatas exigem fonte documentada nos autos.</p>
           </div>
           <div class="acoes" style="margin:0;flex-wrap:wrap">
+            <span class="seg" role="group" aria-label="Modo do mapa" style="margin:0">
+              <button type="button" class="on" id="b-mapa-modo-real" aria-pressed="true" title="Mapa de ruas do OpenStreetMap (requer internet)">Mapa real</button>
+              <button type="button" id="b-mapa-modo-estados" aria-pressed="false" title="Mapa por estados do IBGE, 100% local">Por estados (offline)</button>
+            </span>
             <button type="button" class="btn sm pri" id="b-mapa-fit-pontos" title="Enquadrar automaticamente todos os pontos visíveis">Enquadrar Pontos</button>
             <button type="button" class="btn sm" id="b-mapa-foco-deinter8" title="Focar na região de Presidente Prudente / DEINTER 8">DEINTER 8</button>
             <button type="button" class="btn sm" id="b-mapa-foco-sp" title="Focar no Estado de São Paulo">Estado de SP</button>
@@ -320,12 +338,17 @@
         </form>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 380px;gap:12px;min-height:580px">
-        <div class="card" style="padding:0;position:relative;overflow:hidden;background:radial-gradient(circle at 55% 55%, #0c1c36 0%, #060d18 85%);border:1px solid #1e3a5f;display:flex;flex-direction:column;box-shadow:inset 0 0 40px rgba(0,0,0,0.65)">
-          <svg id="svg-mapa-offline" viewBox="0 0 800 560" role="img" aria-label="Mapa tático offline do Brasil — Malha IBGE" style="width:100%;height:530px;display:block;cursor:grab;user-select:none"></svg>
+      <div class="mapa-layout" style="display:grid;grid-template-columns:1fr 380px;gap:12px;min-height:580px">
+        <div class="card mapa-superficie" style="padding:0;position:relative;overflow:hidden;background:radial-gradient(circle at 55% 55%, #0c1c36 0%, #060d18 85%);border:1px solid #1e3a5f;display:flex;flex-direction:column;box-shadow:inset 0 0 40px rgba(0,0,0,0.65)">
+          <div id="mapa-real" role="application" aria-label="Mapa real com os registros localizados"></div>
+          <div id="mapa-real-aviso" class="aviso alerta" role="status" hidden>
+            <span>Não foi possível carregar o mapa de ruas do OpenStreetMap (sem internet ou servidor indisponível). Os registros continuam no mapa.</span>
+            <button type="button" class="btn sm" id="b-mapa-real-usar-estados">Usar mapa por estados (offline)</button>
+          </div>
+          <svg id="svg-mapa-offline" viewBox="0 0 800 560" role="group" aria-label="Mapa de referência municipal do Brasil — IBGE" style="width:100%;height:530px;display:none;cursor:grab;user-select:none"></svg>
 
-          <!-- Controles flutuantes de zoom e indicador de escala -->
-          <div style="position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:4px;z-index:4">
+          <!-- Controles flutuantes de zoom e indicador de escala (mapa por estados) -->
+          <div id="mapa-controles-estados" style="position:absolute;top:12px;right:12px;display:none;flex-direction:column;gap:4px;z-index:4">
             <button type="button" class="btn sm" id="b-mapa-zoom-in" title="Aproximar (+)" style="width:32px;height:32px;padding:0;font-weight:700;font-size:16px;background:rgba(10,20,38,0.9);border-color:#284b7a;color:#e2e8f0">+</button>
             <button type="button" class="btn sm" id="b-mapa-zoom-out" title="Afastar (−)" style="width:32px;height:32px;padding:0;font-weight:700;font-size:16px;background:rgba(10,20,38,0.9);border-color:#284b7a;color:#e2e8f0">−</button>
             <div id="mapa-zoom-label" style="text-align:center;font-size:10px;color:#94a3b8;background:rgba(6,13,24,0.85);padding:2px 4px;border-radius:4px;border:1px solid #1e3250">1.0×</div>
@@ -388,7 +411,13 @@
     });
 
     document.getElementById("b-corr-atualizar").addEventListener("click", () => carregarCorrelacoes());
-    document.getElementById("b-corr-ir-mapa").addEventListener("click", () => ativarModoPesquisa("mapa"));
+    document.getElementById("b-corr-ir-mapa").addEventListener("click", () => {
+      estadoMapa.filtros.caso = document.getElementById("corr-f-caso").value.trim();
+      estadoMapa.filtros.correlacao_id = "";
+      document.getElementById("mapa-f-caso").value = estadoMapa.filtros.caso;
+      estadoMapa.enquadrarAoCarregar = true;
+      ativarModoPesquisa("mapa");
+    });
 
     // Eventos do Mapa Offline
     document.getElementById("f-mapa-filtros").addEventListener("submit", (e) => {
@@ -414,11 +443,19 @@
     document.getElementById("b-mapa-voltar-radar").addEventListener("click", () => ativarModoPesquisa("correlacoes"));
     document.getElementById("b-mapa-fit-pontos").addEventListener("click", () => enquadrarPontosMapa());
     document.getElementById("b-mapa-reset-zoom").addEventListener("click", () => {
+      estadoMapa.enquadrarAoCarregar = false;
+      if (estadoMapa.modo === "real") {
+        enquadrarReal(BRASIL_LIMITES);
+        return;
+      }
       estadoMapa.zoom = 1;
       estadoMapa.panX = 0;
       estadoMapa.panY = 0;
       desenharSvgMapa();
     });
+    document.getElementById("b-mapa-modo-real").addEventListener("click", () => definirModoMapa("real"));
+    document.getElementById("b-mapa-modo-estados").addEventListener("click", () => definirModoMapa("estados"));
+    document.getElementById("b-mapa-real-usar-estados").addEventListener("click", () => definirModoMapa("estados"));
     document.getElementById("b-mapa-foco-sp").addEventListener("click", () => {
       enquadrarCaixaLatLon(-25.4, -53.2, -19.7, -44.1);
     });
@@ -429,6 +466,7 @@
     document.getElementById("b-mapa-zoom-out").addEventListener("click", () => aplicarZoomCentro(1 / 1.45));
 
     configurarInteracaoSvgMapa();
+    aplicarModoMapa();
   }
 
   // ---------------------------------------------------------------- Radar de Correlações: Carregamento e Renderização
@@ -633,6 +671,7 @@
           await atualizarEstadoCorrelacaoUI(cid, { estado: "descartado", motivo });
         } else if (acao === "mapa") {
           estadoMapa.filtros.correlacao_id = cid;
+          estadoMapa.enquadrarAoCarregar = true;
           ativarModoPesquisa("mapa");
         } else if (acao === "grafo") {
           navegarParaGrafo(btn.dataset.valor, btn.dataset.caso);
@@ -655,7 +694,10 @@
 
   // ---------------------------------------------------------------- Mapa Offline: Carregamento e Renderização Vetorial IBGE
 
+  let seqRequisicaoMapa = 0;
+
   async function carregarMapa() {
+    const seqAtual = ++seqRequisicaoMapa;
     const f = estadoMapa.filtros;
     const qs = new URLSearchParams();
     if (f.caso) qs.set("caso", f.caso);
@@ -664,22 +706,37 @@
     if (f.uf) qs.set("uf", f.uf);
     if (f.municipio) qs.set("municipio", f.municipio);
     if (f.correlacao_id) qs.set("correlacao_id", f.correlacao_id);
+    if (!estadoMapa.jaCarregou) {
+      estadoMapa.jaCarregou = true;
+      estadoMapa.enquadrarAoCarregar = true;
+    }
+
+    const ctlCarregando = document.getElementById("mapa-carregando");
+    if (ctlCarregando) ctlCarregando.hidden = false;
 
     try {
       const res = await chamarApi(`/api/inteligencia/mapa?${qs.toString()}`);
-      const primeiraCarga = !estadoMapa.jaCarregou;
+      if (seqAtual !== seqRequisicaoMapa) {
+        // Resposta desatualizada descartada para evitar race condition
+        return;
+      }
       Object.assign(estadoMapa, res);
       estadoMapa.jaCarregou = true;
       renderizarPainelMapa();
-      if (primeiraCarga || estadoMapa.enquadrarAoCarregar || f.correlacao_id) {
+      if (estadoMapa.enquadrarAoCarregar) {
         estadoMapa.enquadrarAoCarregar = false;
         enquadrarPontosMapa(true);
       } else {
-        desenharSvgMapa();
+        desenharMapa();
       }
     } catch (e) {
+      if (seqAtual !== seqRequisicaoMapa) return;
       const insp = document.getElementById("mapa-inspetor-conteudo");
-      if (insp) insp.innerHTML = `<div class="aviso alerta">Erro ao carregar mapa offline: ${escHtml(e.message)}</div>`;
+      if (insp) insp.innerHTML = `<div class="aviso alerta">Erro ao carregar o mapa: ${escHtml(e.message)}</div>`;
+    } finally {
+      if (seqAtual === seqRequisicaoMapa && ctlCarregando) {
+        ctlCarregando.hidden = true;
+      }
     }
   }
 
@@ -693,6 +750,11 @@
   }
 
   function enquadrarCaixaLatLon(latMin, lonMin, latMax, lonMax, silencioso) {
+    estadoMapa.enquadrarAoCarregar = false;
+    if (estadoMapa.modo === "real") {
+      enquadrarReal([[latMin, lonMin], [latMax, lonMax]]);
+      return;
+    }
     const [x1, y2] = projetarLatLon(latMin, lonMin);
     const [x2, y1] = projetarLatLon(latMax, lonMax);
     const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
@@ -712,8 +774,12 @@
   }
 
   function enquadrarPontosMapa() {
-    const grupos = estadoMapa.grupos || [];
+    const grupos = (estadoMapa.grupos || []).filter(gruposComCoordenada);
     if (!grupos.length) {
+      if (estadoMapa.modo === "real") {
+        enquadrarReal(BRASIL_LIMITES);
+        return;
+      }
       estadoMapa.zoom = 1;
       estadoMapa.panX = 0;
       estadoMapa.panY = 0;
@@ -738,6 +804,7 @@
   }
 
   function aplicarZoomCentro(fator, refX, refY) {
+    estadoMapa.enquadrarAoCarregar = false;
     const cx = refX !== undefined ? refX : 400;
     const cy = refY !== undefined ? refY : 280;
     const zAnt = estadoMapa.zoom || 1;
@@ -797,12 +864,7 @@
       `;
     }
 
-    const metaLic = document.getElementById("mapa-meta-licenca");
-    if (metaLic && estadoMapa.cartografia && estadoMapa.cartografia.metadata) {
-      const m = estadoMapa.cartografia.metadata;
-      const totM = estadoMapa.cartografia.total_municipios_base || 5570;
-      metaLic.textContent = `Malha Oficial IBGE (${totM} municípios) · ${m.licenca || "Domínio Público"}`;
-    }
+    atualizarRodapeMapa();
 
     const badgeSemLoc = document.getElementById("mapa-badge-semloc");
     const listaSemLoc = document.getElementById("mapa-lista-semloc");
@@ -831,12 +893,28 @@
           .join("");
 
         listaSemLoc.querySelectorAll("[data-semloc-id]").forEach((el) => {
+          const registro = semLoc.find((x) => x.id === el.dataset.semlocId);
+          habilitarTecladoMapa(el, `Inspecionar ${registro?.nome || "registro sem localização"}`);
           el.addEventListener("click", () => {
             const alvo = semLoc.find((x) => x.id === el.dataset.semlocId);
             if (alvo) inspecionarRegistroMapa(alvo);
           });
         });
       }
+    }
+  }
+
+  function atualizarRodapeMapa() {
+    const metaLic = document.getElementById("mapa-meta-licenca");
+    if (!metaLic) return;
+    if (estadoMapa.modo === "real") {
+      metaLic.textContent = "Mapa real © OpenStreetMap contributors · a área exibida é solicitada ao servidor de tiles";
+    } else if (estadoMapa.cartografia && estadoMapa.cartografia.metadata) {
+      const m = estadoMapa.cartografia.metadata;
+      const totM = estadoMapa.cartografia.total_municipios_base || 5570;
+      metaLic.textContent = `Malha Oficial IBGE (${totM} municípios) · ${m.licenca || "Domínio Público"}`;
+    } else {
+      metaLic.textContent = "Malha Oficial IBGE · 5.570 Municípios";
     }
   }
 
@@ -860,11 +938,54 @@
     if (tip) tip.hidden = true;
   }
 
+  // Textos de tooltip compartilhados pelos dois modos; todo dado dos autos passa por escHtml.
+  function htmlTooltipPonto(p) {
+    return `<div><span class="badge">${escHtml(p.tipo_pessoa)}</span> <b>${escHtml(p.nome)}</b></div>
+           <div style="color:#93c5fd;margin-top:2px">${escHtml(p.municipio || "")}/${escHtml(p.uf || "")} · <b>${escHtml(p.caso)}</b></div>
+           <div class="muted" style="margin-top:2px">Condição: ${escHtml(p.papel || "—")} · Clique para inspecionar</div>`;
+  }
+
+  function htmlTooltipGrupo(grp) {
+    return `<div><b>${escHtml(grp.municipio || "Agrupamento")}/${escHtml(grp.uf || "")}</b></div>
+           <div style="color:#38bdf8;margin-top:2px"><b>${grp.total} registros</b> (${grp.pf} PF · ${grp.pj} PJ)</div>
+           <div class="muted" style="margin-top:2px">O.S.: ${escHtml((grp.casos || []).slice(0, 5).join(", "))}${(grp.casos || []).length > 5 ? "…" : ""}</div>
+           <div style="color:#fbbf24;font-size:10.5px;margin-top:3px">Clique para abrir o leque de envolvidos</div>`;
+  }
+
+  function htmlTooltipSuper(membros) {
+    const total = membros.reduce((n, g) => n + (g.total || 0), 0);
+    const cidades = membros.slice(0, 5).map((g) => g.municipio || "—").join(", ");
+    return `<div><b>${total} registros</b> em ${membros.length} localidades</div>
+           <div class="muted" style="margin-top:2px">${escHtml(cidades)}${membros.length > 5 ? "…" : ""}</div>
+           <div style="color:#fbbf24;font-size:10.5px;margin-top:3px">Clique para aproximar</div>`;
+  }
+
+  function gruposComCoordenada(g) {
+    return g.lat !== null && g.lat !== undefined && g.lat !== "" && g.lon !== null && g.lon !== undefined && g.lon !== ""
+      && Number.isFinite(Number(g.lat)) && Number.isFinite(Number(g.lon));
+  }
+
+  function habilitarTecladoMapa(el, rotulo) {
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("role", "button");
+    el.setAttribute("aria-label", rotulo);
+    el.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter" && ev.key !== " ") return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+  }
+
   function desenharSvgMapa() {
     const svg = document.getElementById("svg-mapa-offline");
     if (!svg) return;
+    const focoAnterior = svg.contains(document.activeElement) ? document.activeElement : null;
     const z = Math.max(0.85, Number(estadoMapa.zoom) || 1);
     const invZ = Number((1 / z).toFixed(4));
+    const matrizTela = svg.getScreenCTM();
+    const escalaTela = matrizTela ? Math.hypot(matrizTela.a, matrizTela.b) : 1;
+    const invTela = Number((1 / (z * (escalaTela || 1))).toFixed(6));
     const strokeUf = Number((1.1 / Math.pow(z, 0.75)).toFixed(3));
     const lblZoom = document.getElementById("mapa-zoom-label");
     if (lblZoom) lblZoom.textContent = `${z.toFixed(1)}×`;
@@ -945,7 +1066,7 @@
       }
     }
 
-    // 4) Marcadores de pontos e agrupamentos com escala constante na tela (scale(invZ))
+    // Marcadores mantêm tamanho em pixels, compensando o zoom e o viewBox responsivo.
     let gruposSvg = "";
     grupos.forEach((g) => {
       const [x, y] = projetarLatLon(g.lat, g.lon);
@@ -960,15 +1081,16 @@
         const corCluster = g.destacado_correlacao ? "#b45309" : "#0369a1";
         const corAnel = g.destacado_correlacao ? "#fbbf24" : "#38bdf8";
         gruposSvg += `
-          <g class="mapa-grupo" data-grupo-id="${escHtml(g.id)}" transform="translate(${x},${y}) scale(${invZ})" style="cursor:pointer">
+          <g class="mapa-grupo" data-grupo-id="${escHtml(g.id)}" transform="translate(${x},${y}) scale(${invTela})" style="cursor:pointer">
+            <circle class="mapa-alvo" r="${Math.max(22, raio + 5)}" fill="transparent" />
             <circle r="${raio + 5}" fill="${corAnel}" fill-opacity="0.18" stroke="${corBorda}" stroke-width="1.3" ${dash} />
             <circle r="${raio}" fill="${corCluster}" stroke="#e0f2fe" stroke-width="1.8" />
-            <text y="0.5" fill="#FFFFFF" font-size="10.5" font-weight="700" text-anchor="middle" dominant-baseline="middle">${g.total}</text>
+            <text y="0.5" fill="#FFFFFF" font-size="12.5" font-weight="700" text-anchor="middle" dominant-baseline="middle">${g.total}</text>
             ${
               mostrarCidade
                 ? `<g transform="translate(0, ${-(raio + 11)})" pointer-events="none">
-                     <rect x="${-Math.min(78, (g.municipio || "").length * 3.3 + 8)}" y="-8" width="${Math.min(156, (g.municipio || "").length * 6.6 + 16)}" height="15" rx="4" fill="rgba(6,13,24,0.88)" stroke="#1e3a5f" stroke-width="0.8" />
-                     <text y="0.5" fill="#e2e8f0" font-size="9.5" font-weight="600" text-anchor="middle" dominant-baseline="middle">${escHtml((g.municipio || "").slice(0, 22))}</text>
+                     <rect x="${-Math.min(88, (g.municipio || "").length * 3.6 + 8)}" y="-10" width="${Math.min(176, (g.municipio || "").length * 7.2 + 16)}" height="20" rx="4" fill="rgba(6,13,24,0.88)" stroke="#1e3a5f" stroke-width="0.8" />
+                     <text y="0.5" fill="#e2e8f0" font-size="12.5" font-weight="600" text-anchor="middle" dominant-baseline="middle">${escHtml((g.municipio || "").slice(0, 22))}</text>
                    </g>`
                 : ""
             }
@@ -982,16 +1104,17 @@
         const corPreench = g.destacado_correlacao ? "#f59e0b" : (isPj ? "#10b981" : "#0ea5e9");
         const rotuloCurto = z >= 2.2 ? (p.nome || "").slice(0, 20) : (g.municipio || p.nome || "").slice(0, 18);
         gruposSvg += `
-          <g class="mapa-ponto" data-ponto-id="${escHtml(p.id)}" transform="translate(${x},${y}) scale(${invZ})" style="cursor:pointer">
+          <g class="mapa-ponto" data-ponto-id="${escHtml(p.id)}" transform="translate(${x},${y}) scale(${invTela})" style="cursor:pointer">
+            <circle class="mapa-alvo" r="22" fill="transparent" />
             <circle r="11.5" fill="${corPreench}" fill-opacity="0.18" stroke="${corBorda}" stroke-width="1.3" ${dash} />
             ${
               isPj
                 ? `<rect x="-6" y="-6" width="12" height="12" rx="2.5" transform="rotate(45)" fill="${corPreench}" stroke="#ffffff" stroke-width="1.4" />`
                 : `<circle r="6.8" fill="${corPreench}" stroke="#ffffff" stroke-width="1.4" />`
             }
-            <g transform="translate(0, -17)" pointer-events="none">
-              <rect x="${-Math.min(72, rotuloCurto.length * 3.1 + 7)}" y="-7.5" width="${Math.min(144, rotuloCurto.length * 6.2 + 14)}" height="14" rx="3.5" fill="rgba(6,13,24,0.86)" stroke="#1e3a5f" stroke-width="0.7" />
-              <text y="0.5" fill="#f1f5f9" font-size="9" font-weight="600" text-anchor="middle" dominant-baseline="middle">${escHtml(rotuloCurto)}</text>
+            <g transform="translate(0, -26)" pointer-events="none">
+              <rect x="${-Math.min(80, rotuloCurto.length * 3.6 + 7)}" y="-10" width="${Math.min(160, rotuloCurto.length * 7.2 + 14)}" height="20" rx="3.5" fill="rgba(6,13,24,0.86)" stroke="#1e3a5f" stroke-width="0.7" />
+              <text y="0.5" fill="#f1f5f9" font-size="12.5" font-weight="600" text-anchor="middle" dominant-baseline="middle">${escHtml(rotuloCurto)}</text>
             </g>
           </g>
         `;
@@ -1016,11 +1139,12 @@
         const corSat = isPj ? "#10b981" : "#38bdf8";
         const sel = estadoMapa.selecionado && estadoMapa.selecionado.id === m.id;
         spiderSvg += `
-          <g class="mapa-satelite" data-ponto-id="${escHtml(m.id)}" transform="translate(${gx},${gy}) scale(${invZ})" style="cursor:pointer">
+          <g class="mapa-satelite" data-ponto-id="${escHtml(m.id)}" transform="translate(${gx},${gy}) scale(${invTela})" style="cursor:pointer">
             <line x1="0" y1="0" x2="${sx}" y2="${sy}" stroke="#38bdf8" stroke-width="1.3" stroke-dasharray="3,2" opacity="0.85" />
             <g transform="translate(${sx},${sy})">
+              <circle class="mapa-alvo" r="22" fill="transparent" />
               <circle r="${sel ? 11 : 8.5}" fill="${corSat}" stroke="${sel ? "#fbbf24" : "#ffffff"}" stroke-width="${sel ? 2.2 : 1.4}" />
-              <text y="14" fill="#f8fafc" font-size="8.5" font-weight="600" text-anchor="middle" style="text-shadow:0 1px 3px #000">${escHtml((m.nome || "").slice(0, 14))}</text>
+              <text y="28" fill="#f8fafc" font-size="12.5" font-weight="600" text-anchor="middle" style="text-shadow:0 1px 3px #000">${escHtml((m.nome || "").slice(0, 14))}</text>
             </g>
           </g>
         `;
@@ -1067,15 +1191,12 @@
 
     // Eventos dos pontos individuais e satélites do leque
     svg.querySelectorAll(".mapa-ponto, .mapa-satelite").forEach((el) => {
+      const registro = pontosPorId[el.dataset.pontoId];
+      habilitarTecladoMapa(el, `Inspecionar ${registro?.nome || "registro"}, ${registro?.caso || ""}`);
       el.addEventListener("mouseenter", (ev) => {
         const p = pontosPorId[el.dataset.pontoId];
         if (!p) return;
-        mostrarTooltipMapa(
-          ev,
-          `<div><span class="badge">${escHtml(p.tipo_pessoa)}</span> <b>${escHtml(p.nome)}</b></div>
-           <div style="color:#93c5fd;margin-top:2px">${escHtml(p.municipio || "")}/${escHtml(p.uf || "")} · <b>${escHtml(p.caso)}</b></div>
-           <div class="muted" style="margin-top:2px">Condição: ${escHtml(p.papel || "—")} · Clique para inspecionar</div>`
-        );
+        mostrarTooltipMapa(ev, htmlTooltipPonto(p));
       });
       el.addEventListener("mouseleave", ocultarTooltipMapa);
       el.addEventListener("click", (ev) => {
@@ -1091,16 +1212,12 @@
 
     // Eventos dos agrupamentos municipais (clusters)
     svg.querySelectorAll(".mapa-grupo").forEach((el) => {
+      const grupo = grupos.find((x) => x.id === el.dataset.grupoId);
+      habilitarTecladoMapa(el, `Abrir ${grupo?.total || 0} registros em ${grupo?.municipio || "agrupamento"}`);
       el.addEventListener("mouseenter", (ev) => {
         const grp = grupos.find((x) => x.id === el.dataset.grupoId);
         if (!grp) return;
-        mostrarTooltipMapa(
-          ev,
-          `<div><b>${escHtml(grp.municipio || "Agrupamento")}/${escHtml(grp.uf || "")}</b></div>
-           <div style="color:#38bdf8;margin-top:2px"><b>${grp.total} registros</b> (${grp.pf} PF · ${grp.pj} PJ)</div>
-           <div class="muted" style="margin-top:2px">O.S.: ${escHtml((grp.casos || []).slice(0, 5).join(", "))}${(grp.casos || []).length > 5 ? "…" : ""}</div>
-           <div style="color:#fbbf24;font-size:10.5px;margin-top:3px">Clique para abrir o leque de envolvidos</div>`
-        );
+        mostrarTooltipMapa(ev, htmlTooltipGrupo(grp));
       });
       el.addEventListener("mouseleave", ocultarTooltipMapa);
       el.addEventListener("click", (ev) => {
@@ -1109,11 +1226,18 @@
         if (grp) abrirFanoutGrupo(grp, pontosPorId);
       });
     });
+    if (focoAnterior) {
+      const alvo = [...svg.querySelectorAll(".mapa-ponto, .mapa-satelite, .mapa-grupo")].find((el) =>
+        el.getAttribute("class") === focoAnterior.getAttribute("class") &&
+        el.dataset.pontoId === focoAnterior.dataset.pontoId && el.dataset.grupoId === focoAnterior.dataset.grupoId);
+      if (alvo) alvo.focus({ preventScroll: true });
+    }
   }
 
   function configurarInteracaoSvgMapa() {
     const svg = document.getElementById("svg-mapa-offline");
     if (!svg) return;
+    if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => desenharSvgMapa()).observe(svg);
     let arrastando = false;
     let iniX = 0, iniY = 0;
 
@@ -1158,6 +1282,271 @@
     }, { passive: false });
   }
 
+  // ---------------------------------------------------------------- Mapa real (MP91): Leaflet local + tiles OpenStreetMap
+
+  const OPCOES_ENQUADRE = { padding: [36, 36], maxZoom: 14, animate: false };
+  let mapaReal = null;
+  let camadaMarcadores = null;
+  let promessaLeaflet = null;
+  let promessaMapaReal = null;
+  let enquadrePendente = null;
+
+  // Leaflet é servido de /static/vendor/leaflet (script-src 'self'); carregado só quando o mapa real é usado.
+  function carregarLeaflet() {
+    if (window.L && window.L.map) return Promise.resolve(window.L);
+    if (promessaLeaflet) return promessaLeaflet;
+    promessaLeaflet = new Promise((resolve, reject) => {
+      const css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = "/static/vendor/leaflet/leaflet.css";
+      document.head.appendChild(css);
+      const js = document.createElement("script");
+      js.src = "/static/vendor/leaflet/leaflet.js";
+      js.onload = () => (window.L && window.L.map ? resolve(window.L) : reject(new Error("Leaflet indisponível")));
+      js.onerror = () => reject(new Error("Leaflet indisponível"));
+      document.head.appendChild(js);
+    }).catch((e) => {
+      promessaLeaflet = null;
+      throw e;
+    });
+    return promessaLeaflet;
+  }
+
+  function aplicarModoMapa() {
+    const real = estadoMapa.modo === "real";
+    const svg = document.getElementById("svg-mapa-offline");
+    const cont = document.getElementById("mapa-real");
+    const ctl = document.getElementById("mapa-controles-estados");
+    if (svg) svg.style.display = real ? "none" : "block";
+    if (cont) cont.style.display = real ? "block" : "none";
+    if (ctl) ctl.style.display = real ? "none" : "flex";
+    const aviso = document.getElementById("mapa-real-aviso");
+    if (aviso && !real) aviso.hidden = true;
+    [["b-mapa-modo-real", real], ["b-mapa-modo-estados", !real]].forEach(([id, ligado]) => {
+      const b = document.getElementById(id);
+      if (!b) return;
+      b.classList.toggle("on", ligado);
+      b.setAttribute("aria-pressed", String(ligado));
+    });
+  }
+
+  function definirModoMapa(modo) {
+    if (modo !== "real" && modo !== "estados") return;
+    estadoMapa.modo = modo;
+    ocultarTooltipMapa();
+    aplicarModoMapa();
+    atualizarRodapeMapa();
+    desenharMapa();
+  }
+
+  function desenharMapa() {
+    if (estadoMapa.modo !== "real") {
+      desenharSvgMapa();
+      return;
+    }
+    if (mapaReal) {
+      mapaReal.invalidateSize({ animate: false });
+      aplicarEnquadrePendente();
+      renderizarMarcadoresReais();
+    } else {
+      iniciarMapaReal();
+    }
+  }
+
+  function iniciarMapaReal() {
+    if (mapaReal) return Promise.resolve(true);
+    if (promessaMapaReal) return promessaMapaReal;
+    promessaMapaReal = carregarLeaflet()
+      .then((L) => {
+        const el = document.getElementById("mapa-real");
+        if (!el) return false;
+        mapaReal = L.map(el, { zoomControl: false, attributionControl: false, minZoom: 3, maxZoom: 18, zoomSnap: 1 });
+        mapaReal.setView([-14.2, -51.9], 4, { animate: false });
+        L.control.zoom({ position: "topright", zoomInTitle: "Aproximar", zoomOutTitle: "Afastar" }).addTo(mapaReal);
+        L.control.attribution({ prefix: false }).addTo(mapaReal);
+        const tiles = L.tileLayer(TILES_OSM, { maxZoom: 19, attribution: ATRIBUICAO_OSM, referrerPolicy: "origin" }).addTo(mapaReal);
+        let tilesOk = 0;
+        let tilesErro = 0;
+        tiles.on("loading", () => { tilesOk = 0; tilesErro = 0; });
+        tiles.on("tileload", () => { tilesOk++; });
+        tiles.on("tileerror", () => { tilesErro++; });
+        tiles.on("load", () => {
+          const aviso = document.getElementById("mapa-real-aviso");
+          if (aviso) aviso.hidden = !(tilesErro > 0 && tilesOk === 0);
+        });
+        camadaMarcadores = L.layerGroup().addTo(mapaReal);
+        mapaReal.on("zoomend", renderizarMarcadoresReais);
+        if (typeof ResizeObserver !== "undefined") {
+          new ResizeObserver(() => {
+            if (!mapaReal) return;
+            mapaReal.invalidateSize({ animate: false });
+            aplicarEnquadrePendente();
+          }).observe(el);
+        }
+        aplicarEnquadrePendente();
+        renderizarMarcadoresReais();
+        return true;
+      })
+      .catch(() => {
+        promessaMapaReal = null;
+        notificar("Não foi possível carregar o mapa real; mostrando o mapa por estados (offline).");
+        definirModoMapa("estados");
+        return false;
+      });
+    return promessaMapaReal;
+  }
+
+  // Enquadramento adiado enquanto o mapa não existe ou a aba está oculta (tamanho zero).
+  function enquadrarReal(limites) {
+    enquadrePendente = limites;
+    aplicarEnquadrePendente();
+    if (!mapaReal) iniciarMapaReal();
+  }
+
+  function aplicarEnquadrePendente() {
+    const el = document.getElementById("mapa-real");
+    if (!mapaReal || !enquadrePendente || !el || !el.clientWidth || !el.clientHeight) return;
+    mapaReal.invalidateSize({ animate: false });
+    const limites = enquadrePendente;
+    enquadrePendente = null;
+    mapaReal.fitBounds(limites, OPCOES_ENQUADRE);
+  }
+
+  // Todo texto vindo dos dados passa por escHtml; os atributos data-* só recebem identificadores do servidor.
+  function iconeMarcadorReal({ classe, disco, rotulo, dados, diametro }) {
+    const attrs = Object.entries(dados || {}).map(([k, v]) => `data-${k}="${escHtml(v)}"`).join(" ");
+    const estilo = diametro ? ` style="width:${diametro}px;height:${diametro}px"` : "";
+    return window.L.divIcon({
+      className: "mapa-real-icone",
+      html: `<div class="${classe}" ${attrs}><span class="mrk-disco"${estilo}>${disco || ""}</span>${rotulo ? `<span class="mrk-rotulo">${escHtml(rotulo)}</span>` : ""}</div>`,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
+    });
+  }
+
+  function marcadorReal(latlng, icone, tooltipHtml, rotuloAria, aoClicar, destaque) {
+    const m = window.L.marker(latlng, { icon: icone, keyboard: true, riseOnHover: true, zIndexOffset: destaque ? 1000 : 0 });
+    m.on("add", () => m.getElement()?.setAttribute("aria-label", rotuloAria));
+    m.bindTooltip(tooltipHtml, { direction: "top", offset: [0, -20], className: "mapa-real-tip", opacity: 1 });
+    m.on("click", (ev) => {
+      window.L.DomEvent.stopPropagation(ev);
+      aoClicar();
+    });
+    return m;
+  }
+
+  function renderizarMarcadoresReais() {
+    if (!mapaReal || !camadaMarcadores || estadoMapa.modo !== "real") return;
+    const L = window.L;
+    camadaMarcadores.clearLayers();
+    const grupos = (estadoMapa.grupos || []).filter(gruposComCoordenada);
+    const pontosPorId = Object.fromEntries((estadoMapa.pontos || []).map((p) => [p.id, p]));
+    const zoom = mapaReal.getZoom();
+
+    // Arcos entre cidades quando há correlação destacada ou caso filtrado (mesma regra do mapa por estados).
+    const conexao = grupos.filter((g) => g.destacado_correlacao || estadoMapa.filtros.correlacao_id || estadoMapa.filtros.caso);
+    if (conexao.length >= 2 && conexao.length <= 25) {
+      const ordenados = conexao.slice().sort((a, b) => b.total - a.total);
+      const origem = ordenados[0];
+      ordenados.slice(1).forEach((dest) => {
+        L.polyline([[Number(origem.lat), Number(origem.lon)], [Number(dest.lat), Number(dest.lon)]],
+          { color: "#fbbf24", weight: 2, dashArray: "5,4", opacity: 0.85, interactive: false }).addTo(camadaMarcadores);
+      });
+    }
+
+    // Agrupamento por distância em pixels no zoom atual: afastado, localidades próximas viram um só marcador.
+    const itens = grupos
+      .map((g) => ({ g, p: mapaReal.project([Number(g.lat), Number(g.lon)], zoom), usado: false }))
+      .sort((a, b) => (b.g.total || 0) - (a.g.total || 0) || String(a.g.id).localeCompare(String(b.g.id)));
+    const agrupados = [];
+    itens.forEach((it) => {
+      if (it.usado) return;
+      it.usado = true;
+      const membros = [it.g];
+      itens.forEach((o) => {
+        if (!o.usado && Math.hypot(o.p.x - it.p.x, o.p.y - it.p.y) <= RAIO_AGRUPAMENTO_PX) {
+          o.usado = true;
+          membros.push(o.g);
+        }
+      });
+      agrupados.push(membros);
+    });
+
+    agrupados.forEach((membros) => {
+      if (membros.length > 1) {
+        const total = membros.reduce((n, g) => n + (g.total || 0), 0);
+        const lat = membros.reduce((s, g) => s + Number(g.lat), 0) / membros.length;
+        const lon = membros.reduce((s, g) => s + Number(g.lon), 0) / membros.length;
+        const destaque = membros.some((g) => g.destacado_correlacao);
+        const icone = iconeMarcadorReal({
+          classe: `mapa-real-marcador mrk-cluster mrk-agrupado${destaque ? " mrk-destaque" : ""}`,
+          disco: String(total), dados: { agrupado: "1" }, diametro: 40,
+        });
+        marcadorReal([lat, lon], icone, htmlTooltipSuper(membros), `Aproximar ${total} registros em ${membros.length} localidades`, () => {
+          const pts = membros.map((g) => [Number(g.lat), Number(g.lon)]);
+          if (pts.every((q) => q[0] === pts[0][0] && q[1] === pts[0][1])) {
+            abrirFanoutGrupo({ id: "mesma-coordenada", municipio: "Mesma coordenada", uf: "", lat: pts[0][0], lon: pts[0][1],
+              registros_ids: membros.flatMap((g) => g.registros_ids || []) }, pontosPorId);
+          } else {
+            mapaReal.fitBounds(pts, { padding: [60, 60], maxZoom: 15 });
+          }
+        }, destaque).addTo(camadaMarcadores);
+        return;
+      }
+      const g = membros[0];
+      const soCoordDoc = (g.precisoes || []).includes("coordenada_documentada") && !(g.precisoes || []).includes("municipio_aproximado");
+      const classeBase = `${soCoordDoc ? " mrk-doc" : ""}${g.destacado_correlacao ? " mrk-destaque" : ""}`;
+      if (g.total > 1) {
+        const diametro = Math.min(44, 26 + Math.ceil(Math.log2(g.total + 1) * 4));
+        const mostrarCidade = zoom >= 9 || g.total >= 4 || g.destacado_correlacao;
+        const icone = iconeMarcadorReal({
+          classe: `mapa-real-marcador mrk-cluster${classeBase}`, disco: String(g.total), diametro,
+          rotulo: mostrarCidade ? (g.municipio || "").slice(0, 22) : "", dados: { "grupo-id": g.id },
+        });
+        marcadorReal([Number(g.lat), Number(g.lon)], icone, htmlTooltipGrupo(g),
+          `Abrir ${g.total} registros em ${g.municipio || "agrupamento"}`, () => abrirFanoutGrupo(g, pontosPorId), g.destacado_correlacao)
+          .addTo(camadaMarcadores);
+        return;
+      }
+      const p = pontosPorId[(g.registros_ids || [])[0]];
+      if (!p) return;
+      const sel = estadoMapa.selecionado && estadoMapa.selecionado.id === p.id;
+      const rotulo = zoom >= 10 ? (p.nome || "").slice(0, 20) : (g.municipio || p.nome || "").slice(0, 18);
+      const icone = iconeMarcadorReal({
+        classe: `mapa-real-marcador ${p.tipo_pessoa === "PJ" ? "mrk-pj" : "mrk-pf"}${classeBase}${sel ? " mrk-sel" : ""}`,
+        disco: "", rotulo, dados: { "ponto-id": p.id },
+      });
+      marcadorReal([Number(g.lat), Number(g.lon)], icone, htmlTooltipPonto(p), `Inspecionar ${p.nome || "registro"}, ${p.caso || ""}`, () => {
+        fecharFanoutGrupo();
+        inspecionarRegistroMapa(p);
+        desenharMapa();
+      }, sel || g.destacado_correlacao).addTo(camadaMarcadores);
+    });
+
+    // Leque radial no próprio mapa quando um agrupamento municipal está aberto (mesma lógica do mapa por estados).
+    const aberto = estadoMapa.grupoAberto;
+    if (aberto && gruposComCoordenada(aberto)) {
+      const membros = (aberto.registros_ids || []).map((id) => pontosPorId[id]).filter(Boolean).slice(0, 14);
+      const centro = mapaReal.project([Number(aberto.lat), Number(aberto.lon)], zoom);
+      const raio = Math.max(54, Math.min(96, 38 + membros.length * 4.2));
+      membros.forEach((m, idx) => {
+        const ang = (idx / membros.length) * Math.PI * 2 - Math.PI / 2;
+        const destino = mapaReal.unproject(L.point(centro.x + Math.cos(ang) * raio, centro.y + Math.sin(ang) * raio), zoom);
+        L.polyline([[Number(aberto.lat), Number(aberto.lon)], destino],
+          { color: "#38bdf8", weight: 1.5, dashArray: "3,2", opacity: 0.85, interactive: false }).addTo(camadaMarcadores);
+        const sel = estadoMapa.selecionado && estadoMapa.selecionado.id === m.id;
+        const icone = iconeMarcadorReal({
+          classe: `mapa-real-satelite ${m.tipo_pessoa === "PJ" ? "mrk-pj" : "mrk-pf"}${sel ? " mrk-sel" : ""}`,
+          disco: "", rotulo: (m.nome || "").slice(0, 14), dados: { "ponto-id": m.id },
+        });
+        marcadorReal(destino, icone, htmlTooltipPonto(m), `Inspecionar ${m.nome || "registro"}, ${m.caso || ""}`, () => {
+          inspecionarRegistroMapa(m);
+          desenharMapa();
+        }, true).addTo(camadaMarcadores);
+      });
+    }
+  }
+
   function fecharFanoutGrupo() {
     const box = document.getElementById("mapa-fanout-box");
     if (box) {
@@ -1166,7 +1555,7 @@
     }
     if (estadoMapa.grupoAberto) {
       estadoMapa.grupoAberto = null;
-      desenharSvgMapa();
+      desenharMapa();
     }
   }
 
@@ -1201,17 +1590,18 @@
     if (btnFecha) btnFecha.onclick = fecharFanoutGrupo;
 
     box.querySelectorAll("[data-fanout-membro]").forEach((el) => {
+      habilitarTecladoMapa(el, `Inspecionar ${pontosPorId[el.dataset.fanoutMembro]?.nome || "registro"}`);
       el.addEventListener("click", () => {
         const p = pontosPorId[el.dataset.fanoutMembro];
         if (p) {
           inspecionarRegistroMapa(p);
-          desenharSvgMapa();
+          desenharMapa();
         }
       });
     });
 
     if (membros[0]) inspecionarRegistroMapa(membros[0]);
-    desenharSvgMapa();
+    desenharMapa();
   }
 
   function inspecionarRegistroMapa(item) {
@@ -1224,8 +1614,8 @@
     const precisaoBadge =
       item.precisao === "coordenada_documentada"
         ? `<span class="badge st-conf">Coordenada documentada (${escHtml(item.contexto_coordenada || "autos")})</span>`
-        : item.precisao === "municipio_aproximado"
-        ? `<span class="badge st-ind">Município aproximado (centroide IBGE)</span>`
+        : (item.precisao === "municipio_aproximado" || item.precisao === "municipio" || item.is_aproximado)
+        ? `<span class="badge badge-aproximada">Localização aproximada (centro do município · IBGE)</span>`
         : `<span class="badge st-neg">Sem coordenada (${escHtml(MOTIVOS_GEO_ROTULO[item.motivo_sem_localizacao] || item.motivo_sem_localizacao || "")})</span>`;
 
     const docPrincipal = item.tipo_pessoa === "PJ" ? (item.cnpj ? `CNPJ: ${item.cnpj}` : "CNPJ não consta") : (item.cpf ? `CPF: ${item.cpf}` : "CPF não consta");
@@ -1300,15 +1690,17 @@
   // ---------------------------------------------------------------- Inicialização Geral
 
   function iniciarInteligenciaMapa() {
+    const primeiraInicializacao = !document.getElementById("f-mapa-filtros");
     construirContainersDom();
+    if (primeiraInicializacao && document.getElementById("mapa")?.classList.contains("on")) carregarMapa();
 
-    // Estender os botões segmentados da aba Pesquisa para suportar Correlações e Mapa
+    // Modos da Pesquisa; o alias legado "mapa" abre a aba principal.
     const segBtns = document.querySelectorAll("#pesquisa .seg button");
     segBtns.forEach((b) => {
       b.onclick = () => ativarModoPesquisa(b.dataset.m);
     });
 
-    // Atalhos na barra do Grafo para abrir Radar de Correlações ou Mapa Offline mantendo a O.S. selecionada
+    // Atalho do Grafo para o Radar mantendo a O.S. selecionada.
     const bGrCorr = document.getElementById("b-gr-correlacoes");
     if (bGrCorr) {
       bGrCorr.onclick = () => {
@@ -1321,22 +1713,10 @@
       };
     }
 
-    const bGrMapa = document.getElementById("b-gr-mapa");
-    if (bGrMapa) {
-      bGrMapa.onclick = () => {
-        const casoSel = (document.getElementById("gr-caso") || {}).value || "";
-        estadoMapa.filtros.caso = casoSel;
-        const inp = document.getElementById("mapa-f-caso");
-        if (inp) inp.value = casoSel;
-        if (typeof window.abrirAba === "function") window.abrirAba("pesquisa");
-        ativarModoPesquisa("mapa");
-      };
-    }
-
-    // Injetar atalhos diretos "Correlações" e "Mapa" na barra superior (#nav) ao lado de Pesquisa/Grafo
+    // O mapa pertence à navegação principal; somente o atalho do Radar é injetado.
     function injetarBotoesNavSuperior() {
       const nav = document.getElementById("nav");
-      if (!nav || document.getElementById("nav-btn-mapa")) return;
+      if (!nav || document.getElementById("nav-btn-correlacoes")) return;
       const btnGrafo = nav.querySelector('button[data-a="grafo"]') || nav.querySelector('button[data-a="pesquisa"]');
       if (!btnGrafo) return;
 
@@ -1348,27 +1728,20 @@
       btnCorr.onclick = () => {
         if (typeof window.abrirAba === "function") window.abrirAba("pesquisa");
         ativarModoPesquisa("correlacoes");
-        nav.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === btnCorr));
-      };
-
-      const btnMapa = document.createElement("button");
-      btnMapa.type = "button";
-      btnMapa.id = "nav-btn-mapa";
-      btnMapa.dataset.a = "mapa-atalho";
-      btnMapa.textContent = "Mapa";
-      btnMapa.onclick = () => {
-        if (typeof window.abrirAba === "function") window.abrirAba("pesquisa");
-        ativarModoPesquisa("mapa");
-        nav.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === btnMapa));
+        nav.querySelectorAll("button").forEach((x) => {
+          x.classList.toggle("on", x === btnCorr);
+          if (x === btnCorr) x.setAttribute("aria-current", "page");
+          else x.removeAttribute("aria-current");
+        });
       };
 
       btnGrafo.insertAdjacentElement("afterend", btnCorr);
-      btnCorr.insertAdjacentElement("afterend", btnMapa);
     }
 
     injetarBotoesNavSuperior();
     const navEl = document.getElementById("nav");
-    if (navEl && typeof MutationObserver !== "undefined") {
+    if (navEl && !navEl.dataset.inteligenciaObservada && typeof MutationObserver !== "undefined") {
+      navEl.dataset.inteligenciaObservada = "1";
       const obs = new MutationObserver(() => injetarBotoesNavSuperior());
       obs.observe(navEl, { childList: true });
     }
@@ -1380,6 +1753,8 @@
     carregarCorrelacoes,
     carregarMapa,
     inspecionarRegistroMapa,
+    definirModoMapa,
+    mapaReal: () => mapaReal,
   };
 
   if (document.readyState === "loading") {

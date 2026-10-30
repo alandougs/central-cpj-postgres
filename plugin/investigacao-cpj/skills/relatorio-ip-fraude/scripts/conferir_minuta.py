@@ -50,6 +50,10 @@ import json
 import os
 import re
 import sys
+# Mesmo leitor local usado pela Central, incluindo o checkpoint consolidado.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../pdf-autos-policiais/scripts")))
+from estado_extracao import ler as ler_estado_extracao, arquivo as checkpoint_extracao
+
 import unicodedata
 from decimal import Decimal, InvalidOperation
 
@@ -82,6 +86,7 @@ RE_PENDENTES = [
     (re.compile(r"\{[^{}\n]{1,200}\}"), "texto-guia do modelo entre chaves"),
     (re.compile(r"\[\s*local,\s*Estado\s*\]", re.I), "texto-guia [local, Estado]"),
     (re.compile(r"\[\s*PENDENTE[^\]\n]*\]", re.I), "marcação [PENDENTE]"),
+    (re.compile(r"\[\s*(?:OBTER|PESQUISAR)\s*:[^\]\n]*\]", re.I), "dado a obter ou pesquisar"),
     (re.compile(r"\bPREENCHER\b"), "campo a preencher"),
     (re.compile(r"(?<!\d[.\-])\bX{3,}\b(?![.\-]\d)"), "marcador XXX"),  # não pega máscara XXX.456.789-XX
     (re.compile(r"Nome do Delegado", re.I), "texto-guia Nome do Delegado"),
@@ -201,6 +206,22 @@ def indexar_pagina(texto):
 
 def carregar_documentos(pasta):
     """Lê <pasta>\\<doc>\\transcricao.md (ou <pasta>\\transcricao.md). Retorna lista de documentos."""
+    ancestral = os.path.abspath(pasta)
+    while True:
+        if os.path.islink(ancestral) or os.path.isjunction(ancestral):
+            raise ValueError("Fonte da conferência contém link ou junção em sua árvore.")
+        pai = os.path.dirname(ancestral)
+        if pai == ancestral:
+            break
+        ancestral = pai
+    raiz = os.path.realpath(pasta)
+
+    def conferir_fonte(caminho):
+        if (os.path.islink(caminho) or os.path.isjunction(caminho)
+                or os.path.commonpath([raiz, os.path.realpath(caminho)]) != raiz):
+            raise ValueError("Fonte da conferência fora da extração do próprio caso (link ou junção).")
+
+    conferir_fonte(pasta)
     alvos = []
     if os.path.isfile(os.path.join(pasta, "transcricao.md")):
         alvos.append(pasta)
@@ -211,6 +232,10 @@ def carregar_documentos(pasta):
                 alvos.append(sub)
     docs = []
     for d in alvos:
+        conferir_fonte(d)
+        conferir_fonte(os.path.join(d, "transcricao.md"))
+        rel = str(checkpoint_extracao(d)) if checkpoint_extracao(d).exists() else os.path.join(d, "relatorio_extracao.json")
+        conferir_fonte(rel)
         paginas, pendentes, conferir, atual, buf = {}, set(), set(), None, []
 
         def fecha():
@@ -232,10 +257,9 @@ def carregar_documentos(pasta):
                 continue
             buf.append(ln.rstrip("\n"))
         fecha()
-        rel = os.path.join(d, "relatorio_extracao.json")
         if os.path.isfile(rel):
             try:
-                r = json.load(open(rel, encoding="utf-8-sig"))
+                r = ler_estado_extracao(d, "relatorio_extracao.json")
                 pendentes.update(int(x) for x in r.get("pendentes_transcricao_visual", []) or [])
                 conferir.update(int(x) for x in r.get("conferir_visualmente", []) or [])
             except (ValueError, TypeError):
@@ -771,7 +795,10 @@ def main():
     fluxo = a.fluxo or (os.path.join(base, "02-analise", "fluxo-financeiro.csv") if base else None)
 
     hash_antes = sha256(minuta)
-    docs = carregar_documentos(extracao)
+    try:
+        docs = carregar_documentos(extracao)
+    except (OSError, ValueError):
+        erro("Fonte da conferência inválida ou fora da extração do próprio caso; confira links e junções.")
     meta, achados, conferidos = conferir(minuta, docs, totais_fluxo(fluxo))
     if sha256(minuta) != hash_antes:  # salvaguarda: este script só lê a minuta
         erro("a minuta mudou durante a conferência; rode de novo")

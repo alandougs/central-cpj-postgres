@@ -359,9 +359,14 @@ def api_fluxo_reconciliar(execucao_id, etapa_id):
 @requer("dados")
 def api_exportar():
     d = request.get_json(force=True) or {}
+    if not isinstance(d, dict):
+        return jsonify({"erro": "Pedido de exportação inválido."}), 400
+    senha = d.get("senha")
+    if not isinstance(senha, str) or len(senha) < 12 or len(senha) > 1024:
+        return jsonify({"erro": "Informe uma senha de 12 a 1024 caracteres para proteger a exportação."}), 400
     modo = "completo" if d.get("modo") == "completo" else "dados"
     tid = tarefas.nova("exportacao", f"Exportação ({modo})", request.usuario["login"])
-    tarefas.rodar(tid, tarefas.exportar, modo, bool(d.get("incluir_modelo")))
+    tarefas.rodar(tid, tarefas.exportar, modo, bool(d.get("incluir_modelo")), senha)
     auditar("exportacao", modo)
     return jsonify({"tarefa": tid})
 
@@ -370,9 +375,10 @@ def api_exportar():
 @requer("dados")
 def api_exportacoes():
     d = os.path.join(WS, "exportacoes")
-    fs = sorted((f for f in os.listdir(d) if f.endswith(".zip")), reverse=True) if os.path.isdir(d) else []
+    fs = sorted((f for f in os.listdir(d) if f.endswith((".zip", ".cpjenc"))), reverse=True) if os.path.isdir(d) else []
     return jsonify([
-        {"arquivo": f, "mb": round(os.path.getsize(os.path.join(d, f)) / 1048576, 1), "url": f"/exportacoes/{f}"}
+        {"arquivo": f, "mb": round(os.path.getsize(os.path.join(d, f)) / 1048576, 1), "url": f"/exportacoes/{f}",
+         "criptografado": f.endswith(".cpjenc"), "legado": f.endswith(".zip")}
         for f in fs
     ])
 
@@ -381,7 +387,9 @@ def api_exportacoes():
 @requer("dados")
 def api_exportacao_baixar(nome):
     p = os.path.join(WS, "exportacoes", os.path.basename(nome))
-    if not os.path.isfile(p):
+    base = os.path.realpath(os.path.join(WS, "exportacoes"))
+    if (not nome.endswith((".zip", ".cpjenc")) or not os.path.isfile(p)
+            or os.path.normcase(os.path.commonpath((base, os.path.realpath(p)))) != os.path.normcase(base)):
         abort(404)
     auditar("exportacao_baixada", nome)
     return send_file(p, as_attachment=True)
@@ -426,12 +434,22 @@ def relatorio_cumpridas():
 @bp_sistema.post("/api/importar")
 @requer("dados")
 def api_importar():
+    arquivo = request.files.get("arquivo")
+    if not arquivo or not arquivo.filename:
+        return jsonify({"erro": "Selecione o pacote a importar."}), 400
+    legado = arquivo.filename.lower().endswith(".zip")
+    permitir_legado = request.form.get("permitir_legado") == "true"
+    senha = request.form.get("senha")
+    if legado and not permitir_legado:
+        return jsonify({"erro": "Pacote ZIP antigo sem criptografia: confirme expressamente a importação."}), 400
+    if not legado and (not isinstance(senha, str) or not 12 <= len(senha) <= 1024):
+        return jsonify({"erro": "Informe a senha do pacote criptografado (12 a 1024 caracteres)."}), 400
     try:
-        p, nome = salvar_upload("arquivo", (".zip",))
+        p, nome = salvar_upload("arquivo", (".zip", ".cpjenc"))
     except ValueError as e:
         return jsonify({"erro": str(e)}), 400
     tid = tarefas.nova("importacao", f"Importação de {nome}", request.usuario["login"])
-    tarefas.rodar(tid, tarefas.importar, p)
+    tarefas.rodar(tid, tarefas.importar, p, senha, permitir_legado)
     auditar("importacao", nome)
     return jsonify({"tarefa": tid})
 
@@ -490,6 +508,25 @@ def painel_pdf():
 
 
 CONFIG_LLM = os.path.join(WS, "config", "chaves_llm.json")
+_trava_cfg_llm = threading.RLock()
+
+
+@bp_sistema.errorhandler(OSError)
+@bp_sistema.errorhandler(ValueError)
+@bp_sistema.errorhandler(RuntimeError)
+def erro_configuracao_segura(erro):
+    # Não expor conteúdo de configuração ou mensagens de provedores nas respostas.
+    if request.endpoint in ("sistema.api_sistema_llm_get", "sistema.api_sistema_llm_post",
+                             "sistema.api_sistema_llm_modelos", "sistema.api_sistema_ia_config_get",
+                             "sistema.api_sistema_ia_config_post", "sistema.api_auditoria_integridade"):
+        return jsonify({"erro": "Não foi possível acessar a configuração protegida. Verifique sua integridade e o usuário do Windows."}), 503
+    return jsonify({"erro": "Não foi possível concluir a operação. Verifique o estado local do sistema."}), 500
+
+
+@bp_sistema.get("/api/auditoria/integridade")
+@requer("usuarios")
+def api_auditoria_integridade():
+    return jsonify(auth.verificar_auditoria())
 
 
 def _carregar_cfg_llm():
@@ -505,14 +542,11 @@ def _carregar_cfg_llm():
         "copilot": {"nome": "GitHub Copilot CLI", "chave": "", "modelo": "", "ativo": False}
     }
     if os.path.isfile(CONFIG_LLM):
-        try:
-            with open(CONFIG_LLM, "r", encoding="utf-8") as f:
-                d = json.load(f)
-                for k, v in d.items():
-                    if k in padrao and isinstance(v, dict):
-                        padrao[k].update(v)
-        except Exception:
-            pass
+        from seguranca_local import carregar_cfg_llm
+        d = carregar_cfg_llm(CONFIG_LLM)
+        for k, v in d.items():
+            if k in padrao and isinstance(v, dict):
+                padrao[k].update(v)
     return padrao
 
 
@@ -693,13 +727,21 @@ def api_sistema_llm_get():
 @bp_sistema.post("/api/sistema/llm")
 @requer("usuarios")
 def api_sistema_llm_post():
+    with _trava_cfg_llm:
+        return _atualizar_cfg_llm()
+
+
+def _atualizar_cfg_llm():
     dados = request.get_json(force=True) or {}
+    if not isinstance(dados, dict):
+        return jsonify({"erro": "Configuração inválida."}), 400
     prov = dados.get("provedor")
-    if not prov:
-        return jsonify({"erro": "Provedor não informado."}), 400
     cfg = _carregar_cfg_llm()
-    if prov not in cfg:
-        cfg[prov] = {"nome": prov, "chave": "", "modelo": "", "ativo": False}
+    if not isinstance(prov, str) or prov not in cfg:
+        return jsonify({"erro": "Provedor não reconhecido."}), 400
+    if (any(k in dados and not isinstance(dados[k], str) for k in ("chave", "modelo"))
+            or ("ativo" in dados and not isinstance(dados["ativo"], bool))):
+        return jsonify({"erro": "Configuração inválida."}), 400
     nova_chave = (dados.get("chave") or "").strip()
     if nova_chave and not nova_chave.startswith("*"):
         cfg[prov]["chave"] = nova_chave
@@ -707,9 +749,8 @@ def api_sistema_llm_post():
         cfg[prov]["modelo"] = (dados["modelo"] or "").strip()
     if "ativo" in dados:
         cfg[prov]["ativo"] = bool(dados["ativo"])
-    os.makedirs(os.path.dirname(CONFIG_LLM), exist_ok=True)
-    with open(CONFIG_LLM, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, ensure_ascii=False, indent=2)
+    from seguranca_local import salvar_cfg_llm
+    salvar_cfg_llm(CONFIG_LLM, cfg)
     tarefas.sincronizar_provedor(prov)
     auditar("chaves_llm_atualizadas", prov)
     return jsonify({"ok": True, "provedor": prov})
