@@ -12,4 +12,6 @@ Conferências do snapshot congelado no índice: 66 arquivos selecionados; sintax
 
 O teste novo `teste_fila_pendencias_os01.py`, ainda pertencente à tarefa OS01 em andamento, foi retirado somente do índice, preservando seu arquivo local. PRD também recebeu alterações concorrentes depois da seleção; elas permanecem locais, sem sobrescrita. A revisão CL90 recebeu somente remoção de linha em branco excedente no fim do arquivo para satisfazer `diff --check`. Imagens ignoradas e binários locais não foram forçados para o Git.
 
-Publicação preparada para a branch do PR #25; resultado remoto será registrado ao concluir SY06. A descrição do PR deve refletir o conjunto atual e suas pendências de validação.
+Publicação confirmada por push normal e pela API do GitHub: commit de integração **`8ece5fc232c7cfedc54ef86f5e8c934830a274a1`**, incluindo o commit AG90 anterior `58826f3`, na branch existente. O [PR #25](https://github.com/alandougs/central-cpj-postgres/pull/25) foi atualizado para descrever o conjunto atual e convertido em **rascunho**, preservando a base `main`. A execução [validacao #32](https://github.com/alandougs/central-cpj-postgres/actions/runs/41009815931) iniciou para esse commit; resultado ainda em andamento na conferência. Não se presume CI verde.
+
+A conclusão SY06 e este registro acompanham um commit documental posterior, sem mudança de produto ou necessidade de repetir a regressão. A conferência final de sincronização compara o SHA remoto com o HEAD local após esse commit. Mudanças concorrentes posteriores continuam preservadas no workspace.
