@@ -4,6 +4,7 @@ As chaves são lidas da configuração local e nunca entram nos logs. As chamada
 de trabalho enviam ao provedor somente o que o agente lê da pasta do caso.
 """
 import json
+import http.client
 import datetime
 import math
 import os
@@ -18,6 +19,7 @@ import urllib.error
 import urllib.request
 from contextlib import closing, contextmanager
 from decimal import Decimal
+from fluxo_execucao import ResultadoIncerto
 
 
 ORDEM_PROVEDORES_API = ("anthropic", "openai", "gemini", "deepseek", "xai", "openrouter", "groq", "nvidia")
@@ -28,6 +30,10 @@ SEM_JANELA = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 class ConsentimentoNecessario(RuntimeError):
     pass
+
+
+class PedidoRecusado(RuntimeError):
+    """Resposta HTTP de recusa conhecida, antes de qualquer rodada concluída."""
 
 
 def criar_consentimento(usuario, destinos, escopo="api_ia"):
@@ -209,6 +215,22 @@ class OrcamentoIA:
         s["medicao_completa"] = s["tokens"] is not None and s["custo_usd"] is not None
 
     def chamar(self, provedor, modelo, url, headers, body, timeout):
+        iniciou = False
+        def enviar(*args, **kwargs):
+            nonlocal iniciou
+            iniciou = True
+            return _http_json(*args, **kwargs)
+        try:
+            return self._chamar(provedor, modelo, url, headers, body, timeout, enviar)
+        except (OrcamentoExcedido, PedidoRecusado, ResultadoIncerto):
+            raise
+        except Exception:
+            if iniciou:
+                raise ResultadoIncerto("A chamada externa foi iniciada, mas seu registro não foi confirmado; "
+                                      "confira o provedor antes de repetir.") from None
+            raise
+
+    def _chamar(self, provedor, modelo, url, headers, body, timeout, enviar):
         modelo_audit = str(modelo)
         for nome in ("Authorization", "x-api-key", "x-goog-api-key"):
             chave = (headers.get(nome) or "").removeprefix("Bearer ")
@@ -231,7 +253,7 @@ class OrcamentoIA:
             with self._transacao() as (_, s):
                 try:
                     espera = preparar(s)
-                    try: r = _http_json(url, headers, body=body, timeout=espera)
+                    try: r = enviar(url, headers, body=body, timeout=espera)
                     except Exception:
                         self._consumir(s, None, provedor, modelo)
                         self._verificar(s, provedor, modelo)
@@ -245,7 +267,7 @@ class OrcamentoIA:
                 try: espera = preparar(s)
                 finally:
                     if s.get("interrompido"): self._publicar(s, provedor, modelo_audit)
-            try: r = _http_json(url, headers, body=body, timeout=espera)
+            try: r = enviar(url, headers, body=body, timeout=espera)
             except Exception:
                 with self._transacao() as (_, s):
                     self._consumir(s, None, provedor, modelo)
@@ -392,18 +414,13 @@ def _tool(ws, caso, nome, args):
             raise ValueError("A pasta de relatórios não pode redirecionar a geração de DOCX.")
         if not os.path.isfile(fonte):
             raise ValueError("Minuta não encontrada em 03-relatorios.")
-        from pathlib import Path
-        script = Path(__file__).resolve().parents[1] / "skills" / "relatorio-ip-fraude" / "scripts" / "gerar_docx.py"
         destino = os.path.join(pasta, "RELATORIO-" + caso + "-v" + re.search(r"\d+", minuta).group() + ".docx")
         if os.path.realpath(destino) != os.path.abspath(destino):
             raise ValueError("O destino do DOCX não pode ser um link simbólico.")
-        r = subprocess.run([sys.executable, str(script), fonte, "--saida", destino], cwd=ws, timeout=180,
-                           capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=SEM_JANELA,
-                           env=dict(os.environ, CPJ_WORKSPACE=ws, PYTHONIOENCODING="utf-8"))
-        if r.returncode:
-            raise ValueError((r.stderr or r.stdout)[-1200:])
+        from tarefas import gerar_docx
+        resultado = gerar_docx(ws, caso, minuta)
         return {"ok": True, "docx": os.path.relpath(destino, os.path.join(ws, "casos", caso)).replace("\\", "/"),
-                "mensagem": (r.stdout or "")[-1000:]}
+                "mensagem": resultado.get("pendentes", "")}
     raise ValueError("Ferramenta não reconhecida.")
 
 
@@ -594,7 +611,7 @@ def rotear(ws, capacidades=None, executor=None, destinos_aceitos=None, preferido
             try:
                 return executor(provedor, cfg)
             except Exception as e:
-                if isinstance(e, (OrcamentoExcedido, ConsentimentoNecessario)): raise
+                if isinstance(e, (OrcamentoExcedido, ConsentimentoNecessario, ResultadoIncerto)): raise
                 tentativas += 1
                 mensagem = str(e) if isinstance(e, RuntimeError) else f"falha inesperada ({type(e).__name__})"
                 
@@ -713,9 +730,12 @@ def _http_json(url, headers, body=None, timeout=90):
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read(24 * 1024 * 1024).decode("utf-8"))
     except urllib.error.HTTPError as e:
-        raise RuntimeError(f"O provedor recusou o pedido (HTTP {e.code}).") from None
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, UnicodeDecodeError):
-        raise RuntimeError("Falha de conexão ou resposta inválida do provedor configurado.") from None
+        if e.code >= 500:
+            raise ResultadoIncerto("Resultado externo incerto (HTTP " + str(e.code) +
+                                  "): confira no provedor antes de repetir a chamada.") from None
+        raise PedidoRecusado(f"O provedor recusou o pedido (HTTP {e.code}).") from None
+    except (OSError, http.client.HTTPException, json.JSONDecodeError, UnicodeDecodeError):
+        raise ResultadoIncerto("Resultado externo incerto: conexão ou resposta inválida; confira no provedor antes de repetir.") from None
 
 
 def transcrever_png(ws, job, provedor, config, png, orcamento):
@@ -819,6 +839,8 @@ def executar(ws, job, nome, provedor, config, pl):
     logpath = os.path.join(logdir, f"{time.time_ns()}-{job['id']}-{job.get('_etapa', {}).get('id', 'pedido')}-{job['acao']}-{provedor}.log")
     log = open(logpath, "w", encoding="utf-8")
     chamadas = [0]
+    sessao_usada = False
+    chamada_tentada = False
     parar = threading.Event()
     cancelado = threading.Event()
 
@@ -830,7 +852,16 @@ def executar(ws, job, nome, provedor, config, pl):
 
     threading.Thread(target=vigia, daemon=True).start()
 
+    def chamar(payload):
+        nonlocal sessao_usada, chamada_tentada
+        chamada_tentada = True
+        resposta = orcamento.chamar(provedor, model, url, headers, payload, config.get("timeout", 90))
+        sessao_usada = True
+        return resposta
+
     def invoke(tool_name, arguments):
+        if cancelado.is_set() or (pl.pedido(job["id"]) or {}).get("cancelar"):
+            raise RuntimeError("Cancelado pela Central.")
         chamadas[0] += 1
         pl.progresso(job["id"], nome, min(95, 10 + chamadas[0] * 3),
                      f"{provedor}: {tool_name}", f"{chamadas[0]} ferramenta(s)")
@@ -851,7 +882,7 @@ def executar(ws, job, nome, provedor, config, pl):
                 payload = {"model": model, "instructions": prompt, "input": entrada, "tools": _responses_tools(),
                            "tool_choice": "auto", "max_output_tokens": 12000}
                 if previous: payload["previous_response_id"] = previous
-                r = orcamento.chamar(provedor, model, url, headers, payload, config.get("timeout", 90))
+                r = chamar(payload)
                 previous = r.get("id")
                 itens = r.get("output") or []
                 calls = [x for x in itens if x.get("type") == "function_call"]
@@ -873,8 +904,8 @@ def executar(ws, job, nome, provedor, config, pl):
             for _ in range(80):
                 if cancelado.is_set() or (pl.pedido(job["id"]) or {}).get("cancelar"):
                     raise RuntimeError("Cancelado pela Central.")
-                r = orcamento.chamar(provedor, model, url, headers, {"model": model, "messages": messages, "tools": _openai_tools(),
-                                               "tool_choice": "auto", "max_tokens": 12000}, config.get("timeout", 90))
+                r = chamar({"model": model, "messages": messages, "tools": _openai_tools(),
+                            "tool_choice": "auto", "max_tokens": 12000})
                 msg = r["choices"][0]["message"]
                 messages.append(msg)
                 calls = msg.get("tool_calls") or []
@@ -896,8 +927,8 @@ def executar(ws, job, nome, provedor, config, pl):
             for _ in range(80):
                 if cancelado.is_set() or (pl.pedido(job["id"]) or {}).get("cancelar"):
                     raise RuntimeError("Cancelado pela Central.")
-                r = orcamento.chamar(provedor, model, url, headers, {"model": model, "max_tokens": 12000, "system": prompt,
-                                               "messages": messages, "tools": anth_tools}, config.get("timeout", 90))
+                r = chamar({"model": model, "max_tokens": 12000, "system": prompt,
+                            "messages": messages, "tools": anth_tools})
                 blocks = r.get("content", []); messages.append({"role": "assistant", "content": blocks})
                 calls = [b for b in blocks if b.get("type") == "tool_use"]
                 if not calls:
@@ -917,9 +948,9 @@ def executar(ws, job, nome, provedor, config, pl):
             for _ in range(80):
                 if cancelado.is_set() or (pl.pedido(job["id"]) or {}).get("cancelar"):
                     raise RuntimeError("Cancelado pela Central.")
-                r = orcamento.chamar(provedor, model, url, headers, {"systemInstruction": {"parts": [{"text": prompt}]}, "contents": contents,
-                                               "tools": [{"functionDeclarations": declarations}],
-                                               "generationConfig": {"maxOutputTokens": 12000}}, config.get("timeout", 90))
+                r = chamar({"systemInstruction": {"parts": [{"text": prompt}]}, "contents": contents,
+                            "tools": [{"functionDeclarations": declarations}],
+                            "generationConfig": {"maxOutputTokens": 12000}})
                 cand = (r.get("candidates") or [{}])[0].get("content") or {"parts": []}
                 parts = cand.get("parts", []); contents.append({"role": "model", "parts": parts})
                 calls = [p.get("functionCall") for p in parts if p.get("functionCall")]
@@ -937,6 +968,17 @@ def executar(ws, job, nome, provedor, config, pl):
             raise RuntimeError("Cancelado pela Central.")
         log.write("execução concluída\n")
         return {"resumo": resumo[:1500], "log": os.path.relpath(logpath, ws), "provedor": provedor, "modelo": model}
+    except (OrcamentoExcedido, ConsentimentoNecessario, ResultadoIncerto):
+        raise
+    except PedidoRecusado:
+        if sessao_usada:
+            raise ResultadoIncerto("A sessão externa já produziu resultados; confira as saídas antes de repetir.") from None
+        raise
+    except Exception as exc:
+        if chamada_tentada and "cancelado pela central" not in str(exc).casefold():
+            raise ResultadoIncerto("A sessão externa já foi iniciada e pode ter resultados parciais; "
+                                  "confira as saídas e o provedor antes de repetir.") from None
+        raise
     finally:
         parar.set()
         log.close()

@@ -658,3 +658,69 @@ details summary { font-size: 14px; min-height: 32px; padding: 5px 0; }
   z-index: 10;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
+
+/* --------------------------------------------------------------------------
+   MV01: movimento do console ASTRA. Entradas curtas, hover e status vivos;
+   grafo e mapa permanecem parados (GF10). Movimento reduzido desliga tudo.
+   -------------------------------------------------------------------------- */
+:root { --mv-ease: cubic-bezier(.2, .7, .2, 1); --mv-glow: rgba(49,217,109,.22); }
+
+@keyframes mv-entrar { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes mv-modal { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes mv-varrer { 0%, 60% { background-position: -30% 0; } 100% { background-position: 130% 0; } }
+@keyframes mv-pulso { 0% { box-shadow: 0 0 0 0 var(--mv-glow); } 70%, 100% { box-shadow: 0 0 0 7px rgba(49,217,109,0); } }
+@keyframes mv-brilho { from { background-position: -60% 0; } to { background-position: 160% 0; } }
+
+/* Troca de aba: o painel desliza e surge; coordenadas do grafo/mapa não são afetadas. */
+section.aba.on:not(#grafo):not(#mapa) { animation: mv-entrar .34s var(--mv-ease) backwards; }
+.modal:not([hidden]) > .card { animation: mv-modal .24s var(--mv-ease) backwards; }
+
+/* Reflexo percorrendo a faixa verde do header de vidro. */
+header::after {
+  content: "";
+  position: absolute;
+  inset: -2px 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.9), transparent) no-repeat;
+  background-size: 22% 100%;
+  animation: mv-varrer 7s linear infinite;
+  pointer-events: none;
+}
+
+/* Elevação com brilho verde em itens compactos; cartões grandes só acendem a borda. */
+.kpi, .etapa-card {
+  transition: transform .2s var(--mv-ease), border-color .2s ease, box-shadow .2s ease;
+}
+.kpi:hover, .etapa-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--astra-green-border);
+  box-shadow: var(--shadow), 0 12px 30px var(--ambient), 0 0 0 1px var(--astra-green-border);
+}
+main .card { transition: border-color .2s ease, box-shadow .2s ease; }
+main .card:not(.card .card):not(.mapa-superficie):hover {
+  border-color: var(--astra-green-border);
+  box-shadow: var(--shadow), 0 0 0 1px var(--astra-green-soft), 0 14px 40px var(--ambient);
+}
+.btn, nav button { transition: background-color .12s ease, border-color .12s ease, color .12s ease, box-shadow .2s ease, transform .12s ease; }
+.btn.pri:hover { box-shadow: 0 0 0 3px var(--ring), 0 6px 20px var(--mv-glow); }
+.btn:active, nav button:active { transform: scale(.98); }
+
+/* Status vivos: etapa em curso, contador de pendências e progresso. */
+.etapa-card.ativa { animation: mv-pulso 2.4s ease-out infinite; }
+.etapa-card.ativa:hover { animation: none; }
+nav button .n { animation: mv-pulso 2.4s ease-out infinite; }
+.prog > i {
+  background-image: linear-gradient(90deg, transparent, rgba(255,255,255,.5), transparent);
+  background-repeat: no-repeat;
+  background-size: 40% 100%;
+  animation: mv-brilho 1.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  header::after { display: none; }
+  .kpi:hover, .etapa-card:hover, .btn:active, nav button:active { transform: none; }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active) {
+  header::after { display: none; }
+}

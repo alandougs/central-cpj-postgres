@@ -577,7 +577,9 @@ class TesteCorrelacoesMapaEtapa1(unittest.TestCase):
         with open(html_path, encoding="utf-8") as f:
             html_txt = f.read()
 
-        self.assertNotRegex(js_txt, r"https?://", "inteligencia-mapa.js não pode conter URLs externas")
+        # MP91 (escolha do operador): o mapa real busca imagens em tile.openstreetmap.org; nenhuma outra URL externa.
+        js_sem_osm = js_txt.replace("https://tile.openstreetmap.org/{z}/{x}/{y}.png", "").replace("https://www.openstreetmap.org/copyright", "")
+        self.assertNotRegex(js_sem_osm, r"https?://", "inteligencia-mapa.js só pode citar os tiles do OpenStreetMap e a página de atribuição")
         for id_atalho in ("b-insp-qualificacao", "b-insp-caso", "b-insp-grafo", "b-insp-fonte"):
             self.assertIn(id_atalho, js_txt, f"Atalho obrigatório ausente no inspetor do mapa: {id_atalho}")
         self.assertIn('/static/js/inteligencia-mapa.js', html_txt)

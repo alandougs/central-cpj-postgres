@@ -8,9 +8,10 @@ from urllib.parse import urlsplit
 from flask import current_app, jsonify, request, send_file
 
 
+HOST_TILES_MAPA = "https://tile.openstreetmap.org"  # único host externo: imagens do mapa real (MP91)
 CSP_INTERFACE = (
     "default-src 'self'; script-src 'self' 'unsafe-inline'; "
-    "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+    f"style-src 'self' 'unsafe-inline'; img-src 'self' data: {HOST_TILES_MAPA}; "
     "connect-src 'self'; frame-src 'self'; object-src 'self'; "
     "base-uri 'none'; form-action 'self'; frame-ancestors 'self'"
 )

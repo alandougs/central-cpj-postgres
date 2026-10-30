@@ -13,6 +13,7 @@ Valida:
 - AG-R09: Notas analíticas com alerta de hipótese e persistência local.
 - AG-R10: Coerência com extração documental Markdown enxuta (sem entidades.csv).
 """
+import base64
 import json
 import os
 from pathlib import Path
@@ -24,6 +25,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from teste_interface_rg26 import InterfaceFixtureRG26
+from teste_mapa_real_mp91 import png_ficticio  # MP91: o mapa real pede tiles a tile.openstreetmap.org
 
 EVIDENCIAS = Path(tempfile.gettempdir()) / "cpj-astra-ag90-20261028"
 
@@ -56,6 +58,10 @@ const url = URL_FIXTURE;
 
     await page.route('**/*', async route => {
       if (/^https?:/.test(route.request().url()) && new URL(route.request().url()).origin !== url) {
+        if (new URL(route.request().url()).hostname === 'tile.openstreetmap.org') {
+          await route.fulfill({status: 200, contentType: 'image/png', body: Buffer.from(PNG_B64, 'base64')});
+          return;
+        }
         externas.push(route.request().url());
         await route.abort();
       } else {
@@ -87,7 +93,7 @@ const url = URL_FIXTURE;
   console.error(e);
   process.exit(1);
 });
-'''.replace("URL_FIXTURE", json.dumps(url)).replace("CENARIO", cenario)
+'''.replace("URL_FIXTURE", json.dumps(url)).replace("PNG_B64", json.dumps(base64.b64encode(png_ficticio()).decode())).replace("CENARIO", cenario)
 
     resultado = subprocess.run([node, "-"], input=script, text=True, encoding="utf-8", env=env, capture_output=True, timeout=120)
     if resultado.returncode:
@@ -326,6 +332,7 @@ class InterfaceAstraAG90(InterfaceFixtureRG26):
 
   // Abre a aba de mapa
   await page.locator('#nav-btn-mapa').click();
+  await page.locator('#b-mapa-modo-estados').click();
   await page.waitForSelector('#svg-mapa-offline .mapa-ponto');
 
   // Dispara segunda requisição enquanto a primeira ainda estaria atrasada

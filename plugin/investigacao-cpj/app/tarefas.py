@@ -1,7 +1,7 @@
 """Tarefas em segundo plano da Central CPJ com progresso real:
 exportação/importação do banco de dados, importação de bases de consulta e referências, e agentes de IA.
 """
-import datetime, hashlib, io, json, os, re, shutil, subprocess, sys, threading, time, uuid, zipfile, queue
+import datetime, hashlib, io, json, os, re, shutil, subprocess, sys, tempfile, threading, time, uuid, zipfile, queue
 from pathlib import Path
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
@@ -371,6 +371,8 @@ class Tarefas:
                 partes = a["caminho"].split("/")
                 if len(partes) == 4 and partes[:2] == ["consulta", "_grafo-manual"]:
                     vinculos[partes[2]][partes[3]] = Path(temporaria, *partes).read_bytes()
+            from metadados_importacao import validar_casos_preparados
+            validar_casos_preparados(Path(temporaria) / "casos", novos)
         # 3) confirmar. A partir daqui a operação é curta e não cancelável: cada caso
         # entra inteiro por renomeação atômica, nunca como uma pasta parcialmente copiada.
         cancelar(); self.at(tid, etapa="confirmando importação")
@@ -460,16 +462,79 @@ class Tarefas:
 
 # ------------------------------------------------------------ relatório: DOCX / PDF
 def gerar_docx(ws, id_, minuta_nome, sem_assinatura=False):
+    import caso as C
+    if Path(C.WS).resolve() != Path(ws).resolve() or not re.fullmatch(r"minuta-v\d+\.md", minuta_nome):
+        raise RuntimeError("Workspace ou minuta inválidos para geração do DOCX.")
     d = os.path.join(ws, "casos", id_, "03-relatorios")
     v = re.findall(r"\d+", minuta_nome)[0]
     saida = os.path.join(d, f"RELATORIO-{id_}-v{v}.docx")
-    cmd = [PY, os.path.join(S_REL, "gerar_docx.py"), os.path.join(d, minuta_nome), "--saida", saida]
-    if sem_assinatura: cmd.append("--sem-assinatura")
-    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=SEM_JANELA,
-                       env=dict(os.environ, PYTHONIOENCODING="utf-8"))
-    if r.returncode != 0: raise RuntimeError((r.stderr or r.stdout)[-400:])
-    pend = re.search(r"preencher\):\s*(.+)", r.stdout)
-    return {"docx": os.path.basename(saida), "pendentes": pend.group(1).strip() if pend else ""}
+    minuta = os.path.join(d, minuta_nome)
+    temporario = os.path.join(d, ".docx-geracao-" + uuid.uuid4().hex + ".docx")
+    fonte_snapshot = None
+    copia_anterior = None
+    with C.trava(id_):
+        try:
+            _confinado(ws, minuta)
+            _confinado(ws, saida)
+            with open(minuta, "rb") as f:
+                conteudo_minuta = f.read()
+            sha_minuta = hashlib.sha256(conteudo_minuta).hexdigest()
+            # Mesmo diretório preserva imagens relativas e descoberta do fluxo do caso.
+            with tempfile.NamedTemporaryFile(mode="wb", dir=d, prefix=".minuta-fonte-", suffix=".md.tmp", delete=False) as f:
+                fonte_snapshot = f.name
+                f.write(conteudo_minuta)
+                f.flush()
+                os.fsync(f.fileno())
+            cmd = [PY, os.path.join(S_REL, "gerar_docx.py"), fonte_snapshot, "--saida", temporario]
+            if sem_assinatura: cmd.append("--sem-assinatura")
+            r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=SEM_JANELA,
+                               env=dict(os.environ, CPJ_WORKSPACE=str(ws), PYTHONIOENCODING="utf-8"), timeout=180)
+            if r.returncode != 0: raise RuntimeError((r.stderr or r.stdout)[-400:])
+            if _sha(minuta) != sha_minuta:
+                raise RuntimeError("Minuta alterada durante a geração; DOCX não publicado.")
+            from docx import Document
+            try:
+                Document(temporario)
+            except Exception as e:
+                raise RuntimeError("A geração não produziu um DOCX válido; arquivo anterior preservado.") from e
+            sha_docx = _sha(temporario)
+            if os.path.exists(saida):
+                historico = os.path.join(d, "historico-docx")
+                _confinado(ws, historico)
+                os.makedirs(historico, exist_ok=True)
+                sha_antigo = _sha(saida)
+                copia = os.path.join(historico, sha_antigo + "-" + os.path.basename(saida))
+                _confinado(ws, copia)
+                if not os.path.exists(copia):
+                    with open(saida, "rb") as origem, open(copia, "xb") as destino:
+                        shutil.copyfileobj(origem, destino)
+                if _sha(copia) != sha_antigo or _sha(saida) != sha_antigo:
+                    raise RuntimeError("Não foi possível preservar o DOCX anterior.")
+                copia_anterior = copia
+            from vinculos_docx import emitir
+            vinculo = emitir(ws, id_, minuta_nome, os.path.basename(saida), sha_minuta, sha_docx, agora())
+            os.replace(temporario, saida)
+            def registrar(c):
+                itens = c.setdefault("vinculos_docx", [])
+                if not isinstance(itens, list): raise ValueError("Histórico de DOCX inválido.")
+                itens.append(vinculo)
+            try:
+                C.atualizar(id_, registrar)
+            except (OSError, ValueError):
+                # Se o vínculo não puder ser persistido, restaura a versão anterior.
+                if copia_anterior:
+                    shutil.copyfile(copia_anterior, temporario)
+                    os.replace(temporario, saida)
+                else:
+                    os.remove(saida)
+                raise
+            pend = re.search(r"preencher\):\s*(.+)", r.stdout)
+            return {"docx": os.path.basename(saida), "pendentes": pend.group(1).strip() if pend else ""}
+        except (OSError, ValueError, subprocess.TimeoutExpired) as e:
+            raise RuntimeError("Falha ao gerar ou vincular o DOCX; confira os arquivos preservados.") from e
+        finally:
+            if os.path.isfile(temporario): _apagar(temporario)
+            if fonte_snapshot is not None: _apagar(fonte_snapshot)
 
 
 def soffice():
@@ -484,8 +549,29 @@ def gerar_pdf(ws, id_, docx_nome):
         raise RuntimeError("Conversão automática para PDF requer o LibreOffice (gratuito). Alternativa: Abrir no Word → "
                            "Imprimir → impressora 'Microsoft Print to PDF'.")
     d = os.path.join(ws, "casos", id_, "03-relatorios")
-    r = subprocess.run([exe, "--headless", "--convert-to", "pdf", "--outdir", d, os.path.join(d, docx_nome)],
-                       capture_output=True, text=True, timeout=180, creationflags=SEM_JANELA)
+    if os.path.basename(docx_nome) != docx_nome or not docx_nome.lower().endswith(".docx"):
+        raise RuntimeError("Informe um DOCX do caso.")
+    origem = os.path.join(d, docx_nome)
     pdf = os.path.splitext(docx_nome)[0] + ".pdf"
-    if not os.path.exists(os.path.join(d, pdf)): raise RuntimeError("Falha na conversão: " + (r.stderr or r.stdout)[-300:])
+    destino = os.path.join(d, pdf)
+    try:
+        _confinado(ws, origem)
+        _confinado(ws, destino)
+        # O conversor recebe uma cópia estável e só publica uma saída desta execução.
+        with tempfile.TemporaryDirectory(prefix=".pdf-", dir=d) as tmp:
+            copia = os.path.join(tmp, docx_nome)
+            shutil.copyfile(origem, copia)
+            r = subprocess.run([exe, "--headless", "--convert-to", "pdf", "--outdir", tmp, copia],
+                               capture_output=True, text=True, timeout=180, creationflags=SEM_JANELA)
+            novo = os.path.join(tmp, pdf)
+            _confinado(ws, novo)
+            if r.returncode != 0 or not os.path.isfile(novo):
+                raise RuntimeError("Falha na conversão: " + (r.stderr or r.stdout)[-300:])
+            with open(novo, "rb") as f:
+                if f.read(5) != b"%PDF-":
+                    raise RuntimeError("O conversor não gerou um PDF válido.")
+            _confinado(ws, destino)
+            os.replace(novo, destino)
+    except (OSError, ValueError, subprocess.TimeoutExpired) as e:
+        raise RuntimeError("Falha na conversão; PDF anterior preservado.") from e
     return {"pdf": pdf}

@@ -184,7 +184,8 @@ if st == 200:
 x = Cli()
 for _ in range(5): x.req("POST", "/api/entrar", {"login": CRED["escrivao"]["login"], "senha": "errada123"})
 st, j = x.req("POST", "/api/entrar", {"login": CRED["escrivao"]["login"], "senha": CRED["escrivao"]["senha"]})
-ok(st == 401 and "tentativas" in j.get("erro", ""), "bloqueio após 5 tentativas erradas")
+# AS51: conta já limitada recebe 429, sem amplificar a auditoria; os 5 erros iniciais continuam 401.
+ok(st == 429 and "tentativas" in j.get("erro", ""), "bloqueio após 5 tentativas erradas")
 ok(any(e["acao"] == "os_cadastrada" for e in adm.req("GET", "/api/auditoria")[1]), "auditoria registrou o cadastro da O.S.")
 
 print("9. Perfis editáveis, pasta pessoal e responsáveis")

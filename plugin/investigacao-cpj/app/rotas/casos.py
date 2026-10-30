@@ -14,7 +14,10 @@ from flask import Blueprint, abort, jsonify, request, send_file, url_for
 from werkzeug.exceptions import HTTPException
 from web_seguro import enviar_arquivo_caso
 from rotas.comum import (
+    MOTORES_OCR,
     C,
+    alterar_proc,
+    cancelar_trabalho,
     D_OS,
     EDITAVEIS,
     EDITAVEIS_GESTAO,
@@ -134,7 +137,7 @@ def api_caso(id_):
                 for k in (
                     "id", "ordem_servico", "bo", "inquerito", "processo", "natureza", "status", "prazo",
                     "requisitante", "escrivao", "prioridade", "determinacao", "criado_por", "datas",
-                    "observacoes", "documentos", "preenchimento_os"
+                    "observacoes", "documentos", "preenchimento_os", "revisao"
                 )
             }
         ),
@@ -157,35 +160,50 @@ def api_caso(id_):
 def api_caso_salvar(id_):
     u = request.usuario
     d = request.get_json(force=True) or {}
+    if not isinstance(d, dict):
+        return jsonify({"erro": "Informe os campos da ficha."}), 400
     permitidos = EDITAVEIS if auth.pode(u["perfil"], "trabalho") else EDITAVEIS_GESTAO
     try:
-        c = C.carregar(id_)
-        if not pode_alterar_os(u, c):
-            return jsonify({"erro": "Só quem cadastrou a O.S. (ou o delegado) pode alterá-la."}), 403
-        revisao_esperada = d.pop("revisao", None) or d.pop("revisao_esperada", None)
-        if revisao_esperada is not None:
-            try:
-                revisao_esperada = int(revisao_esperada)
-            except ValueError:
-                revisao_esperada = None
+        revisao_esperada = d.get("revisao", d.get("revisao_esperada"))
+        if "revisao" in d or "revisao_esperada" in d:
+            if (type(revisao_esperada) is not int or revisao_esperada < 1
+                    or ("revisao" in d and "revisao_esperada" in d and d["revisao"] != d["revisao_esperada"])):
+                return jsonify({"erro": "Revisão inválida; recarregue a ficha."}), 400
         novo_status = d.pop("status", None) if auth.pode(u["perfil"], "trabalho") else None
         pares = {k: v for k, v in d.items() if k in permitidos}
-        if pares:
-            C.set_campos(id_, pares, revisao_esperada=revisao_esperada)
-            c_manual = C.carregar(id_)
-            if "preenchimento_os" in c_manual:
-                registro = c_manual["preenchimento_os"]
+        # Legado: patch de campos e comando de status isolado continuam disponíveis.
+        # Uma ficha completa/mista nunca pode restaurar estado sem conferir sua revisão.
+        if revisao_esperada is None and (d.get("origem_edicao") == "ficha" or (novo_status and pares)):
+            return jsonify({"conflito": True, "erro": "revisao_obrigatoria", "mensagem": "Recarregue a ficha antes de salvar."}), 409
+        if novo_status is not None and novo_status not in C.STATUS:
+            raise ValueError("Status inválido.")
+        with C.transacao(id_, esperada=revisao_esperada) as c:
+            if not pode_alterar_os(u, c):
+                raise PermissionError("Só quem cadastrou a O.S. (ou o delegado) pode alterá-la.")
+            C.aplicar_campos(c, pares)
+            if pares and "preenchimento_os" in c:
+                registro = c["preenchimento_os"]
                 for k in pares:
                     registro.get("fontes", {}).pop(k, None)
                     registro.get("conflitos", {}).pop(k, None)
-                registro["pendentes"] = [k for k in D_OS.CAMPOS if not c_manual.get(k)]
-                C.salvar(c_manual)
-        if novo_status and novo_status != c.get("status"):
-            C.status(id_, novo_status, origem="central")
+                registro["pendentes"] = [k for k in D_OS.CAMPOS if not c.get(k)]
+            if novo_status and novo_status != c.get("status"):
+                anterior = c.get("status")
+                c["status"] = novo_status
+                c["datas"][novo_status] = C.hoje()
+                if novo_status == "entregue":
+                    c["baixa"] = {"data": c["datas"]["entregue"], "origem": "central", "arquivo": None,
+                                  "registrado_em": datetime.datetime.now().isoformat(timespec="seconds")}
+                elif anterior == "entregue":
+                    c["baixa_ignorar"] = (c.get("baixa") or {}).get("arquivo")
+                    c["baixa"] = None
+                    c["datas"]["entregue"] = None
         auditar("caso_editado", f"{id_}: {', '.join(pares) or ''}{' status→' + novo_status if novo_status else ''}")
-        return jsonify(resumo(C.carregar(id_)))
+        return jsonify(resumo(c))
     except C.ConcorrenciaErro as e:
         return jsonify({"conflito": True, "erro": "conflito_concorrencia", "mensagem": str(e)}), 409
+    except PermissionError as e:
+        return jsonify({"erro": str(e)}), 403
     except (FileNotFoundError, ValueError) as e:
         return jsonify({"erro": str(e)}), 400
 
@@ -209,9 +227,16 @@ def api_os_detectar():
                     return jsonify({"erro": "Arquivo grande: envie para processamento completo."}), 413
                 f.write(dados)
             try:
-                valores, ambiguos = D_OS.extrair(D_OS.ler_original(p), arquivo.filename)
+                texto = D_OS.ler_original(p)
+                valores, ambiguos = D_OS.extrair(texto, arquivo.filename)
+                ordem = D_OS.escolher_ordem(D_OS.ordens_de_texto(texto), request.form.get("os", ""))
             except Exception:
                 continue  # PDF protegido/sem texto seguirá para OCR no caso
+            if ordem:
+                for k, v in ordem["campos"].items():
+                    valores[k] = {"valor": v, "documento": arquivo.filename, "pagina": ordem["pagina"],
+                                  "trecho": ordem["trecho"], "metodo": "os_vigente"}
+                    ambiguos.pop(k, None)
         for k, item in valores.items():
             if k in conflitos:
                 conflitos[k].append(item)
@@ -410,6 +435,8 @@ def api_reprocessar(id_, doc):
     d = request.get_json(silent=True) or {}
     if not isinstance(d, dict): return jsonify({"erro": "Pedido inválido."}), 400
     modo = d.get("modo", "inteligente")
+    ocr = d.get("ocr") or None             # OC01: motor de OCR forçado (tesseract|rapidocr); vazio = padrão
+    if ocr not in MOTORES_OCR | {None}: return jsonify({"erro": "Motor de OCR inválido."}), 400
     try:
         arq = t["arquivo"]
         if os.path.basename(arq) != arq: raise ValueError("Arquivo inválido.")
@@ -423,10 +450,67 @@ def api_reprocessar(id_, doc):
             registrar_tratamento(id_, [f"- Reprocessamento {modo}: envio externo recusado; não iniciado."])
         return jsonify(aviso)
     enfileirar(id_, doc, arq, modo=modo, usuario=request.usuario["login"], consentimento=cons,
-               grupo_ia="pdf-" + os.urandom(12).hex() if cons else None, limitacao=limitacao)
+               grupo_ia="pdf-" + os.urandom(12).hex() if cons else None, limitacao=limitacao, ocr=ocr)
     if cons: auditar("consentimento_aceito", f"{id_}/{doc}: {modo}; {cons['destinos']}")
     auditar("reprocessar", f"{id_}/{doc}")
     return jsonify({"ok": True, "modo": modo, "limitacao": limitacao})
+
+
+def _identidade_trabalho():
+    d = request.get_json(silent=True) or {}
+    if not isinstance(d, dict) or not all(isinstance(d.get(k), str) and d.get(k) for k in ("doc", "enfileirado")):
+        return None
+    return d
+
+
+@bp_casos.post("/api/casos/<id_>/processamento/cancelar")
+@requer("trabalho")
+def api_processamento_cancelar(id_):
+    d = _identidade_trabalho()
+    if d is None:
+        return jsonify({"erro": "Informe o documento e o pedido de processamento."}), 400
+    try:
+        C.caminho(id_)
+        status = cancelar_trabalho(id_, d["doc"], d["enfileirado"])
+    except (LookupError, ValueError) as e:
+        return jsonify({"erro": str(e)}), 409
+    except (FileNotFoundError, OSError):
+        abort(404)
+    auditar("cancelar_processamento", f"{id_}/{d['doc']}")
+    from rotas.comum import registrar_tratamento
+    registrar_tratamento(id_, [f"- Processamento de {d['doc']} cancelado por {request.usuario['login']}; checkpoints preservados."])
+    return jsonify({"ok": True, "status": status})
+
+
+@bp_casos.post("/api/casos/<id_>/processamento/dispensar")
+@requer("trabalho")
+def api_processamento_dispensar(id_):
+    """Remove da fila uma falha/cancelamento encerrado; o registro e os arquivos permanecem."""
+    d = _identidade_trabalho()
+    if d is None or not isinstance(d.get("fim"), str) or not d.get("fim"):
+        return jsonify({"erro": "Informe o documento, o pedido e o término do processamento."}), 400
+    atual = next((t for t in ler_proc(id_).get("trabalhos", []) if t.get("doc") == d["doc"]), None)
+    if atual is None:
+        abort(404)
+    if (atual.get("enfileirado"), atual.get("fim")) != (d["enfileirado"], d["fim"]) or atual.get("status") not in ("erro", "cancelado"):
+        return jsonify({"erro": "Só falhas ou cancelamentos encerrados podem sair da fila; atualize a lista."}), 409
+    if atual.get("dispensa"):
+        return jsonify({"ok": True, "ja_dispensado": True})
+    auditar("dispensar_processamento", f"{id_}/{d['doc']}")  # auditoria antes da gravação: sem registro, nada muda
+    resultado = {}
+
+    def _mutar(proc):
+        t = next((t for t in proc.get("trabalhos", []) if t.get("doc") == d["doc"]), None)
+        if not t or (t.get("enfileirado"), t.get("fim")) != (d["enfileirado"], d["fim"]) or t.get("status") not in ("erro", "cancelado"):
+            raise LookupError("Processamento alterado durante a dispensa.")
+        resultado["ja"] = bool(t.get("dispensa"))
+        t.setdefault("dispensa", {"usuario": request.usuario["login"], "em": datetime.datetime.now().isoformat(timespec="seconds")})
+        return proc
+    try:
+        alterar_proc(id_, _mutar)
+    except LookupError as e:
+        return jsonify({"erro": str(e)}), 409
+    return jsonify({"ok": True, "ja_dispensado": resultado["ja"]})
 
 
 @bp_casos.post("/api/casos/<id_>/baixa")
@@ -619,9 +703,11 @@ def api_fila():
     limite = (datetime.datetime.now() - datetime.timedelta(hours=12)).isoformat()
     for c in C.listar():
         for t in ler_proc(c["id"]).get("trabalhos", []):
+            if t.get("dispensa"):
+                continue
             if t.get("status") in ("na_fila", "processando", "erro") or (t.get("fim") or "") >= limite:
                 ts.append(t | {"caso": c["id"]})
-    ordem = {"processando": 0, "na_fila": 1, "erro": 2, "concluido": 3}
+    ordem = {"processando": 0, "na_fila": 1, "erro": 2, "cancelado": 3, "concluido": 4}
     ts.sort(key=lambda t: (ordem.get(t.get("status"), 9), t.get("enfileirado") or ""))
     return jsonify({"trabalhos": ts, "idioma_ocr": idioma_ocr(ambiente_ocr())})
 

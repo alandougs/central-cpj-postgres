@@ -1,4 +1,5 @@
 """AP38: navegação canônica do mapa em Edge, somente workspace fictício TEMP."""
+import base64
 from pathlib import Path
 import json
 import os
@@ -9,6 +10,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from teste_interface_rg26 import InterfaceFixtureRG26
+from teste_mapa_real_mp91 import png_ficticio  # MP91: o mapa real pede tiles a tile.openstreetmap.org
 
 
 def executar_navegador_ap38(url, cenario):
@@ -32,7 +34,8 @@ const url=URL_FIXTURE;
   page.on('console',m=>{if(m.type()==='error')erros.push(m.text())});
   await page.route('**/*',async route=>{
    if(/^https?:/.test(route.request().url())&&new URL(route.request().url()).origin!==url){
-    externas.push(route.request().url());await route.abort();
+    if(new URL(route.request().url()).hostname==='tile.openstreetmap.org')await route.fulfill({status:200,contentType:'image/png',body:Buffer.from(PNG_B64,'base64')});
+    else{externas.push(route.request().url());await route.abort()}
    }else await route.continue();
   });
   await page.goto(url+'/#casos');await page.waitForLoadState('networkidle');
@@ -49,7 +52,7 @@ const url=URL_FIXTURE;
   process.exit(process.exitCode||0);
  }
 })().catch(e=>{console.error(e);process.exitCode=1});
-'''.replace('URL_FIXTURE', json.dumps(url)).replace('CENARIO', cenario)
+'''.replace('URL_FIXTURE', json.dumps(url)).replace('PNG_B64', json.dumps(base64.b64encode(png_ficticio()).decode())).replace('CENARIO', cenario)
     try:
         resultado = subprocess.run([node, '-'], input=script, text=True, encoding='utf-8',
                                    env=env, capture_output=True, timeout=55)
@@ -75,6 +78,7 @@ class MapaUnicoAP38(InterfaceFixtureRG26):
   assert.equal(await page.locator('#mapa #m-mapa #svg-mapa-offline').count(),1);
   assert.equal(await page.locator('#pesquisa #m-mapa,#grafo #m-mapa').count(),0);
   assert.equal(await page.locator('#svg-mapa-offline').count(),1);
+  await page.locator('#b-mapa-modo-estados').click();
   await page.evaluate(()=>window.mapaInstanciaAP38=document.getElementById('svg-mapa-offline'));
   await page.locator('#mapa-f-uf').fill('SP');
   await page.locator('#f-mapa-filtros button[type=submit]').click();
@@ -121,6 +125,7 @@ class MapaUnicoAP38(InterfaceFixtureRG26):
   const ponto={id:'p-ap38',nome:'Pessoa fictícia',tipo_pessoa:'PF',caso:'OS-931-2099',municipio:'Local fictício',uf:'SP',lat:-22,lon:-51,precisao:'municipio_aproximado'};
   await page.route('**/api/inteligencia/mapa*',r=>r.fulfill({json:{pontos:[ponto],grupos:[{id:'g-ap38',total:1,registros_ids:[ponto.id],municipio:ponto.municipio,uf:'SP',lat:ponto.lat,lon:ponto.lon}],sem_localizacao:[],resumo:{},cartografia:{ufs:{}}}}));
   await page.locator('#nav button[data-a="mapa"]').click();
+  await page.locator('#b-mapa-modo-estados').click();
   await page.waitForSelector('.mapa-ponto');
   for(const width of [1440,390,1024]){
    await page.setViewportSize({width,height:1000});
@@ -142,6 +147,7 @@ class MapaUnicoAP38(InterfaceFixtureRG26):
   await page.evaluate(()=>CPJInteligenciaMapa.ativarModoPesquisa('correlacoes'));
   await page.locator('[data-corr-acao="mapa"]').click();
   await page.waitForLoadState('networkidle');
+  await page.locator('#b-mapa-modo-estados').click();
   await page.locator('#b-mapa-zoom-in').click();
   const zoom=await page.locator('#mapa-zoom-label').textContent();
   await page.locator('#nav button[data-a="pesquisa"]').click();

@@ -1,5 +1,6 @@
 """SIG01: citações e assinatura no DOCX; somente modelo geométrico fictício."""
 import hashlib
+import json
 import os
 from pathlib import Path
 import sys
@@ -42,6 +43,11 @@ class FolhasAssinatura(opcoes.TesteOpcoesDocx):
         self.assertTrue(p.paragraph_format.keep_with_next)
 
     def test_final_da_etapa_regenera_docx_do_modelo_mesmo_se_agente_entregou_arquivo_recente(self):
+        # A etapa de produção pertence a um caso real do modelo de dados, cujo estado
+        # autoritativo recebe o vínculo entre fonte e DOCX após a geração.
+        (self.rel.parent/'caso.json').write_text(json.dumps({
+            'id':'OS-FAKE-2026','status':'minuta','datas':{},'relatorios':[]
+        }),encoding='utf-8')
         destino=self.rel/'RELATORIO-OS-FAKE-2026-v01.docx'
         d=Document();d.add_paragraph('Arquivo fictício do agente, sem assinatura nem modelo');d.save(destino)
         sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
@@ -50,6 +56,8 @@ class FolhasAssinatura(opcoes.TesteOpcoesDocx):
             resultado=plantao.pos_processar(str(self.ws),'OS-FAKE-2026','relatorio')
         self.assertEqual(resultado['docx'],destino.name)
         self.assertGreater(len(Document(destino).inline_shapes),0,'Pós-processamento aceitou DOCX sem assinatura')
+        c=json.loads((self.rel.parent/'caso.json').read_text(encoding='utf-8'))
+        self.assertEqual(c['vinculos_docx'][-1]['sha256_docx'],hashlib.sha256(destino.read_bytes()).hexdigest())
 
 
 if __name__=='__main__':unittest.main(verbosity=2)

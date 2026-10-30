@@ -14,7 +14,7 @@ async function carregarCasos(){const cs=await api(`/api/casos?q=${enc($("#q-caso
 
  <td>${esc(c.bo||"—")}<br><span class="muted">${esc(c.inquerito||"")}</span></td><td>${esc([...c.vitimas,...c.investigados].slice(0,3).join("; ")||"—")}</td><td>${esc(c.modalidade||"—")}</td>
 
- <td>${c.processando?badge("processando")+barraHTML(c.progresso_proc):(c.erro?badge("erro"):esc(c.status))}</td><td>${prazoBadge(c)}</td><td class="n">${c.paginas??"—"}</td></tr>`).join("");
+ <td>${c.processando?badge("processando")+barraHTML(c.progresso_proc):(c.erro?badge("erro"):esc(c.status))}</td><td>${prazoBadge(c)}</td><td class="n">${esc(c.paginas??"—")}</td></tr>`).join("");
 
  $$("#t-casos tr").forEach(tr=>tr.onclick=()=>abrirCaso(tr.dataset.id,true))}
 
@@ -290,7 +290,7 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;if(edCaso&&edC
 
   ${campo("vitimas","Vítima(s)",(c.vitimas||[]).join(", "))}${campo("investigados","Investigado(s)",(c.investigados||[]).join(", "))}${campo("financeiro.valor_rastreado","Valor rastreado (R$)",(c.financeiro||{}).valor_rastreado)}`;
 
- const docs=(c.documentos||[]).map(d=>`<tr><td>${esc(d.arquivo)}</td><td class="n">${d.paginas??"—"}</td><td>${esc(Object.entries(d.metodos||{}).map(([k,v])=>k+": "+v).join(", ")||d.tipo||"—")}</td></tr>`).join("");
+ const docs=(c.documentos||[]).map(d=>`<tr><td>${esc(d.arquivo)}</td><td class="n">${esc(d.paginas??"—")}</td><td>${esc(Object.entries(d.metodos||{}).map(([k,v])=>k+": "+v).join(", ")||d.tipo||"—")}</td></tr>`).join("");
 
  const proc=(j.processamento.trabalhos||[]).map(t=>`<div class="job"><div class="l1"><span>${esc(t.arquivo)} · <span class="muted">${esc(t.etapa||"")}</span></span><span>${badge(t.status)} ${T?`<button class="btn sm" data-rep="${esc(t.doc)}">reprocessar</button>`:""}</span></div>${["processando","na_fila"].includes(t.status)?barraHTML(t.progresso):""}${t.erro?`<div class="muted" style="color:var(--crit)">${esc(t.erro)}</div>`:""}</div>`).join("");
 
@@ -313,7 +313,7 @@ async function abrirCaso(id,rolar){const novoCaso=casoAberto!==id;if(edCaso&&edC
 
  <div class="acoes" style="margin:10px 0 0"><button class="btn sm" data-ir="nv-ficha">Ficha</button><button class="btn sm" data-ir="nv-relatorios">Relatórios</button>${T&&j.local!==false?'<button class="btn sm" id="b-pasta-relatorios" title="Abrir pasta dos relatórios de investigação">📁 Relatórios</button>':""}${T?'<button class="btn sm" data-ir="nv-ia">IA</button><button class="btn sm" data-ir="nv-cal">Calibração</button>':""}</div>
  ${painelInvestigativo(id,j)}
- <div class="campos" id="nv-ficha" style="margin-top:12px">${dados}</div>${c.preenchimento_os?`<div class="muted">Preenchimento automático: ${esc(ESTADO_IA_OS[c.preenchimento_os.ia]||"aguardando processamento")}. Pendentes: ${esc((c.preenchimento_os.pendentes||[]).map(k=>NOMES_OS[k]||k).join(", ")||"nenhum")}. ${Object.keys(c.preenchimento_os.conflitos||{}).length?"Dados divergentes: "+esc(Object.keys(c.preenchimento_os.conflitos).map(k=>NOMES_OS[k]||k).join(", "))+". Confira no IP antes de preencher.":""}<details><summary>Fontes dos dados preenchidos</summary>${Object.entries(c.preenchimento_os.fontes||{}).map(([k,d])=>`<p>${esc(NOMES_OS[k]||k)}: ${esc(d.documento)}, pág. ${d.pagina} — ${esc(d.trecho)} (${esc(d.metodo)})</p>`).join("")}</details></div>`:""}<label>Determinação da autoridade</label><textarea data-k="determinacao" rows="2" ${podeGestao?"":"disabled"}>${esc(c.determinacao||"")}</textarea>
+ <div class="campos" id="nv-ficha" style="margin-top:12px">${dados}</div>${c.preenchimento_os?`<div class="muted">Preenchimento automático: ${esc(ESTADO_IA_OS[c.preenchimento_os.ia]||"aguardando processamento")}. Pendentes: ${esc((c.preenchimento_os.pendentes||[]).map(k=>NOMES_OS[k]||k).join(", ")||"nenhum")}. ${Object.keys(c.preenchimento_os.conflitos||{}).length?"Dados divergentes: "+esc(Object.keys(c.preenchimento_os.conflitos).map(k=>NOMES_OS[k]||k).join(", "))+". Confira no IP antes de preencher.":""}<details><summary>Fontes dos dados preenchidos</summary>${Object.entries(c.preenchimento_os.fontes||{}).map(([k,d])=>`<p>${esc(NOMES_OS[k]||k)}: ${esc(d.documento)}, pág. ${esc(d.pagina)} — ${esc(d.trecho)} (${esc(d.metodo)})</p>`).join("")}</details></div>`:""}<label>Determinação da autoridade</label><textarea data-k="determinacao" rows="2" ${podeGestao?"":"disabled"}>${esc(c.determinacao||"")}</textarea>
 
  ${T?`<div class="card" id="nv-ia" style="margin-top:14px;background:var(--page)"><h4>Inteligência artificial</h4><div class="acoes" style="margin:0 0 8px">
   <button class="btn" id="b-transcricao-visual">Transcrever páginas a conferir</button>
@@ -387,7 +387,8 @@ const conferirFontes=()=>{$("#astra-fontes").hidden=false;irPara("astra-fontes")
   $("#b-cal-ref").onclick=()=>{abrirAba("sistema");setTimeout(()=>{const e=$("#card-referencias");if(e)e.scrollIntoView({behavior:"smooth",block:"start"})},200)};
  }
 
- if($("#b-salvar"))$("#b-salvar").onclick=async()=>{const d={};$$("#detalhe [data-k]").forEach(e=>{if(!e.disabled)d[e.dataset.k]=e.value});try{await post("",d);toast("Salvo");carregarCasos()}catch(x){toast(x.message)}};
+ const fichaOriginal=new Map(Array.from($$("#detalhe [data-k]"),e=>[e.dataset.k,e.value]));
+ if($("#b-salvar"))$("#b-salvar").onclick=async()=>{const d={origem_edicao:"ficha",revisao:c.revisao??1};$$("#detalhe [data-k]").forEach(e=>{if(!e.disabled&&e.value!==fichaOriginal.get(e.dataset.k))d[e.dataset.k]=e.value});try{const salvo=await post("",d);c.revisao=salvo.revisao;$$("#detalhe [data-k]").forEach(e=>{if(Object.prototype.hasOwnProperty.call(d,e.dataset.k))fichaOriginal.set(e.dataset.k,d[e.dataset.k])});toast("Salvo");carregarCasos()}catch(x){toast(x.message)}};
 
  if($("#b-pasta"))$("#b-pasta").onclick=()=>post("/abrir",{}).catch(x=>toast(x.message));
  if($("#b-pasta-relatorios"))$("#b-pasta-relatorios").onclick=()=>post("/abrir",{sub:"03-relatorios"}).catch(x=>toast(x.message));
@@ -411,7 +412,7 @@ const conferirFontes=()=>{$("#astra-fontes").hidden=false;irPara("astra-fontes")
 
   $("#ia-agente").innerHTML='<option value="">Qualquer agente ocioso (recomendado)</option>'+g.agentes.filter(a=>a.aprovado).map(a=>`<option value="${esc(a.nome)}">${esc(a.nome)} — ${esc(a.estado)}</option>`).join("");
 
-  $("#ia-agentes-resumo").innerHTML=g.ociosos?`${g.ociosos} agente(s) ocioso(s) de plantão.`:`<span style="color:var(--warn)">Nenhum agente ocioso agora: o pedido aguardará na fila até um agente ficar disponível.</span>`});
+  $("#ia-agentes-resumo").innerHTML=g.ociosos?`${esc(g.ociosos)} agente(s) ocioso(s) de plantão.`:`<span style="color:var(--warn)">Nenhum agente ocioso agora: o pedido aguardará na fila até um agente ficar disponível.</span>`});
 
  $$("#detalhe [data-edit]").forEach(b=>b.onclick=()=>abrirEditor(id,b.dataset.edit));if($("#b-nova-minuta"))$("#b-nova-minuta").onclick=()=>abrirEditor(id,null);
 
@@ -432,9 +433,11 @@ function mostrarModalFinalRessalva(id, docxNome, data){
   $("#final-ressalva-lista").innerHTML=achados.length?achados.map(a=>`
     <div style="padding:6px;border-bottom:1px solid var(--borda,#eee);line-height:1.4">
       <span class="badge ${a.nivel==='BLOQUEIA'?'b-err':'b-wait'}">${esc(a.nivel||'BLOQUEIA')}</span>
-      <b>${esc(a.codigo||'ACHADO')}</b> ${a.linha?`(linha ${a.linha})`:''}: ${esc(a.detalhe||'')}
+      <b>${esc(a.codigo||'ACHADO')}</b> ${a.linha?`(linha ${esc(a.linha)})`:''}: ${esc(a.detalhe||'')}
       ${a.dado?`<br><code style="font-size:11px;background:rgba(0,0,0,0.06);padding:2px 4px;border-radius:3px">${esc(a.dado)}</code>`:''}
     </div>`).join(""):'<div>Conferência reprovada sem detalhes adicionais.</div>';
+  const artefato=data.artefato;
+  if(artefato?.exige_aceite_docx)$("#final-ressalva-lista").innerHTML+='<label><input type="checkbox" id="final-aceite-docx"> Conferi o conteúdo deste DOCX e aceito entregar com ressalva o arquivo que foi editado ou não possui vínculo com a minuta.</label>';
   $("#final-ressalva-texto").value="";
   m.hidden=false;
 
@@ -445,9 +448,13 @@ function mostrarModalFinalRessalva(id, docxNome, data){
       alert("A justificativa é obrigatória e deve conter no mínimo 15 caracteres.");
       return;
     }
+    if(artefato?.exige_aceite_docx&&!$("#final-aceite-docx")?.checked){
+      alert("Confira o DOCX e marque o aceite específico do arquivo antes de entregar.");
+      return;
+    }
     try{
       btnConfirmar.disabled=true;
-      await api(`/api/casos/${enc(id)}/final`,{json:{docx:docxNome,forcar:true,justificativa:just}});
+      await api(`/api/casos/${enc(id)}/final`,{json:{docx:docxNome,forcar:true,justificativa:just,...(artefato?.exige_aceite_docx?{confirmar_docx_sha256:artefato.sha256_docx}:{})}});
       m.hidden=true;
       toast("Relatório FINAL definido com ressalva");
       abrirCaso(id);
@@ -495,7 +502,7 @@ async function atualizarIA(dados){
  if(id!==casoAberto||painel!==$("#ia-painel")||geracao!==polling.geracao||login!==S.usuario?.login)return;
  const ts=todos.filter(t=>t.tipo==="ia"&&t.caso===id).slice(0,3);
  const html=ts.map(t=>{const run=["executando","na_fila"].includes(t.status);return `<div class="job" data-tarefa="${esc(t.id)}"><div class="l1"><span><b>${esc(t.titulo)}</b></span><span>${badge(t.status)} ${run?`<button class="btn sm dan" data-cancel="${esc(t.id)}">cancelar</button>`:""}</span></div>
-  ${run?barraHTML(t.progresso):""}<div class="muted">${run?`${t.progresso}% · `:""}${esc(etapaTarefa(t))}</div>${t.erro?`<div class="muted" style="color:var(--crit)">${esc(t.erro)}</div>`:""}
+  ${run?barraHTML(t.progresso):""}<div class="muted">${run?`${esc(t.progresso)}% · `:""}${esc(etapaTarefa(t))}</div>${t.erro?`<div class="muted" style="color:var(--crit)">${esc(t.erro)}</div>`:""}
   ${t.resultado&&t.resultado.resumo?`<details><summary>Resumo do agente</summary><div class="res tx">${esc(t.resultado.resumo)}</div></details>`:""}
   ${t.status==="concluida"?`<button type="button" class="btn sm" data-ia-resultado>${t.resultado?"Resultado disponível":"Etapa concluída"} · Atualizar ficha</button>`:""}</div>`}).join("");
  if(htmlAtualizado(painel,html)){
@@ -567,7 +574,7 @@ async function abrirConferenciaDocumental(casoId, docCaminho, paginaInicial, fol
 
   const sel = $("#conf-doc-pag");
   if (sel) {
-    sel.innerHTML = paginas.map(p => '<option value="' + p.num + '">Pág. ' + p.num + ' (Fls. ' + p.fls + ')</option>').join("");
+    sel.innerHTML = paginas.map(p => '<option value="' + p.num + '">Pág. ' + p.num + ' (Fls. ' + esc(p.fls) + ')</option>').join("");
     sel.value = estadoConferencia.paginaAtual;
     sel.onchange = () => exibirPaginaConferencia(parseInt(sel.value));
   }

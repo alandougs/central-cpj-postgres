@@ -2,6 +2,7 @@
 """Rotas de sessão, usuários, auditoria, perfis, pasta pessoal e rede."""
 import json
 import os
+from auth import LoginLimitado
 from flask import Blueprint, abort, current_app, jsonify, request, send_file, session
 from rotas.comum import (
     DESCRICAO,
@@ -67,9 +68,23 @@ def api_configurar():
 
 @bp_usuarios.post("/api/entrar")
 def api_entrar():
-    d = request.get_json(force=True) or {}
+    if request.content_length is not None and request.content_length > 8192:
+        return jsonify({"erro": "Dados de login inválidos."}), 400
+    corpo = request.stream.read(8193)
+    if len(corpo) > 8192:
+        return jsonify({"erro": "Dados de login inválidos."}), 400
     try:
-        u = auth.autenticar(d.get("login"), d.get("senha"))
+        d = json.loads(corpo)
+    except (ValueError, UnicodeDecodeError, RecursionError):
+        return jsonify({"erro": "Dados de login inválidos."}), 400
+    if not isinstance(d, dict):
+        return jsonify({"erro": "Dados de login inválidos."}), 400
+    try:
+        u = auth.autenticar(d.get("login"), d.get("senha"), origem=request.remote_addr)
+    except ValueError as e:
+        return jsonify({"erro": str(e)}), 400
+    except LoginLimitado as e:
+        return jsonify({"erro": str(e)}), 429
     except PermissionError as e:
         auth.auditar((d.get("login") or "")[:40], request.remote_addr, "login_falhou")
         return jsonify({"erro": str(e)}), 401

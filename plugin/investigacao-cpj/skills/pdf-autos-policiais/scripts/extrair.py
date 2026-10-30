@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Extração estruturada de PDF para Markdown, página a página, com rastreabilidade.
-Uso: extrair.py arquivo.pdf [--saida pasta] [--ocr auto|tesseract|visao] [--lang por] [--dpi 200]
+Uso: extrair.py arquivo.pdf [--saida pasta] [--ocr auto|tesseract|rapidocr|visao] [--lang por] [--dpi 200]
 
 Por página: texto nativo -> usa direto; sem texto -> OCR Tesseract (se houver idioma) ou
 renderiza PNG em <saida>/paginas_visao/ para transcrição visual pelo Claude.
@@ -11,8 +11,9 @@ documento for reprocessado, as páginas já feitas são reaproveitadas — valem
 parâmetros (idioma, dpi, limiares, modo de OCR, Tesseract disponível); qualquer diferença descarta os checkpoints.
 Mesmo PDF já extraído em outro caso (workspace C: ou o paralelo em E:) é reaproveitado (--sem-reaproveitar desliga).
 --refazer ignora os checkpoints. OCR: uma única passada do Tesseract por página (image_to_data dá confiança e texto).
+--ocr rapidocr força o motor alternativo local RapidOCR (modelos PaddleOCR em ONNX, reconhecimento latino) no lugar do Tesseract.
 """
-import argparse, datetime, errno, hashlib, json, os, re, shutil, stat, sys, time
+import argparse, datetime, errno, hashlib, json, os, re, shutil, stat, sys, threading, time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing, contextmanager
 import pypdfium2 as pdfium
@@ -64,7 +65,8 @@ def trava_extracao(saida, espera):
 
 ap = argparse.ArgumentParser()
 ap.add_argument("pdf"); ap.add_argument("--saida", default="extracao")
-ap.add_argument("--ocr", default="auto", choices=["auto", "tesseract", "visao"])
+ap.add_argument("--ocr", default="auto", choices=["auto", "tesseract", "rapidocr", "visao"],
+                help="auto/tesseract: Tesseract; rapidocr: motor alternativo local (ONNX); visao: sem OCR, páginas para transcrição visual")
 ap.add_argument("--lang", default="por"); ap.add_argument("--dpi", type=int, default=200)
 ap.add_argument("--min-chars", type=int, default=50); ap.add_argument("--conf-min", type=float, default=75)
 ap.add_argument("--refazer", action="store_true", help="ignora checkpoints e refaz todas as páginas")
@@ -78,7 +80,7 @@ if not 0 <= a.espera_trava <= 300:
 # O escopo léxico libera a trava também no retorno/erro de runpy, sem encerrar o chamador.
 with trava_extracao(a.saida, a.espera_trava):
     os.environ.setdefault("OMP_THREAD_LIMIT", "1")
-    METODOS = {"texto-nativo", "texto-nativo+ocr-imagem", "ocr-tesseract", "pendente-transcricao-visual", "texto-nativo+transcricao-visual", "transcricao-visual-llm"}
+    METODOS = {"texto-nativo", "texto-nativo+ocr-imagem", "ocr-tesseract", "ocr-rapidocr", "pendente-transcricao-visual", "texto-nativo+transcricao-visual", "transcricao-visual-llm"}
 
 
     def texto_de_data(d):
@@ -99,7 +101,7 @@ with trava_extracao(a.saida, a.espera_trava):
             r = checkpoints.get("paginas", {}).get(str(num), {})
             reg = r["reg"]
             if reg.get("pagina") != num or reg.get("metodo") not in METODOS or not isinstance(reg.get("texto"), str): return None
-            if reg["metodo"] == "ocr-tesseract" and not isinstance(reg.get("confianca_media"), (int, float)): return None
+            if reg["metodo"] in ("ocr-tesseract", "ocr-rapidocr") and not isinstance(reg.get("confianca_media"), (int, float)): return None
             return r
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
             return None
@@ -141,6 +143,18 @@ with trava_extracao(a.saida, a.espera_trava):
             tess_ok = False
         if a.ocr == "tesseract" and not tess_ok:
             raise SystemExit(f"Tesseract sem o idioma '{a.lang}'. Instale o pacote de idioma ou use --ocr visao.")
+
+    motor_rapido = None
+    if a.ocr == "rapidocr":
+        try:
+            from rapidocr import RapidOCR, LangRec, ModelType, OCRVersion
+            motor_rapido = RapidOCR(params={"Global.log_level": "warning", "Rec.lang_type": LangRec.LATIN,
+                                            "Rec.model_type": ModelType.MOBILE, "Rec.ocr_version": OCRVersion.PPOCRV5})
+        except Exception as erro:
+            raise SystemExit(f"RapidOCR indisponível ({erro.__class__.__name__}: {erro}). "
+                             "Instale com: pip install rapidocr  — ou use --ocr tesseract.")
+    trava_rapido = threading.Lock()
+    ocr_ok = tess_ok or motor_rapido is not None
 
     os.makedirs(a.saida, exist_ok=True)
     dir_png = os.path.join(a.saida, "paginas_visao"); dir_tv = os.path.join(a.saida, "transcricoes_visuais")
@@ -261,8 +275,28 @@ with trava_extracao(a.saida, a.espera_trava):
             return 0.0
 
 
+    def texto_rapidocr(res):
+        """Caixas do RapidOCR em linhas (centro vertical próximo), da esquerda para a direita: (confiança média, texto)."""
+        if not res.txts:
+            return 0.0, ""
+        itens = sorted(((b[:, 1].mean(), b[:, 1].max() - b[:, 1].min(), b[:, 0].min(), t, s)
+                        for b, t, s in zip(res.boxes, res.txts, res.scores) if t.strip()), key=lambda x: x[0])
+        linhas = []
+        for y, alt, x, t, s in itens:
+            if linhas and abs(y - linhas[-1][0]) <= alt / 2:
+                linhas[-1][1].append((x, t))
+            else:
+                linhas.append([y, [(x, t)]])
+        texto = "\n".join(" ".join(t for _, t in sorted(partes)) for _, partes in linhas)
+        confs = [float(s) for *_, s in itens]
+        return (round(100 * sum(confs) / len(confs), 1) if confs else 0.0), texto.strip()
+
+
     def ocr(img):
-        """Uma passada do Tesseract: (confiança média, texto)."""
+        """Uma passada do OCR: (confiança média, texto). Tesseract, ou RapidOCR quando forçado."""
+        if motor_rapido is not None:
+            with trava_rapido:  # uma inferência por vez; a renderização da próxima página segue em paralelo
+                return texto_rapidocr(motor_rapido(img.convert("RGB")))
         import pytesseract
         d = pytesseract.image_to_data(img, lang=a.lang, output_type=pytesseract.Output.DICT)
         confs = [float(c) for c, w in zip(d["conf"], d["text"]) if w.strip() and float(c) >= 0]
@@ -297,7 +331,7 @@ with trava_extracao(a.saida, a.espera_trava):
                        "texto": nativo + (f"\n\n[OCR da imagem da página]\n{txt}" if txt else "")}
                 flag = "conferir"
             else:
-                reg = {"pagina": num, "metodo": "ocr-tesseract", "confianca_media": conf, "texto": txt}
+                reg = {"pagina": num, "metodo": "ocr-rapidocr" if motor_rapido is not None else "ocr-tesseract", "confianca_media": conf, "texto": txt}
                 if conf < a.conf_min or len(txt) < a.min_chars: flag = "conferir"
             if flag: salvar_png(img, num)
             return reg, flag
@@ -346,7 +380,7 @@ with trava_extracao(a.saida, a.espera_trava):
                         registrar({"pagina": num, "metodo": "texto-nativo", "texto": txt})
                         continue
                     img = renderizar(pag)
-                    if tess_ok:
+                    if ocr_ok:
                         # Até dois bitmaps em voo: memória limitada, sem PDFs compartilhados entre threads.
                         fila_ocr.append(pool.submit(processar_ocr, img, num, txt if misto else None))
                         ocr_jobs += 1
@@ -386,7 +420,7 @@ with trava_extracao(a.saida, a.espera_trava):
 
     from collections import Counter
     rel = {"arquivo": os.path.basename(a.pdf), "sha256_original": h.hexdigest(), "paginas": n, "gerado_em": agora,
-           "ferramentas": {"texto": "pypdfium2", "ocr": f"tesseract ({a.lang})" if tess_ok else "indisponível"},
+           "ferramentas": {"texto": "pypdfium2", "ocr": "rapidocr (latino, PP-OCRv5)" if motor_rapido is not None else f"tesseract ({a.lang})" if tess_ok else "indisponível"},
            "metodos": dict(Counter(p["metodo"] for p in paginas)),
            "pendentes_transcricao_visual": pendentes, "conferir_visualmente": conferir, "paginas_reaproveitadas": reaproveitadas,
            "checkpoints_reutilizados": reaproveitadas, "ocr_workers": min(a.workers, ocr_jobs),

@@ -248,7 +248,7 @@ def _semantico(db, q, caso, tipo, modalidade, n):
 
     Causa: `ambiente` (fastembed/numpy ausentes), `modelo` (modelo local ainda não baixado — a
     consulta não dispara download), `sem_vetores` (nenhum trecho vetorizado no escopo) ou
-    `leitura` (falha ao ler/montar os vetores). Descarta candidatos abaixo de SIMILARIDADE_MINIMA."""
+    `leitura` (falha ao ler/montar ou consultar os vetores). Descarta candidatos abaixo de SIMILARIDADE_MINIMA."""
     try:
         EMB = _modulo_embeddings()
     except Exception:
@@ -273,9 +273,12 @@ def _semantico(db, q, caso, tipo, modalidade, n):
     except Exception:
         return [], "leitura"  # consulta nunca cai por causa da leitura dos vetores
     if not ids or mat is None: return [], "sem_vetores"
-    alvo = EMB.vetor(q)
-    if alvo is None: return [], None
-    sims = mat @ EMB.desempacotar(alvo)
+    try:
+        alvo = EMB.vetor(q)
+        if alvo is None: return [], None
+        sims = mat @ EMB.desempacotar(alvo)
+    except Exception:
+        return [], "leitura"
     return [(ids[k], float(sims[k])) for k in np.argsort(-sims)[:n]
             if float(sims[k]) >= SIMILARIDADE_MINIMA], None
 
@@ -320,10 +323,7 @@ def buscar(q, caso=None, tipo=None, modalidade=None, n=10, fts=False, modo="auto
         sem, causa = _semantico(db, q, caso, tipo, modalidade, candidatos) \
             if modo in ("semantico", "hibrido") else ([], None)
 
-        if modo == "lexical":
-            ordem = ids_lex[:n]
-        elif modo == "semantico":
-            ordem = [i for i, _ in sem][:n]
+        if causa:
             if causa == "ambiente":
                 avisos.append("Busca semântica indisponível neste ambiente: fastembed/numpy não estão "
                               "instalados. Use --modo lexical.")
@@ -334,8 +334,16 @@ def buscar(q, caso=None, tipo=None, modalidade=None, n=10, fts=False, modo="auto
                 avisos.append("Busca semântica indisponível: a base não tem vetores gerados neste escopo. "
                               "Gere-os com indexar.py --embeddings.")
             elif causa == "leitura":
-                avisos.append("Busca semântica indisponível: falha ao ler os vetores da base. "
+                avisos.append("Busca semântica indisponível: falha ao consultar os vetores da base. "
                               "Use --modo lexical.")
+            if modo == "hibrido":
+                avisos.append("A pesquisa ficou limitada à busca textual; não foi possível conferir "
+                              "correspondências semânticas.")
+
+        if modo == "lexical":
+            ordem = ids_lex[:n]
+        elif modo == "semantico":
+            ordem = [i for i, _ in sem][:n]
         else:
             pontos = {}
             for posto, i in enumerate(ids_lex): pontos[i] = pontos.get(i, 0.0) + 1.0 / (RRF_K + posto + 1)

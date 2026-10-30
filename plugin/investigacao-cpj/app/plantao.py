@@ -412,7 +412,7 @@ class Plantao:
         Pedido com chamada externa sem resultado registrado nunca volta à fila: vai para o operador conferir.
         Retorna os pedidos alterados, para o registro de fluxos ser alinhado depois do commit."""
         tocados = []
-        for p in c.execute("SELECT p.id, p.tentativas, a.modo, a.visto_em FROM pedidos p LEFT JOIN agentes a ON a.nome=p.agente "
+        for p in c.execute("SELECT p.id, p.tentativas, p.cancelar, a.modo, a.visto_em FROM pedidos p LEFT JOIN agentes a ON a.nome=p.agente "
                            "WHERE p.estado='executando'").fetchall():
             if time.time() - _ts(p["visto_em"]) <= SILENCIO_MAX.get(p["modo"] or "auto", 60): continue
             tocados.append(p["id"])
@@ -422,6 +422,9 @@ class Plantao:
                 c.execute("UPDATE pedidos SET estado='erro', erro=?, fim=? WHERE id=?",
                           ("O agente parou de responder depois de iniciar uma chamada externa sem resultado registrado "
                            "(resultado incerto): conferir no provedor antes de repetir.", agora(), p["id"]))
+            elif p["cancelar"]:
+                c.execute("UPDATE pedidos SET estado='cancelada', etapa='cancelada após interrupção do agente', fim=? WHERE id=?",
+                          (agora(), p["id"]))
             elif p["tentativas"] >= TENTATIVAS_MAX:
                 c.execute("UPDATE pedidos SET estado='erro', erro='O agente parou de responder (tentativas esgotadas).', fim=? "
                           "WHERE id=?", (agora(), p["id"]))

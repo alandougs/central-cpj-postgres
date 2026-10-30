@@ -543,12 +543,15 @@ def api_busca():
         return jsonify({"trechos": [], "entidades": [], "aviso": None})
     try:
         tipo = request.args.get("tipo") or None
-        trechos, aviso = R.buscar(q, caso=request.args.get("caso") or None, tipo=tipo, n=int(request.args.get("n") or 25))
+        caso = request.args.get("caso") or None
+        trechos, aviso = R.buscar(q, caso=caso, tipo=tipo, n=int(request.args.get("n") or 25))
         ents = (
             R.entidade(q)
             if (len(re.sub(r"\D", "", q)) >= 6 or "@" in q or re.fullmatch(r"[A-Za-z]{3}-?\d[A-Za-z0-9]\d{2}", q))
             else []
         )
+        if caso:
+            ents = [e for e in ents if e["caso"] == caso]
         auditar("pesquisa_texto", q[:200])
         return jsonify({"trechos": trechos, "entidades": ents, "aviso": aviso})
     except FileNotFoundError:

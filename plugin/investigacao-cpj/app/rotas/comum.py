@@ -338,13 +338,54 @@ def registrar_tratamento(id_, linhas):
         f.write("\n" + "\n".join(linhas) + "\n")
 
 
-def rodar(cmd, env, log, progresso=None):
+class Cancelado(Exception):
+    """Processamento interrompido a pedido do operador."""
+
+
+_execucoes = {}                            # (caso, doc) -> processo local em execução
+_execucoes_trava = threading.Lock()
+ETAPAS_SCRIPT = {"extrair.py": "Extração/OCR", "diagnostico.py": "Diagnóstico do PDF", "tabelas.py": "Tabelas (CSV)",
+                 "entidades.py": "Dados críticos", "dados_json.py": "Consolidação", "indexar.py": "Indexação"}
+
+
+def motivo_falha(saida, script):
+    """Causa legível a partir da saída do script; o log mantém o rastreamento completo."""
+    linhas = [l.strip() for l in saida.splitlines() if l.strip()]
+    ultima = next((l for l in reversed(linhas) if re.match(r"^[A-Za-z_.]*(?:Error|Exception|Exit)\b|^\w+Error:", l)), linhas[-1] if linhas else "")
+    texto = " ".join(linhas[-3:])
+    if re.search(r"PermissionError|WinError (?:5|32)\b|Acesso negado|being used by another process", texto, re.I):
+        causa = "o Windows bloqueou o acesso a um arquivo (em uso por outro programa, como antivírus ou indexação)"
+    elif "MemoryError" in texto:
+        causa = "memória insuficiente para este documento; feche outros programas"
+    elif re.search(r"No space left|WinError 112\b", texto, re.I):
+        causa = "disco cheio"
+    else:
+        causa = re.sub(r"^\w+(?:Error|Exception|Exit):\s*", "", ultima)[:200] or "erro sem mensagem"
+    etapa = ETAPAS_SCRIPT.get(script, script)
+    return f"{etapa}: {causa}. Reprocesse o documento; páginas já extraídas são aproveitadas. Detalhes em processamento.log."
+
+
+def cancelamento_pedido(chave):
+    return bool(chave) and bool(ler_proc_item(*chave).get("cancelar_pedido"))
+
+
+def _encerrar(p):
+    """Encerra o script e os filhos (Tesseract etc.)."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/PID", str(p.pid), "/T", "/F"], capture_output=True, creationflags=SEM_JANELA)
+    else:
+        p.kill()
+
+
+def rodar(cmd, env, log, progresso=None, chave=None):
+    if cancelamento_pedido(chave):
+        raise Cancelado()
     with open(log, "a", encoding="utf-8") as lg:
         lg.write(f"\n[{agora()}] $ {' '.join(cmd)}\n")
         lg.flush()
         p = subprocess.Popen(
             cmd,
-            env=env,
+            env=dict(env, PYTHONIOENCODING="utf-8"),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -352,18 +393,53 @@ def rodar(cmd, env, log, progresso=None):
             errors="replace",
             creationflags=SEM_JANELA,
         )
-        saida = []
-        for ln in p.stdout:
-            m = re.match(r"progresso (\d+)/(\d+)", ln)
-            if m and progresso:
-                progresso(int(m.group(1)), int(m.group(2)))
-                continue
-            saida.append(ln)
-            lg.write(ln)
-        p.wait()
+        if chave:
+            with _execucoes_trava:
+                _execucoes[chave] = p
+        try:
+            saida = []
+            for ln in p.stdout:
+                m = re.match(r"progresso (\d+)/(\d+)", ln)
+                if m and progresso:
+                    progresso(int(m.group(1)), int(m.group(2)))
+                    continue
+                saida.append(ln)
+                lg.write(ln)
+            p.wait()
+        finally:
+            if chave:
+                with _execucoes_trava:
+                    _execucoes.pop(chave, None)
+            p.stdout.close()
         if p.returncode != 0:
-            raise RuntimeError(f"falhou ({p.returncode}): {os.path.basename(cmd[1])} — ver log")
+            if cancelamento_pedido(chave):
+                raise Cancelado()
+            raise RuntimeError(motivo_falha("".join(saida), os.path.basename(cmd[1])))
         return "".join(saida)
+
+
+def cancelar_trabalho(id_, doc, enfileirado):
+    """Cancela item na fila ou interrompe o processamento local em curso. Devolve o novo estado."""
+    resultado = {}
+
+    def _mutar(d):
+        t = next((t for t in d.get("trabalhos", []) if t.get("doc") == doc), None)
+        if not t or t.get("enfileirado") != enfileirado:
+            raise LookupError("Processamento não encontrado ou já substituído.")
+        if t.get("status") == "na_fila":
+            t.update(status="cancelado", etapa="cancelado antes de iniciar", fim=agora(), cancelar_pedido=True)
+        elif t.get("status") == "processando":
+            t.update(cancelar_pedido=True, etapa="cancelando…")
+        else:
+            raise ValueError("Só é possível cancelar o que está na fila ou em processamento.")
+        resultado["status"] = t["status"]
+        return d
+    alterar_proc(id_, _mutar)
+    with _execucoes_trava:
+        p = _execucoes.get((id_, doc))
+    if p and p.poll() is None:
+        _encerrar(p)
+    return resultado["status"]
 
 
 def modulo_visual():
@@ -504,8 +580,29 @@ def processar(trab, app_logger=None):
     log = os.path.join(dest, "processamento.log")
     env = ambiente_ocr()
     ext = os.path.splitext(arq)[1].lower()
-    etapa = lambda nome, **x: atualizar_trabalho(id_, doc, etapa=nome, **x)
-    atualizar_trabalho(id_, doc, status="processando", inicio=agora(), erro=None, progresso=0)
+    chave = (id_, doc)
+
+    def etapa(nome, **x):
+        if cancelamento_pedido(chave):
+            raise Cancelado()
+        atualizar_trabalho(id_, doc, etapa=nome, **x)
+    iniciar = {}
+
+    def _iniciar(d):
+        t = next((t for t in d.get("trabalhos", []) if t.get("doc") == doc), None)
+        if t and (t.get("status") == "cancelado" or t.get("cancelar_pedido")):
+            return d                       # cancelado enquanto aguardava: não inicia
+        if t and trab.get("enfileirado") and t.get("enfileirado") != trab["enfileirado"]:
+            return d                       # pedido antigo, substituído por novo reprocessamento
+        iniciar["ok"] = True
+        if t is None:
+            t = {"doc": doc}
+            d.setdefault("trabalhos", []).append(t)
+        t.update(status="processando", inicio=agora(), erro=None, progresso=0)
+        return d
+    alterar_proc(id_, _iniciar)
+    if not iniciar:
+        return
     try:
         etapa("dados da O.S. (texto original)", progresso=1)
         try:
@@ -515,7 +612,7 @@ def processar(trab, app_logger=None):
                 app_logger.exception("Falha no preenchimento inicial da O.S. %s", id_)
         if ext == ".pdf":
             etapa("diagnóstico", progresso=2)
-            saida_diag = rodar([PY, os.path.join(S_PDF, "diagnostico.py"), orig], env, log)
+            saida_diag = rodar([PY, os.path.join(S_PDF, "diagnostico.py"), orig], env, log, chave=chave)
             json_str = saida_diag[saida_diag.find("{") : saida_diag.rfind("}") + 1]
             diag = json.loads(json_str)
             if "erro" in diag:
@@ -529,22 +626,23 @@ def processar(trab, app_logger=None):
                     ultimo[0] = time.time()
                     atualizar_trabalho(id_, doc, pagina_atual=i, paginas=n, progresso=5 + int(85 * i / n))
 
-            rodar([PY, os.path.join(S_PDF, "extrair.py"), orig, "--saida", dest, "--lang", lang], env, log, prog)
+            motor = ["--ocr", trab["ocr"]] if trab.get("ocr") in MOTORES_OCR else []
+            rodar([PY, os.path.join(S_PDF, "extrair.py"), orig, "--saida", dest, "--lang", lang, *motor], env, log, prog, chave=chave)
         elif ext == ".md":
             etapa("importação do Markdown", progresso=30)
             shutil.copyfile(orig, os.path.join(dest, "transcricao.md"))
             etapa("tabelas (CSV)", progresso=60)
-            rodar([PY, os.path.join(S_PDF, "tabelas.py"), os.path.join(dest, "transcricao.md"), "--saida", dest], env, log)
+            rodar([PY, os.path.join(S_PDF, "tabelas.py"), os.path.join(dest, "transcricao.md"), "--saida", dest], env, log, chave=chave)
         elif ext == ".csv":
             etapa("importação do CSV", progresso=50)
             os.makedirs(os.path.join(dest, "tabelas"), exist_ok=True)
             shutil.copyfile(orig, os.path.join(dest, "tabelas", arq))
         if ext != ".pdf" and os.path.exists(os.path.join(dest, "transcricao.md")):
             etapa("dados críticos", progresso=94)
-            rodar([PY, os.path.join(S_PDF, "entidades.py"), os.path.join(dest, "transcricao.md")], env, log)
+            rodar([PY, os.path.join(S_PDF, "entidades.py"), os.path.join(dest, "transcricao.md")], env, log, chave=chave)
         if ext != ".pdf":
             etapa("consolidação JSON", progresso=95)
-            rodar([PY, os.path.join(S_PDF, "dados_json.py"), dest], env, log)
+            rodar([PY, os.path.join(S_PDF, "dados_json.py"), dest], env, log, chave=chave)
         etapa("registro", progresso=96)
         sem_ocr = None
         r = modulo_visual().ler_json(dest, "relatorio_extracao.json")
@@ -574,10 +672,15 @@ def processar(trab, app_logger=None):
         transcricao = os.path.join(dest, "transcricao.md")
         if os.path.isfile(transcricao):
             etapa("dados da O.S. após OCR / IA local", progresso=97)
+            try:                           # O.S. vigente: campos do caso e determinacao-autoridade.md
+                D_OS.aplicar_ordem(C, id_, dest, arq)
+            except Exception:
+                if app_logger:
+                    app_logger.exception("Falha na leitura da O.S. vigente %s", id_)
             with open(transcricao, encoding="utf-8") as f:
                 D_OS.aplicar(C, id_, f.read(), arq, usar_ia=True)
         etapa("indexação", progresso=98)
-        rodar([PY, os.path.join(S_BASE, "indexar.py")], env, log)
+        rodar([PY, os.path.join(S_BASE, "indexar.py")], env, log, chave=chave)
         modo = trab.get("modo", "inteligente")
         if ext == ".pdf" and modo != "rapido":
             plano = plano_transcricao_visual(id_, todas=modo == "ia_completa", documentos=[doc])
@@ -601,8 +704,12 @@ def processar(trab, app_logger=None):
                 atualizar_trabalho(id_, doc, limitacao=" ".join(filter(None, [trab.get("limitacao"), sem_ocr, limitacao])))
                 registrar_tratamento(id_, [f"- {arq}: {limitacao}"])
         atualizar_trabalho(id_, doc, status="concluido", etapa="concluído", fim=agora(), progresso=100)
+    except Cancelado:
+        atualizar_trabalho(id_, doc, status="cancelado", etapa="cancelado pelo operador", erro=None, fim=agora())
+        with open(log, "a", encoding="utf-8") as lg:
+            lg.write(f"\n[{agora()}] CANCELADO pelo operador; checkpoints preservados para reprocessar.\n")
     except Exception as e:
-        atualizar_trabalho(id_, doc, status="erro", erro=str(e), fim=agora())
+        atualizar_trabalho(id_, doc, status="erro", erro=str(e)[:400], fim=agora())
         with open(log, "a", encoding="utf-8") as lg:
             lg.write(f"\n[{agora()}] ERRO: {e}\n")
 
@@ -655,10 +762,15 @@ def trabalhador():
             fila.task_done()
 
 
-def enfileirar(id_, doc, arquivo, modo="inteligente", usuario="", consentimento=None, grupo_ia=None, limitacao=None):
+# Motor de OCR forçado no reprocessamento; sem escolha, o extrator usa o padrão (Tesseract).
+MOTORES_OCR = {"tesseract", "rapidocr"}
+
+
+def enfileirar(id_, doc, arquivo, modo="inteligente", usuario="", consentimento=None, grupo_ia=None, limitacao=None, ocr=None):
     if modo not in MODOS_PROCESSAMENTO: raise ValueError("Modo de processamento inválido.")
+    if ocr not in MOTORES_OCR | {None, ""}: raise ValueError("Motor de OCR inválido.")
     if modo == "rapido": consentimento = None
-    dados = {"modo": modo, "usuario": usuario, "consentimento": consentimento, "grupo_ia": grupo_ia, "limitacao": limitacao}
+    dados = {"modo": modo, "usuario": usuario, "consentimento": consentimento, "grupo_ia": grupo_ia, "limitacao": limitacao, "ocr": ocr or None}
     def _mutar(d):
         trabs = d.setdefault("trabalhos", [])
         d["trabalhos"] = [t for t in trabs if t.get("doc") != doc]
@@ -667,13 +779,14 @@ def enfileirar(id_, doc, arquivo, modo="inteligente", usuario="", consentimento=
         })
         return d
     alterar_proc(id_, _mutar)
-    registrar_tratamento(id_, [f"- Processamento {modo}: {arquivo}; usuário {usuario or 'local'}." + (f" {limitacao}" if limitacao else "")])
+    registrar_tratamento(id_, [f"- Processamento {modo}" + (f" (OCR forçado: {ocr})" if ocr else "") + f": {arquivo}; usuário {usuario or 'local'}." + (f" {limitacao}" if limitacao else "")])
     try:
         etapa = fluxos().registrar_extracao(id_, usuario, doc, arquivo, ler_proc_item(id_, doc).get("enfileirado", ""))
     except Exception as erro:              # sem registro durável não há despacho; o motivo fica visível no próprio trabalho
         atualizar_trabalho(id_, doc, status="erro", erro=f"Coordenação de fluxos indisponível; extração não despachada: {erro}"[:300], fim=agora())
         return
-    fila.put({"caso": id_, "doc": doc, "arquivo": arquivo, "etapa_id": etapa["id"], **dados})
+    fila.put({"caso": id_, "doc": doc, "arquivo": arquivo, "etapa_id": etapa["id"],
+              "enfileirado": ler_proc_item(id_, doc).get("enfileirado"), **dados})
 
 
 def ler_proc_item(id_, doc):
@@ -699,8 +812,9 @@ def retomar_pendentes():
                 # progresso. Outro servidor pode reservar após a consulta: o worker conferirá a
                 # reserva atômica antes de tocar no checkpoint.
                 fila.put({"caso": c["id"], "doc": t["doc"], "arquivo": t["arquivo"], "etapa_id": etapa["id"],
+                          "enfileirado": t.get("enfileirado"),
                           "modo": t.get("modo", "inteligente"),
-                          **{k: t.get(k) for k in ("usuario", "consentimento", "grupo_ia", "limitacao")}})
+                          **{k: t.get(k) for k in ("usuario", "consentimento", "grupo_ia", "limitacao", "ocr")}})
 
 
 # ================================================================== casos helpers

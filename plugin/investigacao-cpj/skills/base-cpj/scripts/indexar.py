@@ -141,6 +141,9 @@ for col, tipo_col in (("autor", "TEXT"), ("peso", "INTEGER"), ("embedding", "BLO
     try: db.execute(f"ALTER TABLE trechos ADD COLUMN {col} {tipo_col}")
     except sqlite3.OperationalError: pass
 
+if "leitura_utf8_sig" not in {r[1] for r in db.execute("PRAGMA table_info(docs)")}:
+    db.execute("ALTER TABLE docs ADD COLUMN leitura_utf8_sig INTEGER NOT NULL DEFAULT 0")
+
 
 def sha(p):
     h = hashlib.sha256()
@@ -206,14 +209,18 @@ vistos, novos = set(), 0
 for p in alvos:
     rel = os.path.relpath(p, WS); vistos.add(rel)
     h = sha(p)
-    ant = db.execute("SELECT sha FROM docs WHERE arquivo=?", (rel,)).fetchone()
-    if ant and ant[0] == h and not a.tudo: continue
+    ant = db.execute("SELECT sha, leitura_utf8_sig FROM docs WHERE arquivo=?", (rel,)).fetchone()
+    if ant and ant[0] == h and not a.tudo:
+        if ant[1]: continue
+        # O SHA cru não muda com a correção da leitura: reparar só BOMs indexados antes dela.
+        with open(p, "rb") as fonte:
+            if fonte.read(3) != b"\xef\xbb\xbf": continue
     partes_rel = rel.split(os.sep)
     caso = partes_rel[1] if partes_rel[0] == "casos" else None
     c = casos.get(caso, {}) if caso else {}
     tipo = tipo_de(rel)
     db.execute("DELETE FROM trechos WHERE arquivo=?", (rel,))
-    txt = open(p, encoding="utf-8", errors="replace").read()
+    txt = open(p, encoding="utf-8-sig", errors="replace").read()
     gerador = trechos_transcricao(txt) if tipo == "transcricao" else trechos_titulos(txt)
     autor = peso = None
     if tipo == "referencia":
@@ -224,7 +231,8 @@ for p in alvos:
         autor, peso = "(aprovado no sistema)", 4
     db.executemany("INSERT INTO trechos(arquivo,caso,tipo,pagina,fls,secao,texto,modalidade,natureza,autor,peso) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                    [(rel, caso, tipo, pg, fl, sec, t, c.get("modalidade"), c.get("natureza"), autor, peso) for pg, fl, sec, t in gerador])
-    db.execute("INSERT OR REPLACE INTO docs VALUES(?,?,?,?,?)", (rel, caso, tipo, h, datetime.datetime.now().isoformat(timespec="seconds")))
+    db.execute("INSERT OR REPLACE INTO docs(arquivo,caso,tipo,sha,indexado_em,leitura_utf8_sig) VALUES(?,?,?,?,?,1)",
+               (rel, caso, tipo, h, datetime.datetime.now().isoformat(timespec="seconds")))
     novos += 1
 
 for (rel,) in db.execute("SELECT arquivo FROM docs").fetchall():
@@ -406,7 +414,7 @@ for id_ in casos:
             continue
         arq = os.path.relpath(md, WS)
         documento = os.path.relpath(os.path.dirname(md), os.path.join(base, "01-extracao"))
-        with open(md, encoding="utf-8") as fonte_md:
+        with open(md, encoding="utf-8-sig") as fonte_md:
             for r in iter_candidatos(fonte_md.read()):
                 tipo, valor = r['tipo'], r['valor']
                 if tipo in ('DATA', 'FLS', 'VALOR'):

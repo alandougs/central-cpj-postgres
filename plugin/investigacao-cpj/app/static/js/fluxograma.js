@@ -129,54 +129,57 @@ function renderizarVisualizacaoFluxo(){
   `;
 
   // Visão em Camadas
-  let htmlCamadas = '<div id="fx-visao-camadas" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px;align-items:start"' + (estadoFluxo.visaoAtual === "tabela" ? ' hidden' : '') + '>';
+  // Fluxo vertical (FX91): camadas empilhadas, uma por faixa; o conector só indica a ordem das camadas.
+  let htmlCamadas = '<div id="fx-visao-camadas" class="fx-fluxo"' + (estadoFluxo.visaoAtual === "tabela" ? ' hidden' : '') + '>';
   camadas.forEach((camObj, idx) => {
     const cor = cores[idx % cores.length];
     const subtotalFmt = camObj.subtotal ? `R$ ${camObj.subtotal.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}` : "";
     const camadaTxs = txs.filter(t => (t.camada === camObj.camada) || (!t.camada && idx === 0));
 
+    if (idx > 0) htmlCamadas += '<div class="fx-conector" aria-hidden="true"><span>▼</span></div>';
     htmlCamadas += `
-      <div class="card" style="border-top:3px solid ${cor};background:var(--surface)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--line)">
-          <h4 style="margin:0;color:${cor};font-size:13.5px">${esc(camObj.titulo || ("Camada " + camObj.camada))}</h4>
-          ${subtotalFmt ? `<span class="badge" style="border-color:${cor}55;color:${cor};font-weight:700">${subtotalFmt}</span>` : ""}
+      <section class="fx-camada" style="--fx-cor:${cor}">
+        <div class="fx-camada-topo">
+          <h3>${esc(camObj.titulo || ("Camada " + camObj.camada))}</h3>
+          ${subtotalFmt ? `<span class="fx-subtotal">${subtotalFmt}</span>` : ""}
         </div>
-        <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="fx-camada-corpo">
     `;
 
     if (!camadaTxs.length) {
-      htmlCamadas += '<div class="muted" style="font-size:12px;padding:8px 0">Nenhuma transação atende aos filtros nesta camada.</div>';
+      htmlCamadas += '<div class="muted fx-vazio">Nenhuma transação atende aos filtros nesta camada.</div>';
     } else {
       camadaTxs.forEach(t => {
         const precisao = t.hora ? "Exata (com hora)" : (t.data ? "Data sem hora" : "Aproximada");
         htmlCamadas += `
-          <div style="background:var(--page);border:1px solid var(--line);border-radius:6px;padding:10px;font-size:12.5px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-              <b style="font-size:14px;color:var(--good)">${esc(t.valor_fmt || ("R$ " + (Number(t.valor)||0).toFixed(2)))}</b>
-              <div style="display:flex;gap:4px;align-items:center">
+          <article class="fx-tx">
+            <div class="fx-tx-topo">
+              <b class="fx-valor">${esc(t.valor_fmt || ("R$ " + (Number(t.valor)||0).toFixed(2)))}</b>
+              <div class="fx-tx-meta">
                 <span class="badge-precisao">${esc(precisao)}</span>
                 ${t.meio ? `<span class="badge">${esc(t.meio)}</span>` : ""}
                 ${t.data ? `<span class="muted">${esc(t.data)}${t.hora ? " " + esc(t.hora) : ""}</span>` : ""}
               </div>
             </div>
-            <div style="margin-bottom:4px">
-              <span class="muted">De:</span> <b>${esc(t.origem_titular || "—")}</b>
-              ${t.origem_banco ? `<span class="muted">(${esc(t.origem_banco)}${t.origem_chave ? " · " + esc(t.origem_chave) : ""})</span>` : ""}
+            <div class="fx-partes">
+              <div class="fx-parte"><span class="muted">De</span> <b>${esc(t.origem_titular || "—")}</b>
+                ${t.origem_banco ? `<span class="muted">${esc(t.origem_banco)}${t.origem_chave ? " · " + esc(t.origem_chave) : ""}</span>` : ""}
+              </div>
+              <div class="fx-seta" aria-hidden="true">→</div>
+              <div class="fx-parte"><span class="muted">Para</span> <b>${esc(t.destino_titular || "—")}</b>
+                ${t.destino_banco ? `<span class="muted">${esc(t.destino_banco)}${t.destino_chave ? " · " + esc(t.destino_chave) : ""}</span>` : ""}
+              </div>
             </div>
-            <div style="margin-bottom:6px">
-              <span class="muted">Para:</span> <b>${esc(t.destino_titular || "—")}</b>
-              ${t.destino_banco ? `<span class="muted">(${esc(t.destino_banco)}${t.destino_chave ? " · " + esc(t.destino_chave) : ""})</span>` : ""}
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);border-top:1px dashed var(--line);padding-top:4px">
+            <div class="fx-tx-rodape">
               <span>${t.fls ? `fls. ${esc(t.fls)}` : (t.pagina ? `pág. ${esc(t.pagina)}` : "")}</span>
               <span>${t.obs ? esc(t.obs) : "vínculo direto"}</span>
             </div>
-          </div>
+          </article>
         `;
       });
     }
 
-    htmlCamadas += '</div></div>';
+    htmlCamadas += '</div></section>';
   });
   htmlCamadas += '</div>';
 

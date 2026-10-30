@@ -88,3 +88,7 @@ Imagens/
 
 # Runtime OCR portátil local (não distribuir binários no Git)
 /ferramentas/tesseract/
+
+# Sandboxes de desenvolvimento e capturas locais de navegador
+/desenvolvimento-*/
+/.playwright-mcp/

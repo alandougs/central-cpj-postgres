@@ -1,4 +1,5 @@
 """AP39: revisão independente Edge com workspace e geografia sintéticos TEMP."""
+import base64
 import json
 import os
 from pathlib import Path
@@ -10,6 +11,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from teste_interface_rg26 import InterfaceFixtureRG26
+from teste_mapa_real_mp91 import png_ficticio  # MP91: o mapa real pede tiles a tile.openstreetmap.org
 
 EVIDENCIAS = Path(tempfile.gettempdir()) / "cpj-apple-ap39-20261022"
 
@@ -32,7 +34,10 @@ const url=URL_FIXTURE;
   page.on('request',r=>pedidos.push({url:r.url(),method:r.method(),body:r.postData()}));
   page.on('response',r=>{if(r.request().resourceType()==='script')recursos.push({url:r.url(),status:r.status()})});
   await page.route('**/*',async route=>{
-   if(/^https?:/.test(route.request().url())&&new URL(route.request().url()).origin!==url){externas.push(route.request().url());await route.abort()}
+   if(/^https?:/.test(route.request().url())&&new URL(route.request().url()).origin!==url){
+    if(new URL(route.request().url()).hostname==='tile.openstreetmap.org')await route.fulfill({status:200,contentType:'image/png',body:Buffer.from(PNG_B64,'base64')});
+    else{externas.push(route.request().url());await route.abort()}
+   }
    else await route.continue();
   });
   await page.goto(url+'/#casos');await page.waitForLoadState('networkidle');
@@ -47,7 +52,7 @@ const url=URL_FIXTURE;
  }
  process.exit(process.exitCode||0);
 })().catch(e=>{console.error(e);process.exit(1)});
-'''.replace("URL_FIXTURE", json.dumps(url)).replace("CENARIO", cenario)
+'''.replace("URL_FIXTURE", json.dumps(url)).replace("PNG_B64", json.dumps(base64.b64encode(png_ficticio()).decode())).replace("CENARIO", cenario)
     resultado = subprocess.run([shutil.which("node") or str(runtime / "bin/node.exe"), "-"],
         input=script, text=True, encoding="utf-8", env=env, capture_output=True, timeout=100)
     if resultado.returncode:
@@ -72,11 +77,12 @@ SETUP = r'''
    poligono:[[-53,-20],[-49,-19],[-44,-23],[-48,-25],[-53,-23]]}}}}}));
  async function mapa(){
   await page.locator('#nav button[data-a="mapa"]').click();
+  await page.locator('#b-mapa-modo-estados').click();
   await page.waitForSelector('#svg-mapa-offline .mapa-ponto');
  }
  async function tema(t){
   if(await page.locator('html').getAttribute('data-theme')!==t) await page.locator('#tema').click();
-  await page.evaluate(()=>Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{}))));
+  await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));
  }
  async function overflow(){return page.evaluate(()=>({inner:innerWidth,scroll:document.documentElement.scrollWidth,
   excess:[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width&&r.right>innerWidth+2&&getComputedStyle(e).position!=='absolute'}).slice(0,8).map(e=>e.id||e.className)}))}
@@ -128,7 +134,7 @@ class AppleUIAP39(InterfaceFixtureRG26):
  for(const t of ['light','dark']){
   await tema(t);await mapa();
   // A troca de aba anima as cores por 120ms; medir apenas o estado concluído.
-  await page.evaluate(()=>Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{}))));
+  await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));
   const dados=await page.evaluate(()=>{
    const rgba=s=>s.match(/[\d.]+/g).map(Number),blend=(a,b)=>a.slice(0,3).map((v,i)=>v*(a[3]??1)+b[i]*(1-(a[3]??1)));
    function fundo(e){if(!e)return [255,255,255];const c=rgba(getComputedStyle(e).backgroundColor);return blend(c,fundo(e.parentElement))}

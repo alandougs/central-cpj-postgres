@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import stat
 import tempfile
+import time
 
 
 def _sem_reparse(p):
@@ -56,7 +57,16 @@ def gravar(pasta, dados):
     try:
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
             json.dump(dados, f, ensure_ascii=False)
-        os.replace(temp, p)
+        # No Windows, antivírus, indexação ou um leitor do progresso podem segurar
+        # estado.json por instantes (WinError 5/32); a troca é repetida antes de falhar.
+        for tentativa in range(8):
+            try:
+                os.replace(temp, p)
+                break
+            except PermissionError:
+                if tentativa == 7:
+                    raise
+                time.sleep(0.05 * 2 ** tentativa)
     finally:
         if os.path.exists(temp):
             os.unlink(temp)
