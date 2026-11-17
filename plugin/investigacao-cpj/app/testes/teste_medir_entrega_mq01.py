@@ -108,6 +108,20 @@ class MedirEntregaMQ01(unittest.TestCase):
         self.assertEqual(d["pdf"]["nome"], "recente.pdf")
         self.assertLess(d["primeira"]["mantido"], 95.0)
 
+    def test_03b_pedido_de_dilacao_de_prazo_nao_e_relatorio_entregue(self):
+        # PDF mais recente, mas é pedido de dilação de prazo: não é a versão entregue do relatório.
+        rel = self.caso(minutas=[(corpo(), 1000)],
+                        pdfs=[("relatorio.pdf", corpo(), 1500),
+                              ("PEDIDO-DILACAO-PRAZO-OS-2716-2099.pdf", corpo(troca=2), 2500)])
+        self.assertEqual(self.roda("OS-2716-2099", "--gravar").returncode, 0)
+        self.assertEqual(self.lido(rel)["pdf"]["nome"], "relatorio.pdf")
+        # caso que só tem o pedido de dilação: sem PDF de relatório
+        self.caso(id_="OS-2717-2099", minutas=[(corpo(), 1000)],
+                  pdfs=[("Pedido de Dilação de Prazo - OS 2717.pdf", corpo(), 2000)])
+        r = self.roda("OS-2717-2099")
+        self.assertEqual(r.returncode, 2, r.stdout)
+        self.assertIn("sem PDF", r.stderr)
+
     def test_04_minuta_gravada_depois_do_pdf_nao_conta_como_antes(self):
         rel = self.caso(minutas=[(corpo(), 1000), (corpo(troca=10), 5000)], pdfs=[("relatorio.pdf", corpo(), 2000)])
         self.assertEqual(self.roda("OS-2716-2099", "--gravar").returncode, 0)

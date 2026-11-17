@@ -13,7 +13,7 @@ Entradas:
   PDF entregue = o mais recente (mtime) entre os PDFs de casos\\<ID>\\03-relatorios e os PDFs da pasta da
   O.S. correspondente (PASTA_OS, como em ferramentas\\fila-os.py: CPJ_PASTA_OS > <workspace>\\ordens-de-servico
   > E:\\ORDENS DE SERVIÇO CPJ) cujo início traga "RELATÓRIO DE INVESTIGAÇÃO". PDF com mais de 40 páginas
-  (os autos) é ignorado. --pdf substitui a busca.
+  (os autos) é ignorado, assim como PDF cujo nome indique pedido de dilação de prazo. --pdf substitui a busca.
 
 Método: corpo = do primeiro "RESUMO DOS FATOS" em diante (senão, o texto inteiro); tokens em minúsculas, sem
 * = # | _ `; difflib.SequenceMatcher(autojunk=False). mantido = tokens iguais / tokens da minuta; novo = tokens
@@ -44,6 +44,8 @@ MIN_TOKENS = 100
 LIMIAR = 80.0
 SECAO = re.compile(r"\s*".join("RESUMODOSFATOS"), re.I)  # tolera título com letras espaçadas no PDF
 SCHEMA = "cpj-medicao-entrega/1"
+# Documento que usa o timbre do relatório, mas não é o relatório entregue (ex.: PEDIDO-DILACAO-PRAZO-OS-...pdf).
+NAO_RELATORIO = re.compile(r"pedido|dila[cç][aã]o", re.I)
 
 
 def erro(msg):
@@ -132,6 +134,8 @@ def achar_pdf(ws, caso, rel):
             cand += [(os.path.join(raiz, f), True) for f in arqs if f.lower().endswith(".pdf")]
     lidos = []
     for caminho, titulo in cand:
+        if NAO_RELATORIO.search(os.path.basename(caminho)):
+            continue
         x = ler_pdf(caminho, exigir_titulo=titulo)
         if x:
             lidos.append((caminho, *x))
