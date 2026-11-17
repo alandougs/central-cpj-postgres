@@ -1,5 +1,5 @@
 ---
-description: Cria o caso pela Ordem de Serviço (pasta casos\OS-...), opcionalmente copiando o PDF/MD para 00-originais
+description: Cria o caso pela Ordem de Serviço (pasta casos\OS-...), opcionalmente levando o PDF/MD para 00-originais
 argument-hint: <nº da O.S.> [caminho do PDF/MD] [--bo N] [--ip N] [--processo N]
 ---
 
@@ -11,5 +11,5 @@ Forma preferida: a **Central CPJ** (`Central CPJ.bat` → aba Entrada) cria o ca
 
 1. Sem nº de O.S., pergunte. O ID da pasta é gerado a partir dela (`123/2026` → `OS-123-2026`).
 2. `python "plugin\investigacao-cpj\skills\base-cpj\scripts\caso.py" novo --os "<O.S.>" [--bo ...] [--ip ...] [--processo ...] [--natureza ...]`
-3. Se foi informado arquivo, **copie** (nunca mova) para `casos\<ID>\00-originais\` e siga com `/processar-ip <ID>`.
+3. Se foi informado arquivo, copie-o para `casos\<ID>\00-originais\` e confira que o SHA-256 da cópia é igual ao do arquivo de origem. **Pasta única:** se a origem estava na pasta de entrada `ordens-de-servico\`, remova-a de lá depois dessa conferência, para os autos existirem só em `00-originais`; arquivo vindo de outro local do usuário não é removido. Nunca altere o que já está em `00-originais`. Siga com `/processar-ip <ID>`.
 4. Responda em até 4 linhas: pasta do caso e próximo passo.
