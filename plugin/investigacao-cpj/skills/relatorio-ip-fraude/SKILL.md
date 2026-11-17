@@ -89,9 +89,19 @@ Os campos do cabeÃ§alho e as trÃªs seÃ§Ãµes sÃ£o exatamente os lidos p
 - No texto do relatÃ³rio, cite **fls. dos autos** sÃ³ em pontos de muita relevÃ¢ncia e nos dados financeiros: `(fls. 45)`. Sem fls., use `(pÃ¡g. 45 do arquivo)` e marque a pendÃªncia. A rastreabilidade completa fica em `rastreabilidade-vNN.md`, nÃ£o no texto.
 - Gere junto `03-relatorios\rastreabilidade-vNN.md`: `| trecho do relatÃ³rio | fonte (pÃ¡g./fls.) | natureza | conferido? |` para cada afirmaÃ§Ã£o material.
 
+- **Dado verificável sempre leva citação:** toda frase ou linha de tabela que contenha CPF, CNPJ, chave Pix, agência/conta, telefone, placa, ID de transação ou valor em R$ termina com as folhas no formato da regra 13 do `AGENTS.md`: `(Fls. 30)` ou `(Fls. 30-31)`. Isso não contraria "fls. só em pontos de muita relevância e dados financeiros": dado verificável é sempre ponto relevante. No texto do relatório não se usa "pág."; nesse ponto, esta regra prevalece sobre o parágrafo anterior.
+- **Mapa de folhas (o gate depende dele):** ao final de `rastreabilidade-vNN.md`, acrescente a seção `## Mapa de folhas` com a tabela `| Fls. | Pág. do PDF | Documento |`, uma linha para cada folha citada na minuta (ex.: `| 30 | 32 | ip-principal |`; verso: `| 30v | 33 | ip-principal |`). Documento = nome da pasta em `01-extracao` (pode ficar vazio se houver um só documento). Confira cada folha na imagem ou no carimbo da página; nunca presuma que folha = página. Folha sem linha no mapa não é conferida pelo gate (`CITA_SO_FLS`).
+
 ## Fluxo
 
 1. Minuta `minuta-vNN.md` + `rastreabilidade-vNN.md` (NN = prÃ³xima versÃ£o livre). `caso.py status <ID> minuta`.
+1b. **Gate de entrega (obrigatório antes da revisão, do DOCX e de apresentar a minuta ao operador).** Rode:
+
+```powershell
+python "<base da skill>\scripts\conferir_minuta.py" <ID> --modo entrega
+```
+
+O script grava `conferencia-vNN.md/.json` ao lado da minuta e sai com código 1 se houver `BLOQUEIA`. Para cada `BLOQUEIA`, volte à fonte (`01-extracao\<documento>\transcricao.md`), corrija a minuta gravando nova versão (NN = próxima versão livre) e rode o gate de novo. **Nunca** apague o dado só para passar no gate, **nunca** invente referência, nunca complete dado. Repita até zero `BLOQUEIA`, no máximo 3 rodadas. Se restar bloqueio, a minuta **não é apresentada como pronta**: leve ao operador os bloqueios restantes em CAIXA ALTA, com o que falta. Os itens `REVISAR` não bloqueiam; liste-os para conferência humana.
 2. RevisÃ£o pelo agente `revisor-de-relatorio` â†’ `revisao-vNN.md` (sustentada/parcial/nÃ£o localizada/contraditÃ³ria). Corrija o que for erro objetivo; leve ao usuÃ¡rio o que depender de decisÃ£o.
 3. Mostre ao usuÃ¡rio: resumo, pendÃªncias (`{...}`), dados crÃ­ticos nÃ£o conferidos.
 4. Com a aprovaÃ§Ã£o do usuÃ¡rio, gere o DOCX:

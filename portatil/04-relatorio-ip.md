@@ -2,11 +2,11 @@
 
 No workspace, comece pela memória central `MEMORIA.md` e pelas fontes vivas ali indicadas; este portátil é um instantâneo para uso fora dele.
 
-*Arquivo portátil gerado em 2026-10-27 19:05 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
+*Arquivo portátil gerado em 2026-11-16 18:56 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
 
 ## Regras obrigatórias
 
-> **Índice das regras:** 1 só o caso indicado · 2 fato × relato × indício × inferência × lacuna · 3 sem completar dado incerto · 4 sem atribuir autoria · 5 `00-originais` intocável · 6 processamento local; provedor externo só se ativado · 7 nada de caso em `acervo\`, `calibracao\` ou GitHub · 8 toda saída é minuta · 9 `consulta\` e `referencias\` não são fonte de fatos · 10 OSINT de empresa · 11 dados faltantes em CAIXA ALTA · 12 gênero da autoridade · 13 estilo e formatação do relatório · 14 um agente por O.S. · 15 Referência só com IPe e Processo · 16 `scope-guard` e `no-gold-plating` · 17 a O.S. manda no relatório · 18 autorização permanente do Codex · 19 análise inclui o relatório em DOCX · 20 O.S. transcrita em Markdown · 21 extração enxuta só em Markdown · 22 memória central `MEMORIA.md` · 23 orquestração com coordenador.
+> **Índice das regras:** 1 só o caso indicado · 2 fato × relato × indício × inferência × lacuna · 3 sem completar dado incerto · 4 sem atribuir autoria · 5 `00-originais` intocável · 6 processamento local; provedor externo só se ativado · 7 nada de caso em `acervo\`, `calibracao\` ou GitHub · 8 toda saída é minuta · 9 `consulta\` e `referencias\` não são fonte de fatos · 10 OSINT de empresa · 11 dados faltantes em CAIXA ALTA · 12 gênero da autoridade · 13 estilo e formatação do relatório · 14 um agente por O.S. · 15 Referência só com IPe e Processo · 16 `scope-guard` e `no-gold-plating` · 17 a O.S. manda no relatório · 18 autorização permanente do Codex · 19 análise inclui o relatório em DOCX · 20 O.S. transcrita em Markdown · 21 extração enxuta só em Markdown · 22 memória central `MEMORIA.md` · 23 orquestração com coordenador · 24 PDF do relatório é a versão entregue.
 
 1. Trabalhe só com os documentos do caso indicado. Não invente fatos, pessoas, números, datas, jurisprudência ou diligências.
 2. Separe **fato documentado × relato × indício × inferência/hipótese × lacuna**. Cite a origem: `(pág. N do PDF; fls. X)`.
@@ -48,6 +48,8 @@ No workspace, comece pela memória central `MEMORIA.md` e pelas fontes vivas ali
 
 23. **Orquestração de agentes (determinação de 27/10/2026):** sempre há um coordenador responsável por delimitar escopo, atribuir/reservar tarefas, integrar, validar e comunicar o resultado. Ele pode criar executores de igual hierarquia/capacidade ou menor conforme necessário. Preferência: Astra na coordenação; Sol, Terra e Luna nas tarefas compatíveis com sua capacidade e complexidade. Selecionar o menor custo de tokens que preserve eficiência e acerto; tarefas com incerteza ou maior risco sobem ao coordenador/modelo mais capaz. Auditoria independente da redação; nenhum agente aprova por mera confiança outro resultado sem evidência. Delegar instruções focadas e contexto mínimo, evitar trabalho e chamadas repetidos, respeitar reservas e persistir até concluir o escopo autorizado. Essa política não autoriza ativar provedores, trocar executor/modelo padrão ou realizar chamadas externas sem os consentimentos existentes; não criar projeto de orquestração concorrente. Não ultrapassar os limites do projeto ou acrescentar melhorias alheias ao pedido.
 
+24. **Versão entregue e medição da confiabilidade (determinação do investigador, 16/11/2026):** o relatório convertido em **PDF** é a versão entregue. Calibração e medição usam esse PDF como gabarito; arquivo `FINAL` gerado sem edição do investigador não serve de gabarito. A cada entrega, medir quanto da primeira e da última minuta foi mantido (`plugin\investigacao-cpj\skills\relatorio-ip-fraude\scripts\medir_entrega.py <ID> --gravar`) e registrar somente os percentuais no próprio caso e no histórico de calibração. Meta: 80% ou mais da primeira minuta mantida. A medição imprime e grava apenas números, nunca trecho do relatório.
+
 Governança completa: `acervo\repo-ia-alandougs\governanca\seguranca-e-dados.md`.
 
 ## Como usar fora do Claude Code
@@ -71,7 +73,8 @@ Use a skill `relatorio-ip-fraude`.
 2b. **A O.S. manda (AGENTS.md regra 17):** antes de redigir, identifique a O.S. vigente (geralmente a última) nos documentos do caso, extraia cada solicitação do Delegado para `02-analise\solicitacoes-os.md` e faça a minuta responder a todas. Sem O.S. localizada: pare e avise o operador em CAIXA ALTA. Cumpra todas as solicitações possíveis, escreva sempre de forma humanizada (texto corrido) e, se faltar CNPJ nos autos, obtenha-o por OSINT de empresa (`osint-empresas.md`) e use-o no contexto adequado.
 2a. **Dados faltantes:** se faltar dado muito importante para autoria, materialidade ou circunstâncias, grave `02-analise\dados-faltantes.md` e avise o operador **em CAIXA ALTA** na resposta final (`DADOS FALTANTES — PROVIDENCIAR (OPERADOR)`), conforme `skills\analise-ip-fraude\references\dados-faltantes.md`. Não deduza; no relatório, só ressalva objetiva na Conclusão.
 3. Grave `03-relatorios\minuta-vNN.md` e `rastreabilidade-vNN.md`; `caso.py status <ID> minuta`.
-4. execute as instruções do agente `revisor-de-relatorio` (seção neste arquivo ou em portatil\) → `revisao-vNN.md`. Corrija erros objetivos na minuta (mesma versão) e liste o que depende de decisão.
+3b. **Gate de entrega:** rode `python "plugin\investigacao-cpj\skills\relatorio-ip-fraude\scripts\conferir_minuta.py" <ID> --modo entrega`. Para cada `BLOQUEIA`, volte à fonte e corrija a minuta em nova versão; nunca apague o dado só para passar, nunca invente referência nem complete dado. Repita até zero `BLOQUEIA`, no máximo 3 rodadas. Todo dado verificável (CPF, CNPJ, Pix, conta, telefone, placa, ID, R$) leva `(Fls. N)` na própria frase ou linha de tabela. Se restar bloqueio, não apresente a minuta como pronta: informe-o ao operador em CAIXA ALTA, com o que falta; liste os `REVISAR` para conferência humana.
+4. execute as instruções do agente `revisor-de-relatorio` (seção neste arquivo ou em portatil\) → `revisao-vNN.md`. Corrija erros objetivos na minuta (mesma versão), rode o gate de novo (3b) se a minuta mudou e liste o que depende de decisão.
 5. Gere o DOCX (rascunho): `python "plugin\investigacao-cpj\skills\relatorio-ip-fraude\scripts\gerar_docx.py" "<minuta>" --saida "casos\<ID>\03-relatorios\RELATORIO-<ID>-vNN.docx"`.
 6. Apresente: caminho do DOCX, resumo da revisão, campos pendentes, dados críticos não conferidos e, **em CAIXA ALTA, os DADOS FALTANTES para o operador providenciar**. Diga que, após revisar/editar no Word e entregar, basta rodar `/entregar <ID>`.
 
@@ -166,9 +169,19 @@ Os campos do cabeÃ§alho e as trÃªs seÃ§Ãµes sÃ£o exatamente os lidos p
 - No texto do relatÃ³rio, cite **fls. dos autos** sÃ³ em pontos de muita relevÃ¢ncia e nos dados financeiros: `(fls. 45)`. Sem fls., use `(pÃ¡g. 45 do arquivo)` e marque a pendÃªncia. A rastreabilidade completa fica em `rastreabilidade-vNN.md`, nÃ£o no texto.
 - Gere junto `03-relatorios\rastreabilidade-vNN.md`: `| trecho do relatÃ³rio | fonte (pÃ¡g./fls.) | natureza | conferido? |` para cada afirmaÃ§Ã£o material.
 
+- **Dado verificável sempre leva citação:** toda frase ou linha de tabela que contenha CPF, CNPJ, chave Pix, agência/conta, telefone, placa, ID de transação ou valor em R$ termina com as folhas no formato da regra 13 do `AGENTS.md`: `(Fls. 30)` ou `(Fls. 30-31)`. Isso não contraria "fls. só em pontos de muita relevância e dados financeiros": dado verificável é sempre ponto relevante. No texto do relatório não se usa "pág."; nesse ponto, esta regra prevalece sobre o parágrafo anterior.
+- **Mapa de folhas (o gate depende dele):** ao final de `rastreabilidade-vNN.md`, acrescente a seção `## Mapa de folhas` com a tabela `| Fls. | Pág. do PDF | Documento |`, uma linha para cada folha citada na minuta (ex.: `| 30 | 32 | ip-principal |`; verso: `| 30v | 33 | ip-principal |`). Documento = nome da pasta em `01-extracao` (pode ficar vazio se houver um só documento). Confira cada folha na imagem ou no carimbo da página; nunca presuma que folha = página. Folha sem linha no mapa não é conferida pelo gate (`CITA_SO_FLS`).
+
 ### Fluxo
 
 1. Minuta `minuta-vNN.md` + `rastreabilidade-vNN.md` (NN = prÃ³xima versÃ£o livre). `caso.py status <ID> minuta`.
+1b. **Gate de entrega (obrigatório antes da revisão, do DOCX e de apresentar a minuta ao operador).** Rode:
+
+```powershell
+python "plugin\investigacao-cpj\skills\<skill>\scripts\conferir_minuta.py" <ID> --modo entrega
+```
+
+O script grava `conferencia-vNN.md/.json` ao lado da minuta e sai com código 1 se houver `BLOQUEIA`. Para cada `BLOQUEIA`, volte à fonte (`01-extracao\<documento>\transcricao.md`), corrija a minuta gravando nova versão (NN = próxima versão livre) e rode o gate de novo. **Nunca** apague o dado só para passar no gate, **nunca** invente referência, nunca complete dado. Repita até zero `BLOQUEIA`, no máximo 3 rodadas. Se restar bloqueio, a minuta **não é apresentada como pronta**: leve ao operador os bloqueios restantes em CAIXA ALTA, com o que falta. Os itens `REVISAR` não bloqueiam; liste-os para conferência humana.
 2. RevisÃ£o pelo agente `revisor-de-relatorio` â†’ `revisao-vNN.md` (sustentada/parcial/nÃ£o localizada/contraditÃ³ria). Corrija o que for erro objetivo; leve ao usuÃ¡rio o que depender de decisÃ£o.
 3. Mostre ao usuÃ¡rio: resumo, pendÃªncias (`{...}`), dados crÃ­ticos nÃ£o conferidos.
 4. Com a aprovaÃ§Ã£o do usuÃ¡rio, gere o DOCX:

@@ -2,11 +2,11 @@
 
 No workspace, comece pela memória central `MEMORIA.md` e pelas fontes vivas ali indicadas; este portátil é um instantâneo para uso fora dele.
 
-*Arquivo portátil gerado em 2026-10-27 19:05 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
+*Arquivo portátil gerado em 2026-11-16 18:56 a partir do plugin `investigacao-cpj`. Autocontido: serve para qualquer agente de IA. Não edite aqui — edite o plugin e rode `ferramentas\exportar-portatil.py`.*
 
 ## Regras obrigatórias
 
-> **Índice das regras:** 1 só o caso indicado · 2 fato × relato × indício × inferência × lacuna · 3 sem completar dado incerto · 4 sem atribuir autoria · 5 `00-originais` intocável · 6 processamento local; provedor externo só se ativado · 7 nada de caso em `acervo\`, `calibracao\` ou GitHub · 8 toda saída é minuta · 9 `consulta\` e `referencias\` não são fonte de fatos · 10 OSINT de empresa · 11 dados faltantes em CAIXA ALTA · 12 gênero da autoridade · 13 estilo e formatação do relatório · 14 um agente por O.S. · 15 Referência só com IPe e Processo · 16 `scope-guard` e `no-gold-plating` · 17 a O.S. manda no relatório · 18 autorização permanente do Codex · 19 análise inclui o relatório em DOCX · 20 O.S. transcrita em Markdown · 21 extração enxuta só em Markdown · 22 memória central `MEMORIA.md` · 23 orquestração com coordenador.
+> **Índice das regras:** 1 só o caso indicado · 2 fato × relato × indício × inferência × lacuna · 3 sem completar dado incerto · 4 sem atribuir autoria · 5 `00-originais` intocável · 6 processamento local; provedor externo só se ativado · 7 nada de caso em `acervo\`, `calibracao\` ou GitHub · 8 toda saída é minuta · 9 `consulta\` e `referencias\` não são fonte de fatos · 10 OSINT de empresa · 11 dados faltantes em CAIXA ALTA · 12 gênero da autoridade · 13 estilo e formatação do relatório · 14 um agente por O.S. · 15 Referência só com IPe e Processo · 16 `scope-guard` e `no-gold-plating` · 17 a O.S. manda no relatório · 18 autorização permanente do Codex · 19 análise inclui o relatório em DOCX · 20 O.S. transcrita em Markdown · 21 extração enxuta só em Markdown · 22 memória central `MEMORIA.md` · 23 orquestração com coordenador · 24 PDF do relatório é a versão entregue.
 
 1. Trabalhe só com os documentos do caso indicado. Não invente fatos, pessoas, números, datas, jurisprudência ou diligências.
 2. Separe **fato documentado × relato × indício × inferência/hipótese × lacuna**. Cite a origem: `(pág. N do PDF; fls. X)`.
@@ -48,6 +48,8 @@ No workspace, comece pela memória central `MEMORIA.md` e pelas fontes vivas ali
 
 23. **Orquestração de agentes (determinação de 27/10/2026):** sempre há um coordenador responsável por delimitar escopo, atribuir/reservar tarefas, integrar, validar e comunicar o resultado. Ele pode criar executores de igual hierarquia/capacidade ou menor conforme necessário. Preferência: Astra na coordenação; Sol, Terra e Luna nas tarefas compatíveis com sua capacidade e complexidade. Selecionar o menor custo de tokens que preserve eficiência e acerto; tarefas com incerteza ou maior risco sobem ao coordenador/modelo mais capaz. Auditoria independente da redação; nenhum agente aprova por mera confiança outro resultado sem evidência. Delegar instruções focadas e contexto mínimo, evitar trabalho e chamadas repetidos, respeitar reservas e persistir até concluir o escopo autorizado. Essa política não autoriza ativar provedores, trocar executor/modelo padrão ou realizar chamadas externas sem os consentimentos existentes; não criar projeto de orquestração concorrente. Não ultrapassar os limites do projeto ou acrescentar melhorias alheias ao pedido.
 
+24. **Versão entregue e medição da confiabilidade (determinação do investigador, 16/11/2026):** o relatório convertido em **PDF** é a versão entregue. Calibração e medição usam esse PDF como gabarito; arquivo `FINAL` gerado sem edição do investigador não serve de gabarito. A cada entrega, medir quanto da primeira e da última minuta foi mantido (`plugin\investigacao-cpj\skills\relatorio-ip-fraude\scripts\medir_entrega.py <ID> --gravar`) e registrar somente os percentuais no próprio caso e no histórico de calibração. Meta: 80% ou mais da primeira minuta mantida. A medição imprime e grava apenas números, nunca trecho do relatório.
+
 Governança completa: `acervo\repo-ia-alandougs\governanca\seguranca-e-dados.md`.
 
 ## Como usar fora do Claude Code
@@ -65,7 +67,7 @@ Governança completa: `acervo\repo-ia-alandougs\governanca\seguranca-e-dados.md`
 Calibre a partir de: [ARGUMENTOS: informe o ID do caso (ex.: OS-123-2026) e observações]
 
 **Caso específico:**
-1. Compare `03-relatorios\minuta-vNN.md` (última da IA) com `RELATORIO-<ID>-FINAL.md` (versão do investigador) e com `revisao-vNN.md`.
+1. Compare `03-relatorios\minuta-vNN.md` (última da IA) com o **PDF do relatório entregue** (o gabarito: a versão do investigador) e com `revisao-vNN.md`; se não houver PDF, use `RELATORIO-<ID>-FINAL.md`. Rode `python plugin\investigacao-cpj\skills\relatorio-ip-fraude\scripts\medir_entrega.py <ID> --gravar` (grava `03-relatorios\medicao-entrega.json`, só números) e registre o percentual mantido (primeira e última minuta) na coluna de diferenças de `calibracao\historico-calibracao.md`.
 2. Classifique cada diferença: estilo/redação, estrutura, conteúdo acrescentado pelo investigador, conteúdo removido, erro factual da IA, excesso de cautela, termo preferido.
 3. Converta em **lições genéricas e acionáveis**, sem nomes, números, contas ou fatos do caso (ex.: "Na Conclusão, não usar 'restou comprovado'; usar 'foram reunidos elementos indicativos'").
 4. Mostre as lições propostas e **peça aprovação**. Aprovadas → acrescente em `calibracao\licoes-aprendidas.md` (seção adequada, com data e ID do caso de origem) e registre em `calibracao\historico-calibracao.md` (data, caso, nº de diferenças por categoria, lições aprovadas/rejeitadas).

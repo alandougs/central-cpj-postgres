@@ -49,7 +49,10 @@ class PacoteReal(unittest.TestCase):
     def test_nada_e_recusado_e_todas_as_extensoes_da_fonte_estao_cobertas(self):
         self.assertEqual(self.recusados, [])
         extensoes = {Path(r).suffix.lower() for r in self.incluidos}
-        self.assertEqual(extensoes, {".py", ".md", ".json", ".html", ".png", ".js", ".css"})
+        # MQ03 (16/11/2026): ".svg" é a logo da interface (LG01) e "" é só a LICENSE do Leaflet (MP91), ambos em
+        # app/static; sem eles o pacote era recusado e o plugin não atualizava.
+        self.assertEqual(extensoes, {".py", ".md", ".json", ".html", ".png", ".js", ".css", ".svg", ""})
+        self.assertEqual({Path(r).name for r in self.incluidos if not Path(r).suffix}, {"LICENSE"})
 
     def test_fila_unificada_e_modulos_novos_estao_no_pacote(self):
         base = "investigacao-cpj/app/"
