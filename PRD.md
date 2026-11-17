@@ -182,3 +182,6 @@ Registros históricos movidos literalmente para [docs/historico/PRD-historico-20
 ## Registro de mudanças
 
 Registro de mudanças até 16/11/2026 movido literalmente para [docs/historico/PRD-historico-2026.md](docs/historico/PRD-historico-2026.md) (seção "Registro de mudanças"). Novas entregas continuam sendo registradas aqui, uma linha por entrega, com a mais recente no topo.
+
+- 2026-11-17 — MQ06: `ferramentas/fila-os.py` deixa de contar pedido de dilação de prazo como autos ou relatório da O.S.; teste `teste_fila_os_pedido_mq06.py`. Evidência em `revisoes/confiabilidade-mq-2026-11-16.md`.
+- 2026-11-17 — MQ05: pasta única por O.S.; a fila de O.S. enxerga o PDF e o relatório do próprio caso; teste `teste_fila_os_caso_mq05.py`. Evidência no mesmo arquivo.
