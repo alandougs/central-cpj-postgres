@@ -7,10 +7,10 @@ Uso: python -X utf8 plugin/investigacao-cpj/app/testes/teste_interface_claude.py
 from fonte_interface import expandir_http
 import http.cookiejar, json, os, re, secrets, shutil, socket, string, subprocess, sys, tempfile, time
 import urllib.error, urllib.parse, urllib.request
+from teste_interface_rg26 import verificar_scripts_navegador
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 APP = os.path.normpath(os.path.join(AQUI, ".."))
-RAIZ = os.path.normpath(os.path.join(APP, "..", "..", ".."))   # workspace real: só para copiar o modelo de caso
 WS = tempfile.mkdtemp(prefix="cpj-l03-")
 falhas = []
 
@@ -49,10 +49,15 @@ class Cli:
 
 
 # ---------------------------------------------------------------- ambiente isolado
-shutil.copytree(os.path.join(RAIZ, "casos", "_MODELO-CASO"), os.path.join(WS, "casos", "_MODELO-CASO"))
+modelo = os.path.join(WS, "casos", "_MODELO-CASO")
+for pasta in ("00-originais", "01-extracao", "02-analise", "03-relatorios"):
+    os.makedirs(os.path.join(modelo, pasta))
+with open(os.path.join(modelo, "caso.json"), "w", encoding="utf-8") as f:
+    json.dump({"datas": {}, "financeiro": {}, "ip": {}, "resultado": {}, "relatorios": []}, f)
 s = socket.socket(); s.bind(("127.0.0.1", 0)); porta = s.getsockname()[1]; s.close()
 srv = subprocess.Popen([sys.executable, os.path.join(APP, "servidor.py"), "--porta", str(porta), "--sem-navegador", "--somente-local",
-                        "--workspace", WS], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        "--workspace", WS], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       env=dict(os.environ, CPJ_WORKSPACE=WS, CPJ_SEM_AGENTE_EMBUTIDO="1"))
 URL = f"http://127.0.0.1:{porta}"
 for _ in range(60):
     try: urllib.request.urlopen(URL + "/api/sessao", timeout=2); break
@@ -69,9 +74,11 @@ try:
                  'name="cpf"', 'name="email"', 'name="cargo"', 'id="f-conta"', 'id="tela-trocar"', "/api/vinculos?tipo=",
                  "/api/consulta/colar", "/api/minha-conta", "mandado_estado", "antecedentes_itens", "no_id"):
         ok(elem in html, f"index.html contém {elem}")
-    ok(len(re.findall(r'<script src="/static/js/[^\"]+"', html_bruto)) > 1 and not re.search(r'<script[^>]*(?:async|defer|type=)', html_bruto), "scripts locais clássicos carregados em ordem, com HTTP 200 e MIME correto")
-    ok(not re.search(r"https?://(?!127\.0\.0\.1|localhost|github\.com|learn\.)", re.sub(r"<!--.*?-->", "", html, flags=re.S)),
-       "interface sem recursos externos (CDN)")
+    try:
+        verificar_scripts_navegador(URL, autenticar=False)
+        ok(True, "scripts locais carregam e executam no navegador, sem CDN nem erros de CSP")
+    except AssertionError as e:
+        ok(False, "scripts/recursos da interface no navegador: " + str(e))
 
     print("L03.2 Usuários: CPF, e-mail, cargo e senha temporária (como a interface envia)")
     s_adm = senha()

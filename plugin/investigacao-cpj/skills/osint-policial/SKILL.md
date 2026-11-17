@@ -5,6 +5,8 @@ description: Investigador de polícia sênior em OSINT (fontes abertas) - planej
 
 # OSINT policial sênior
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 Método para levantar, em fontes **abertas e lícitas**, o máximo de informação verdadeira e verificável que ajude a apurar infração penal, materialidade, circunstâncias e autoria (CF, art. 144, § 4º; CPP, art. 6º). O produto é **subsídio ao delegado**: fatos com fonte, indícios com grau de confiança e lacunas, nunca conclusão de culpa.
 
 Leia antes: `references\base-legal-e-limites.md` (o que pode e o que exige ordem judicial), `references\fontes-brasil.md` (onde buscar) e `references\tecnicas-e-captura.md` (como pesquisar, preservar e registrar). Regras do workspace (`AGENTS.md` §1) valem integralmente: sigilo do IP, sem inventar dado, fato × indício × inferência × lacuna.

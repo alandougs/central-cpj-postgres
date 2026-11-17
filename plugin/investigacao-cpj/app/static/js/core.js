@@ -2,9 +2,9 @@
 
 const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
 
-const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
-const dt=s=>s?String(s).slice(0,10).split("-").reverse().join("/"):"—", kb=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
+const dt=s=>s?esc(String(s).slice(0,10).split("-").reverse().join("/")):"—", kb=n=>n>1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n/1024))+" KB";
 
 const enc=encodeURIComponent, hoje=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
 
@@ -30,11 +30,13 @@ function enviar(u,fd,barra,tx){return new Promise((ok,ko)=>{const x=new XMLHttpR
 
 const barraHTML=(p,ind)=>`<div class="prog${ind?" ind":""}"><i style="width:${Math.max(0,Math.min(100,p||0))}%"></i></div>`;
 
-function badge(st){const m={processando:["b-run","processando"],executando:["b-run","executando"],na_fila:["b-wait","na fila"],erro:["b-err","erro"],concluido:["b-ok","concluído"],concluida:["b-ok","concluída"],cancelada:["","cancelada"]}[st]||["",st||"—"];return `<span class="badge ${m[0]}"><i aria-hidden="true"></i>${m[1]}</span>`}
+function badge(st){const mapa={processando:["b-run","processando"],executando:["b-run","executando"],na_fila:["b-wait","na fila"],erro:["b-err","erro"],concluido:["b-ok","concluído"],concluida:["b-ok","concluída"],cancelada:["","cancelada"]},m=Object.prototype.hasOwnProperty.call(mapa,st)?mapa[st]:["",st||"—"];return `<span class="badge ${m[0]}"><i aria-hidden="true"></i>${esc(m[1])}</span>`}
 
 function prazoBadge(c){if(!c.prazo)return '<span class="muted">—</span>';const s=c.situacao_prazo,t={vencido:"⛔ vencido",hoje:"⚠ vence hoje",proximo:"⏳ "+dt(c.prazo)}[s];return t?`<span class="badge pz-${s}">${t}</span>`:`<span class="muted">${dt(c.prazo)}</span>`}
 
-$("#tema").onclick=()=>{const r=document.documentElement,d=r.dataset.theme==="dark"||(!r.dataset.theme&&matchMedia("(prefers-color-scheme: dark)").matches);r.dataset.theme=d?"light":"dark"};
+function sincronizarTemaPainel(){try{const r=document.documentElement,p=$("#if-painel").contentDocument;if(p)p.documentElement.dataset.theme=r.dataset.theme||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch(e){}}
+$("#if-painel").addEventListener("load",sincronizarTemaPainel);
+$("#tema").onclick=()=>{const r=document.documentElement,d=r.dataset.theme==="dark"||(!r.dataset.theme&&matchMedia("(prefers-color-scheme: dark)").matches);r.dataset.theme=d?"light":"dark";sincronizarTemaPainel()};
 
 
 

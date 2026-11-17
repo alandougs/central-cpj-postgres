@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title desc">
+  <title id="title">ASTRA</title>
+  <desc id="desc">Letra A geométrica verde com órbita e estrela, identidade do sistema ASTRA.</desc>
+  <defs>
+    <linearGradient id="astra-green" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#70ffa0"/><stop offset=".55" stop-color="#31d96d"/><stop offset="1" stop-color="#12a650"/>
+    </linearGradient>
+  </defs>
+  <style>
+    .orbit { transform-origin:48px 48px; animation:astra-orbit 9s ease-in-out 2; }
+    @keyframes astra-orbit { 0%,100% {transform:rotate(-8deg)} 50% {transform:rotate(14deg)} }
+    @media (prefers-reduced-motion:reduce) { .orbit { animation:none } }
+  </style>
+  <path d="M16 75 43 19Q48 9 53 19L80 75H65L48 39 31 75Z" fill="url(#astra-green)"/>
+  <path d="m37 63 6-12h20l6 12Z" fill="#70ffa0"/>
+  <g class="orbit" fill="none" stroke="url(#astra-green)" stroke-width="3" stroke-linecap="round">
+    <path d="M17 56C-2 76 17 85 48 72S99 34 80 29"/>
+    <path d="M18 47C29 33 47 24 63 22" opacity=".35" stroke-width="2"/>
+    <path d="m77 13 2.5 6.5L86 22l-6.5 2.5L77 31l-2.5-6.5L68 22l6.5-2.5Z" fill="#70ffa0" stroke="none"/>
+  </g>
+</svg>

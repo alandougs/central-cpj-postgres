@@ -19,9 +19,12 @@ from pathlib import Path
 
 SCHEMA = "cpj-pacote/1"
 # Lista fechada: .js/.css são a interface local servida por app/static; nenhuma outra extensão é empacotada.
-EXTENSOES = frozenset({".py", ".md", ".json", ".html", ".png", ".js", ".css"})
+EXTENSOES = frozenset({".py", ".md", ".json", ".html", ".png", ".js", ".css", ".svg"})
+# Sem extensão, só a licença que acompanha biblioteca de terceiros em app/static/vendor.
+NOMES_SEM_EXTENSAO = frozenset({"LICENSE"})
 # Nunca vão no pacote: testes, caches e dados/configuração/modelos locais.
-DIRETORIOS_EXCLUIDOS = frozenset({"testes", "__pycache__", "casos", "config", "00-originais", "modelos", "node_modules", ".git"})
+DIRETORIOS_EXCLUIDOS = frozenset({"testes", "__pycache__", ".pytest_cache", "casos", "config", "00-originais", "modelos",
+                                  "node_modules", ".git"})
 # Arquivos sensíveis por nome (mesmo com extensão permitida, p.ex. assinatura.png).
 NOMES_SENSIVEIS = re.compile(
     r"(^\.env($|\.))|assinatura|signature|rubrica|credenc|\.(sqlite3?|db|key|pem|pfx|p12|docx?|pdf|log|bak|zip|gz)$", re.I)
@@ -69,10 +72,17 @@ def selecionar(workspace: Path) -> tuple[dict[str, Path], list[dict], list[str]]
             continue
         if caminho.is_symlink():
             recusados.append(f"link simbólico: {relativo.as_posix()}")
-        elif caminho.suffix.lower() not in EXTENSOES:
+        elif caminho.suffix.lower() not in EXTENSOES and caminho.name not in NOMES_SEM_EXTENSAO:
             recusados.append(f"extensão fora do pacote genérico: {relativo.as_posix()}")
         else:
             incluidos[relativo.as_posix()] = caminho
+    # Documento de raiz do pacote; a fonte autoritativa continua no workspace.
+    # Não copie uma memória independente para cada skill/agente instalado.
+    memoria = workspace / "MEMORIA.md"
+    if memoria.is_symlink() or getattr(memoria, "is_junction", lambda: False)():
+        recusados.append("link na memória central: MEMORIA.md")
+    elif memoria.is_file():
+        incluidos["MEMORIA.md"] = memoria
     return incluidos, excluidos, recusados
 
 

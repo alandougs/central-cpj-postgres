@@ -1,6 +1,6 @@
 """AST60: persistência local dos vínculos, exclusivamente em workspaces fictícios."""
 import importlib.util
-from contextlib import closing
+from contextlib import closing, contextmanager
 import json
 import os
 from pathlib import Path
@@ -15,6 +15,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[4]
 SCRIPTS = ROOT / 'plugin/investigacao-cpj/skills/base-cpj/scripts'
 APP = ROOT / 'plugin/investigacao-cpj/app'
+SENHA = 'senha-ficticia-astra-2099'
 sys.path.insert(0, str(SCRIPTS))
 
 
@@ -31,6 +32,13 @@ class Store(unittest.TestCase):
                              'Vínculos manuais precisam de fonte independente do índice regenerável.')
         import vinculos_manuais
         return vinculos_manuais
+
+    @contextmanager
+    def pacote_zip(self, caminho):
+        # Inspeciona o ZIP interno pelo mesmo leitor autenticado da Central.
+        import pacote_seguro
+        with caminho.open('rb') as arquivo, zipfile.ZipFile(pacote_seguro.Leitor(arquivo, SENHA)) as pacote:
+            yield pacote
 
     def payload(self, **extras):
         return {'caso':'OS-900-2099', 'a_tipo':'NOME', 'a_valor':'Ána Fictícia',
@@ -186,9 +194,9 @@ class Store(unittest.TestCase):
         self.assertEqual(db.execute('SELECT * FROM arestas').fetchall(),[automatica])
         self.assertEqual(db.execute("SELECT rotulo FROM rotulos WHERE tipo='NOME' AND valor='ana ficticia'").fetchone()[0], 'Nome documental')
 
-    def indexar(self):
+    def indexar(self, ws=None):
         return subprocess.run([sys.executable,'-X','utf8',str(SCRIPTS/'indexar.py')],
-                    env=dict(os.environ,CPJ_WORKSPACE=str(self.ws)),capture_output=True,text=True,encoding='utf-8')
+                    env=dict(os.environ,CPJ_WORKSPACE=str(ws or self.ws)),capture_output=True,text=True,encoding='utf-8')
 
     def test_indexacao_dupla_preserva_manual_e_falha_nao_esvazia_grafo(self):
         m = self.modulo()
@@ -235,9 +243,9 @@ class Store(unittest.TestCase):
         tarefas = self.tarefas()
         for modo in ('dados','completo'):
             tid = tarefas.nova('exportacao','Fictícia','teste')
-            retorno = tarefas.exportar(tid,modo,False)
+            retorno = tarefas.exportar(tid,modo,False,SENHA)
             pacote = self.ws/'exportacoes'/retorno['arquivo']
-            with zipfile.ZipFile(pacote) as z:
+            with self.pacote_zip(pacote) as z:
                 nomes = z.namelist()
                 self.assertTrue(any(n.startswith('dados/consulta/_grafo-manual/eventos/') for n in nomes))
                 self.assertFalse(any(n.endswith('.lock') for n in nomes))
@@ -247,7 +255,7 @@ class Store(unittest.TestCase):
             for n in range(2):
                 entrada = destino/f'entrada-{n}.zip'; shutil.copy2(pacote,entrada)
                 itid = importador.nova('importacao','Fictícia','teste')
-                importador.importar(itid,str(entrada))
+                importador.importar(itid,str(entrada),SENHA)
             self.assertEqual(m.listar(destino,incluir_excluidos=True),m.listar(self.ws,incluir_excluidos=True))
             self.assertEqual(len(m.historico(destino,registro['id'])),2)
 
@@ -256,7 +264,7 @@ class Store(unittest.TestCase):
         m.criar(self.ws,self.payload(),'autor')
         tarefas = self.tarefas()
         tid = tarefas.nova('exportacao','Fictícia','teste')
-        pacote = self.ws/'exportacoes'/tarefas.exportar(tid,'dados',False)['arquivo']
+        pacote = self.ws/'exportacoes'/tarefas.exportar(tid,'dados',False,SENHA)['arquivo']
         evento = next((self.ws/'consulta/_grafo-manual/eventos').glob('*.json'))
         conteudo_original = evento.read_bytes()
         destino = self.ws/'destino-conflito'
@@ -268,7 +276,7 @@ class Store(unittest.TestCase):
         tid = importador.nova('importacao','Fictícia','teste')
         entrada = destino/'entrada.zip'; shutil.copy2(pacote,entrada)
         with self.assertRaisesRegex(ValueError,'divergente'):
-            importador.importar(tid,str(entrada))
+            importador.importar(tid,str(entrada),SENHA)
         self.assertEqual(m.listar(destino)[0]['relacao'],'Conteúdo divergente')
         self.assertEqual(evento.read_bytes(),conteudo_original)
 
@@ -276,21 +284,33 @@ class Store(unittest.TestCase):
     def test_backup_restauracao_reconstroi_sem_indice(self):
         m = self.modulo()
         registro = m.criar(self.ws,self.payload(),'autor')
-        for nome in ('calibracao','producao','referencias','config','usuarios','ferramentas'):
-            (self.ws/nome).mkdir(exist_ok=True)
-        for nome in ('backup.ps1','restaurar.ps1'):
-            shutil.copy2(ROOT/'ferramentas'/nome,self.ws/'ferramentas'/nome)
-        backup = self.ws/'destino-backup'; backup.mkdir()
-        cmd = ['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(self.ws/'ferramentas/backup.ps1'),'-Destino',str(backup)]
-        r = subprocess.run(cmd,capture_output=True,text=True)
+        base = Path(self.enterContext(tempfile.TemporaryDirectory(prefix='cpj-astra-backup-')))
+        ferramentas = base/'instalacao/ferramentas'; ferramentas.mkdir(parents=True)
+        for nome in ('backup.ps1','restaurar.ps1','backup_consistente.py'):
+            shutil.copy2(ROOT/'ferramentas'/nome,ferramentas/nome)
+        app = base/'instalacao/plugin/investigacao-cpj/app'; app.mkdir(parents=True)
+        for nome in ('auth.py','seguranca_local.py'):
+            shutil.copy2(APP/nome,app/nome)
+        backup = base/'midia'; backup.mkdir()
+        cmd = ['powershell.exe','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',str(ferramentas/'backup.ps1'),
+               '-Origem',str(self.ws),'-Destino',str(backup),'-Offline','-MidiaProtegida','-Python',sys.executable]
+        r = subprocess.run(cmd,capture_output=True,text=True,timeout=30)
         self.assertEqual(r.returncode,0,r.stdout+r.stderr)
-        shutil.rmtree(self.ws/'consulta')
-        cmd = ['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(self.ws/'ferramentas/restaurar.ps1'),'-Origem',str(backup/'CPJ-TRABALHO-backup')]
-        r = subprocess.run(cmd,capture_output=True,text=True)
+        snapshots = list(backup.glob('CPJ-*')); self.assertEqual(len(snapshots),1)
+        self.assertTrue((snapshots[0]/'manifest.json').is_file())
+        fonte = m.exportar_eventos(self.ws)
+        m.atualizar(self.ws,registro['id'],{'relacao':'alteração posterior ao backup'},'autor',versao=1)
+        destino = base/'restaurado'
+        cmd = ['powershell.exe','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',str(ferramentas/'restaurar.ps1'),
+               '-Origem',str(snapshots[0]),'-Destino',str(destino),'-MidiaProtegida','-Python',sys.executable]
+        r = subprocess.run(cmd,capture_output=True,text=True,timeout=30)
         self.assertEqual(r.returncode,0,r.stdout+r.stderr)
-        self.assertEqual(m.listar(self.ws),[registro])
-        r = self.indexar(); self.assertEqual(r.returncode,0,r.stderr)
-        with closing(sqlite3.connect(self.ws/'rag/cpj.sqlite')) as db:
+        self.assertEqual(m.listar(destino),[registro])
+        self.assertEqual(m.exportar_eventos(destino),fonte)
+        self.assertEqual(m.listar(self.ws)[0]['versao'],2,'Restore não sobrepõe estado posterior da fonte.')
+        self.assertFalse((destino/'rag/cpj.sqlite').exists())
+        r = self.indexar(destino); self.assertEqual(r.returncode,0,r.stderr)
+        with closing(sqlite3.connect(destino/'rag/cpj.sqlite')) as db:
             loc = json.loads(db.execute("SELECT localizador FROM arestas WHERE origem='manual'").fetchone()[0])
             self.assertEqual(loc['id'],registro['id'])
 
@@ -438,12 +458,12 @@ else: print('salvo')
         self.assertEqual(m.listar(self.ws),[])
         self.assertEqual(db.execute('SELECT count(*) FROM arestas').fetchone()[0],0)
         tarefas = self.tarefas(); tid = tarefas.nova('exportacao','Fictício','teste')
-        pacote = self.ws/'exportacoes'/tarefas.exportar(tid,'dados',False)['arquivo']
-        with zipfile.ZipFile(pacote) as z:
+        pacote = self.ws/'exportacoes'/tarefas.exportar(tid,'dados',False,SENHA)['arquivo']
+        with self.pacote_zip(pacote) as z:
             self.assertEqual(z.read('dados/consulta/_grafo-manual/legados/'+snapshots[0].name),preservado)
         destino = self.ws/'destino-orfao'; (destino/'casos').mkdir(parents=True); (destino/'modelos').mkdir()
         importador = self.tarefas(destino); tid = importador.nova('importacao','Fictício','teste')
-        entrada = destino/'entrada.zip'; shutil.copy2(pacote,entrada); importador.importar(tid,str(entrada))
+        entrada = destino/'entrada.zip'; shutil.copy2(pacote,entrada); importador.importar(tid,str(entrada),SENHA)
         self.assertEqual((destino/'consulta/_grafo-manual/legados'/snapshots[0].name).read_bytes(),preservado)
         self.assertEqual(m.listar(destino),[])
 

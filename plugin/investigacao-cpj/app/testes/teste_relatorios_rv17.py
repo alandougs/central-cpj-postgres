@@ -1,6 +1,7 @@
 """Regressões RV17: concorrência e gate de entrega, apenas dados fictícios."""
 import concurrent.futures
 import errno
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -128,14 +129,24 @@ class RelatoriosRV17(unittest.TestCase):
                 self.s.C.caminho(cid)
 
     def test_definir_final_novamente_nao_copia_o_arquivo_sobre_si(self):
+        from docx import Document
+        from vinculos_docx import emitir
         cid, pasta = self.novo_caso()
         nome = f"RELATORIO-{cid}-FINAL.docx"
-        (pasta / nome).write_bytes(b"DOCX ficticio")
-        (pasta / "minuta-v01.md").write_text("Minuta fictícia", encoding="utf-8")
-        with patch.object(self.r, "conferir_minuta_gate", return_value={"aprovado": True, "achados": []}):
+        documento = Document()
+        documento.add_paragraph("Minuta fictícia")
+        documento.save(pasta / nome)
+        conteudo_docx = (pasta / nome).read_bytes()
+        minuta = pasta / "minuta-v01.md"
+        minuta.write_text("Minuta fictícia", encoding="utf-8")
+        sha_minuta = hashlib.sha256(minuta.read_bytes()).hexdigest()
+        vinculo = emitir(str(self.ws), cid, minuta.name, nome, sha_minuta,
+                         hashlib.sha256(conteudo_docx).hexdigest(), "2099-01-01T00:00:00")
+        self.s.C.atualizar(cid, lambda c: c.update(vinculos_docx=[vinculo]))
+        with patch.object(self.r, "conferir_minuta_gate", return_value={"aprovado": True, "achados": [], "sha256_minuta": sha_minuta}):
             r = self.post(cid, "final", {"docx": nome})
         self.assertEqual(r.status_code, 200)
-        self.assertEqual((pasta / nome).read_bytes(), b"DOCX ficticio")
+        self.assertEqual((pasta / nome).read_bytes(), conteudo_docx)
 
     def test_final_nao_confere_minuta_de_outra_versao(self):
         cid, pasta = self.novo_caso()

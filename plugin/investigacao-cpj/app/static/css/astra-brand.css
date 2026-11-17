@@ -1,0 +1,7 @@
+/* Identidade própria ASTRA; dimensões estáveis durante o carregamento. */
+.astra-mark { display:block; flex:none; object-fit:contain; filter:none; }
+.brand .astra-mark { width:52px; height:52px; }
+.brand .logo { letter-spacing:.055em; }
+.brand .logo small { letter-spacing:normal; }
+.login-brand .astra-mark { width:104px; height:104px; margin-bottom:12px; }
+@media (max-width:640px) { .brand .astra-mark { width:44px; height:44px; } }

@@ -10,8 +10,20 @@ Entradas (casos\\<ID>\\):
   01-extracao\\<doc>\\transcricao.md       (páginas marcadas "## Página N")
   01-extracao\\<doc>\\relatorio_extracao.json  (pendentes_transcricao_visual, conferir_visualmente)
   02-analise\\fluxo-financeiro.csv         (opcional: só reconhece totais calculados)
+  03-relatorios\\rastreabilidade-vNN.md    (opcional: mapa folha -> página, mesma versão e pasta da minuta)
+
+Citação só por folhas (regra 13: "(Fls. 30)", "(Fls. 30-31)", "Fls. 30/31", "fls. 30 e 31"): cada folha é
+convertida em página do PDF pela seção "## Mapa de folhas" da rastreabilidade-vNN.md, tabela com as colunas
+| Fls. | Pág. do PDF | Documento | (uma folha por linha; "30v" = verso; Documento = pasta em 01-extracao,
+dispensável se houver um só documento). Com TODAS as folhas citadas mapeadas, o dado passa pela mesma
+verificação da citação por página (confirmado / OUTRA_PAGINA / NAO_LOCALIZADO...). Folha fora do mapa ou
+ambígua (duas páginas no mesmo lado, mais de um documento, documento ou página inexistente), mapa ausente,
+em link/junção ou ilegível -> CITA_SO_FLS (REVISAR), com o motivo no detalhe. Folha nunca é presumida
+igual à página; citação que traz "pág." continua conferida só pela página.
 
 Saída: 03-relatorios\\conferencia-vNN.md (tabela legível) e conferencia-vNN.json (ao lado da minuta).
+JSON cpj-conferencia/1; campo aditivo "mapa_fls" (arquivo, estado ok|ausente|ilegivel, folhas_mapeadas,
+problemas).
 Código de saída: diagnostico -> sempre 0; entrega -> 1 se houver achado BLOQUEIA, senão 0;
                  2 -> erro de entrada (caso, minuta ou pasta inexistente), em qualquer modo.
 
@@ -32,7 +44,8 @@ REVISAR (não bloqueia)
   AUTORIA_AFIRMATIVA  linguagem de autoria/culpa afirmativa sem "em tese", "investigado(a)", "há indícios"
   APROXIMADO          dado só confere depois de normalizar confusões típicas de OCR (O/0, I/1, S/5, B/8)
   CALCULO             valor que não está nos autos, mas é soma/diferença de valores citados ou total do fluxo
-  CITA_SO_FLS         dado citado só por fls. (sem pág.): existe nos autos, mas a folha não é mapeável
+  CITA_SO_FLS         dado citado só por fls., folha sem mapa válido para página: existe nos autos, mas
+                      não foi possível conferir se está na folha citada
   SECAO_DESCONHECIDA  "## Título" fora das três seções: o gerar_docx.py descarta esse conteúdo
   GENERO_DELEGADO     delegado_genero ausente ou diferente de M/F (regra 10)
   CABECALHO_INCOMPLETO  data_rodape ausente (o rodapé do DOCX fica com a data do modelo)
@@ -50,6 +63,10 @@ import json
 import os
 import re
 import sys
+# Mesmo leitor local usado pela Central, incluindo o checkpoint consolidado.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../pdf-autos-policiais/scripts")))
+from estado_extracao import ler as ler_estado_extracao, arquivo as checkpoint_extracao
+
 import unicodedata
 from decimal import Decimal, InvalidOperation
 
@@ -82,6 +99,7 @@ RE_PENDENTES = [
     (re.compile(r"\{[^{}\n]{1,200}\}"), "texto-guia do modelo entre chaves"),
     (re.compile(r"\[\s*local,\s*Estado\s*\]", re.I), "texto-guia [local, Estado]"),
     (re.compile(r"\[\s*PENDENTE[^\]\n]*\]", re.I), "marcação [PENDENTE]"),
+    (re.compile(r"\[\s*(?:OBTER|PESQUISAR)\s*:[^\]\n]*\]", re.I), "dado a obter ou pesquisar"),
     (re.compile(r"\bPREENCHER\b"), "campo a preencher"),
     (re.compile(r"(?<!\d[.\-])\bX{3,}\b(?![.\-]\d)"), "marcador XXX"),  # não pega máscara XXX.456.789-XX
     (re.compile(r"Nome do Delegado", re.I), "texto-guia Nome do Delegado"),
@@ -201,6 +219,22 @@ def indexar_pagina(texto):
 
 def carregar_documentos(pasta):
     """Lê <pasta>\\<doc>\\transcricao.md (ou <pasta>\\transcricao.md). Retorna lista de documentos."""
+    ancestral = os.path.abspath(pasta)
+    while True:
+        if os.path.islink(ancestral) or os.path.isjunction(ancestral):
+            raise ValueError("Fonte da conferência contém link ou junção em sua árvore.")
+        pai = os.path.dirname(ancestral)
+        if pai == ancestral:
+            break
+        ancestral = pai
+    raiz = os.path.realpath(pasta)
+
+    def conferir_fonte(caminho):
+        if (os.path.islink(caminho) or os.path.isjunction(caminho)
+                or os.path.commonpath([raiz, os.path.realpath(caminho)]) != raiz):
+            raise ValueError("Fonte da conferência fora da extração do próprio caso (link ou junção).")
+
+    conferir_fonte(pasta)
     alvos = []
     if os.path.isfile(os.path.join(pasta, "transcricao.md")):
         alvos.append(pasta)
@@ -211,6 +245,10 @@ def carregar_documentos(pasta):
                 alvos.append(sub)
     docs = []
     for d in alvos:
+        conferir_fonte(d)
+        conferir_fonte(os.path.join(d, "transcricao.md"))
+        rel = str(checkpoint_extracao(d)) if checkpoint_extracao(d).exists() else os.path.join(d, "relatorio_extracao.json")
+        conferir_fonte(rel)
         paginas, pendentes, conferir, atual, buf = {}, set(), set(), None, []
 
         def fecha():
@@ -232,10 +270,9 @@ def carregar_documentos(pasta):
                 continue
             buf.append(ln.rstrip("\n"))
         fecha()
-        rel = os.path.join(d, "relatorio_extracao.json")
         if os.path.isfile(rel):
             try:
-                r = json.load(open(rel, encoding="utf-8-sig"))
+                r = ler_estado_extracao(d, "relatorio_extracao.json")
                 pendentes.update(int(x) for x in r.get("pendentes_transcricao_visual", []) or [])
                 conferir.update(int(x) for x in r.get("conferir_visualmente", []) or [])
             except (ValueError, TypeError):
@@ -268,6 +305,104 @@ def totais_fluxo(caminho):
             if (ln.get(col) or "").strip():
                 grupos.setdefault((col, ln[col].strip()), []).append(v)
     return {sum(vs) for vs in grupos.values() if len(vs) > 1}
+
+
+RE_MAPA_FL = re.compile(r"(?:fls?\.?\s*)?(\d{1,5})\s*(v|verso)?", re.I)
+RE_MAPA_PG = re.compile(r"(?:p[áa]g(?:ina)?\.?\s*)?(\d{1,5})", re.I)
+
+
+def carregar_mapa_fls(caminho_minuta, docs):
+    """Mapa folha -> página do PDF da seção '## Mapa de folhas' de rastreabilidade-vNN.md (mesma versão e pasta
+    da minuta). Retorna {arquivo, estado (ok|ausente|ilegivel), folhas {fl: [(doc, pág.)]}, problemas
+    {fl: motivo}, erro}. Nunca falha: qualquer defeito vira estado/problema e a folha fica sem mapa."""
+    m = re.search(r"minuta-v(\d+)", os.path.basename(caminho_minuta))
+    nome = f"rastreabilidade-v{m.group(1)}.md" if m else "rastreabilidade-vNN.md"
+    mapa = {"arquivo": nome, "estado": "ausente", "folhas": {}, "problemas": {}, "erro": ""}
+    if not m:
+        mapa["erro"] = "minuta sem versão no nome: rastreabilidade-vNN.md não identificável"
+        return mapa
+    pasta = os.path.dirname(os.path.abspath(caminho_minuta))
+    caminho = os.path.join(pasta, nome)
+    if not os.path.lexists(caminho):
+        mapa["erro"] = f"{nome} ausente"
+        return mapa
+
+    def ilegivel(motivo):
+        return {**mapa, "estado": "ilegivel", "erro": f"mapa de folhas de {nome} ilegível: {motivo}"}
+
+    try:
+        if (os.path.islink(caminho) or os.path.isjunction(caminho) or not os.path.isfile(caminho)
+                or os.path.dirname(os.path.realpath(caminho)) != os.path.realpath(pasta)):
+            return ilegivel("link, junção ou arquivo fora da pasta da minuta")
+        with open(caminho, encoding="utf-8-sig") as f:
+            linhas = f.read().splitlines()
+    except (OSError, ValueError):
+        return ilegivel("leitura falhou")
+    tabela, achou = [], False
+    for ln in linhas:
+        if re.match(r"^##(?!#)", ln):
+            if achou:
+                break
+            achou = bool(re.match(r"^##\s+mapa\s+de\s+folhas\b", sem_acento(ln.strip()), re.I))
+            continue
+        if achou and ln.strip().startswith("|"):
+            tabela.append(ln.strip())
+    if not achou:
+        mapa["erro"] = f"{nome} sem a seção '## Mapa de folhas'"
+        return mapa
+    linhas_t = [[c.strip().strip("`").strip() for c in s.strip("|").split("|")]
+                for s in tabela if not re.fullmatch(r"\|?[\s:\-|]+\|?", s)]
+    if len(linhas_t) < 2:
+        return ilegivel("seção sem tabela | Fls. | Pág. do PDF | Documento | com linhas")
+    cab = [sem_acento(c).lower() for c in linhas_t[0]]
+    i_fl = next((i for i, c in enumerate(cab) if c.startswith("fl") or "folha" in c), None)
+    i_pg = next((i for i, c in enumerate(cab) if i != i_fl and ("pag" in c or "pdf" in c)), None)
+    i_doc = next((i for i, c in enumerate(cab) if i not in (i_fl, i_pg) and ("doc" in c or "arquivo" in c)), None)
+    if i_fl is None or i_pg is None:
+        return ilegivel("cabeçalho sem as colunas Fls. e Pág. do PDF")
+    bruto, problemas = {}, {}
+    for cel in linhas_t[1:]:
+        if max(i_fl, i_pg, i_doc or 0) >= len(cel):
+            return ilegivel("linha com colunas a menos: " + " | ".join(cel))
+        mf, mp = RE_MAPA_FL.fullmatch(cel[i_fl]), RE_MAPA_PG.fullmatch(cel[i_pg])
+        if not mf or not mp:
+            return ilegivel("linha com folha ou página não numérica: " + " | ".join(cel))
+        fl, lado, pg = int(mf.group(1)), "verso" if mf.group(2) else "frente", int(mp.group(1))
+        nome_doc = cel[i_doc] if i_doc is not None else ""
+        if nome_doc:
+            alvo = [d for d in docs if nome_doc.lower() in (d["doc"].lower(), d["doc"].lower() + ".pdf")]
+        else:
+            alvo = docs if len(docs) == 1 else []
+        if len(alvo) != 1:
+            problemas[fl] = (f"documento '{nome_doc}' não identificado na extração" if nome_doc else
+                             "documento não indicado e há mais de um documento extraído")
+            continue
+        if pg not in alvo[0]["paginas"]:
+            problemas[fl] = f"pág. {pg} não existe em {alvo[0]['doc']}"
+            continue
+        bruto.setdefault(fl, {}).setdefault(lado, set()).add((alvo[0]["doc"], pg))
+    por_doc = {d["doc"]: d for d in docs}
+    for fl, lados in bruto.items():
+        if fl in problemas:
+            continue
+        pares = [x for v in lados.values() for x in v]
+        if any(len(v) > 1 for v in lados.values()) or len({doc for doc, _ in pares}) > 1:
+            problemas[fl] = "folha associada a mais de uma página ou documento (ambígua)"
+            continue
+        mapa["folhas"][fl] = sorted(((por_doc[doc], pg) for doc, pg in pares), key=lambda x: x[1])
+    mapa.update(estado="ok", problemas=problemas)
+    return mapa
+
+
+def resolver_fls(fls, mapa):
+    """Páginas [(doc, pág.)] das folhas citadas, só se TODAS estiverem mapeadas; senão ([], motivo)."""
+    if not mapa or mapa.get("estado") != "ok":
+        return [], (mapa or {}).get("erro") or "sem mapa folha -> página"
+    faltam = [f for f in fls if f not in mapa["folhas"]]
+    if faltam:
+        return [], "; ".join(f"fls. {f}: {mapa['problemas'].get(f, 'fora do mapa de folhas de ' + mapa['arquivo'])}"
+                             for f in faltam[:6])
+    return [x for f in fls for x in mapa["folhas"][f]], ""
 
 
 # ---------- minuta ----------
@@ -442,7 +577,7 @@ def procura(tipo, dado, formas, ocr=False):
 # ---------- conferência ----------
 
 
-def conferir(caminho_minuta, docs, totais):
+def conferir(caminho_minuta, docs, totais, mapa=None):
     linhas, meta, inicio, tem_fm = ler_minuta(caminho_minuta)
     achados, conferidos = [], []
     existentes = {}
@@ -541,7 +676,7 @@ def conferir(caminho_minuta, docs, totais):
                     linha = max((n for o, n in marcos if o <= pos), default=n0)
                     unidades.append((linha, fr, "", None))
             for nl, u, herdada, ctx_vals in unidades:
-                avaliar(u, nl, sec, herdada, ctx_vals, docs, existentes, totais, add)
+                avaliar(u, nl, sec, herdada, ctx_vals, docs, existentes, totais, add, mapa)
 
     # página pendente / a conferir: um achado por página, com todas as linhas que a citam
     agrupados, final = {}, []
@@ -581,12 +716,18 @@ def eh_calculo(dado, valores_unidade, ctx_vals, totais):
     return v in cands
 
 
-def avaliar(u, nl, sec, herdada, ctx_vals, docs, existentes, totais, add):
+def avaliar(u, nl, sec, herdada, ctx_vals, docs, existentes, totais, add, mapa=None):
     pags, fls = citacoes(u)
     if not pags and not fls and herdada:
         pags, fls = citacoes(herdada)
+    # só fls.: páginas pelo mapa folha -> página (todas as folhas mapeadas); citação com pág. não muda
+    alvo_mapa, motivo_fls = resolver_fls(fls, mapa) if fls and not pags else ([], "")
+    pags_mapa = sorted({p for _, p in alvo_mapa})
+    pags_ref = pags or pags_mapa
     citado = "; ".join(([f"pág. {', '.join(map(str, pags))}"] if pags else []) +
                        ([f"fls. {', '.join(map(str, fls))}"] if fls else [])) or "—"
+    if pags_mapa:
+        citado += f" (pág. {', '.join(map(str, pags_mapa))} pelo mapa de folhas)"
     comum = dict(secao=sec, citado=citado, trecho=u)
     # páginas citadas
     alvo = []
@@ -596,14 +737,15 @@ def avaliar(u, nl, sec, herdada, ctx_vals, docs, existentes, totais, add):
                 f"({', '.join(d['doc'] + ': ' + str(max(d['paginas'] or [0])) + ' p.' for d in docs) or 'sem extração'})",
                 dado=f"pág. {p}", paginas=[p], **comum)
             continue
-        for d in existentes[p]:
-            alvo.append((d, p))
-            if p in d["pendentes"]:
-                add("REVISAR", "PAGINA_PENDENTE", nl, f"pág. {p} ({d['doc']}) está pendente de transcrição visual: "
-                    "conferir o trecho na imagem da página", dado=f"pág. {p}", paginas=[p], **comum)
-            elif p in d["conferir"]:
-                add("REVISAR", "PAGINA_CONFERIR", nl, f"pág. {p} ({d['doc']}) está marcada para conferência visual "
-                    "(OCR de baixa confiança)", dado=f"pág. {p}", paginas=[p], **comum)
+        alvo += [(d, p) for d in existentes[p]]
+    alvo += alvo_mapa
+    for d, p in alvo:
+        if p in d["pendentes"]:
+            add("REVISAR", "PAGINA_PENDENTE", nl, f"pág. {p} ({d['doc']}) está pendente de transcrição visual: "
+                "conferir o trecho na imagem da página", dado=f"pág. {p}", paginas=[p], **comum)
+        elif p in d["conferir"]:
+            add("REVISAR", "PAGINA_CONFERIR", nl, f"pág. {p} ({d['doc']}) está marcada para conferência visual "
+                "(OCR de baixa confiança)", dado=f"pág. {p}", paginas=[p], **comum)
     # linguagem
     if not RE_RESSALVA.search(u):
         for rx in AUTORIA:
@@ -622,7 +764,7 @@ def avaliar(u, nl, sec, herdada, ctx_vals, docs, existentes, totais, add):
     incerto_marcado = False
     valores_unidade = [dec_brl(d) for t, d in dados if t == "valor" and "?" not in d]
     for tipo, dado in dados:
-        base = dict(tipo=tipo, dado=dado, paginas=pags, **comum)
+        base = dict(tipo=tipo, dado=dado, paginas=pags_ref, **comum)
         if not pags and not fls:
             add("BLOQUEIA", "SEM_REFERENCIA", nl, "dado verificável sem citação de pág./fls.: indicar a página do PDF "
                 "(e fls., se houver)", **base)
@@ -656,9 +798,10 @@ def avaliar(u, nl, sec, herdada, ctx_vals, docs, existentes, totais, add):
             add("REVISAR", cod, nl, f"dado não está no texto da pág. {p}, pendente/a conferir: conferir na imagem",
                 localizado=outras, **base)
             continue
-        if outras and not pags:
-            add("REVISAR", "CITA_SO_FLS", nl, "citado só por fls. (não mapeável para página do PDF); o dado existe em "
-                + ", ".join(outras[:6]) + ": acrescentar a pág.", localizado=outras, **base)
+        if outras and not pags_ref:
+            add("REVISAR", "CITA_SO_FLS", nl, f"citado só por fls., não mapeável para página do PDF ({motivo_fls}); "
+                "o dado existe em " + ", ".join(outras[:6]) + ": registrar a folha no '## Mapa de folhas' da "
+                "rastreabilidade (não presumir folha = página)", localizado=outras, **base)
             continue
         if outras:
             add("BLOQUEIA", "OUTRA_PAGINA", nl, "dado existe nos autos, mas não na página citada: corrigir a referência",
@@ -672,9 +815,9 @@ def avaliar(u, nl, sec, herdada, ctx_vals, docs, existentes, totais, add):
             "ou ausência de fonte (não completar nem corrigir por dedução)", **base)
     if RE_INCERTO.search(u) and not incerto_marcado:
         add("REVISAR", "DIGITO_INCERTO", nl, "trecho com [dígito incerto]: conferir na imagem da página",
-            dado="[dígito incerto]", paginas=pags, secao=sec, citado=citado, trecho=u)
+            dado="[dígito incerto]", paginas=pags_ref, secao=sec, citado=citado, trecho=u)
     elif not RE_INCERTO.search(u) and any("?" in d for _, d in dados):
-        add("REVISAR", "DIGITO_INCERTO", nl, "dado com '?' sem a marcação [dígito incerto]", dado="?", paginas=pags,
+        add("REVISAR", "DIGITO_INCERTO", nl, "dado com '?' sem a marcação [dígito incerto]", dado="?", paginas=pags_ref,
             secao=sec, citado=citado, trecho=u)
 
 
@@ -693,6 +836,10 @@ def gerar_md(res):
           f"- Documentos conferidos: " + (", ".join(f"{d['doc']} ({d['paginas']} p.; pendentes: "
                                                     f"{d['pendentes'] or '—'}; a conferir: {d['conferir'] or '—'})"
                                                     for d in res["documentos"]) or "nenhum"),
+          f"- Mapa folha → página: {res['mapa_fls']['arquivo']} ({res['mapa_fls']['estado']}; "
+          f"{res['mapa_fls']['folhas_mapeadas']} folhas mapeadas"
+          + (f"; problemas: {'; '.join(res['mapa_fls']['problemas'][:6])}" if res['mapa_fls']['problemas'] else "")
+          + ")",
           "", f"**Resultado: {'APROVADA para entrega' if res['aprovado'] else 'BLOQUEADA'}** — "
           f"BLOQUEIA: {r['BLOQUEIA']} · REVISAR: {r['REVISAR']} · dados confirmados: {r['confirmados']}", ""]
     for nivel, titulo in (("BLOQUEIA", "Bloqueios (corrigir antes da entrega)"),
@@ -771,8 +918,12 @@ def main():
     fluxo = a.fluxo or (os.path.join(base, "02-analise", "fluxo-financeiro.csv") if base else None)
 
     hash_antes = sha256(minuta)
-    docs = carregar_documentos(extracao)
-    meta, achados, conferidos = conferir(minuta, docs, totais_fluxo(fluxo))
+    try:
+        docs = carregar_documentos(extracao)
+    except (OSError, ValueError):
+        erro("Fonte da conferência inválida ou fora da extração do próprio caso; confira links e junções.")
+    mapa = carregar_mapa_fls(minuta, docs)
+    meta, achados, conferidos = conferir(minuta, docs, totais_fluxo(fluxo), mapa)
     if sha256(minuta) != hash_antes:  # salvaguarda: este script só lê a minuta
         erro("a minuta mudou durante a conferência; rode de novo")
 
@@ -797,6 +948,9 @@ def main():
                    "por_codigo": cont},
         "documentos": [{"doc": d["doc"], "paginas": len(d["paginas"]), "pendentes": sorted(d["pendentes"]),
                         "conferir": sorted(d["conferir"])} for d in docs],
+        "mapa_fls": {"arquivo": mapa["arquivo"], "estado": mapa["estado"], "folhas_mapeadas": len(mapa["folhas"]),
+                     "problemas": ([mapa["erro"]] if mapa["erro"] else [])
+                     + [f"fls. {f}: {m}" for f, m in sorted(mapa["problemas"].items())]},
         "arquivos": {"md": os.path.join(pasta, nome + ".md"), "json": os.path.join(pasta, nome + ".json")},
         "achados": achados,
         "conferidos": conferidos,

@@ -40,7 +40,7 @@ import docx
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Pt, RGBColor
+from docx.shared import Cm, Pt, RGBColor
 
 def ws_padrao():
     """Workspace CPJ: CPJ_WORKSPACE > 1ª pasta acima deste script com casos/ e modelos/ > cwd com casos/ > erro."""
@@ -128,6 +128,11 @@ if m:
 # A minuta e o mapa de rastreabilidade mantêm a numeração do PDF; não deduza fls.
 corpo = re.sub(r"\(\s*p[áa]g(?:ina)?s?\.?\s+[^();\n]+;\s*(fls?\.\s*[^();\n]+)\s*\)",
                lambda m: "(" + m.group(1).strip() + ")", corpo, flags=re.I)
+corpo = re.sub(r"\(\s*fls?\.\s*([^();\n]+)\s*\)",
+               lambda m: "(Fls. " + m.group(1).strip() + ")", corpo, flags=re.I)
+# Sem folha documentada não converter a página do arquivo em folha dos autos.
+corpo = re.sub(r"\(\s*p[áa]g(?:ina)?s?\.?\s+[^();\n]+\)",
+               "[OBTER: FOLHAS DOS AUTOS]", corpo, flags=re.I)
 
 secoes = {s: [] for s in SECOES}
 atual = None
@@ -557,6 +562,16 @@ if meta.get("data_rodape"):
                     r.text = meta["data_rodape"]
 
 for i, p in enumerate(doc.paragraphs):
+    if normalizar_titulo(p.text) in SECOES_CANONICAS:
+        p.paragraph_format.keep_with_next = True
+        p.paragraph_format.keep_together = True
+        seguinte = p._p.getnext()
+        while seguinte is not None and seguinte.tag == qn("w:p"):
+            espaco = docx.text.paragraph.Paragraph(seguinte, p._parent)
+            if espaco.text.strip() or seguinte.xpath(".//w:drawing | .//w:pict | .//w:br | .//w:fldChar | .//w:sectPr"):
+                break
+            espaco.paragraph_format.keep_with_next = True
+            seguinte = seguinte.getnext()
     if p._element.xpath(".//pic:pic") and not p.text.strip():
         if a.sem_assinatura and p._element in imagens_modelo:
             if i + 1 < len(doc.paragraphs):
@@ -567,6 +582,22 @@ for i, p in enumerate(doc.paragraphs):
             p.paragraph_format.keep_with_next = True
             if i + 1 < len(doc.paragraphs):
                 doc.paragraphs[i + 1].paragraph_format.keep_with_next = True
+            if (i + 2 < len(doc.paragraphs)
+                    and doc.paragraphs[i + 1].text.strip().casefold() == "alan douglas silva"
+                    and doc.paragraphs[i + 2].text.strip() == "Investigador de Polícia"):
+                # O bloco do investigador deve cumprir o formato vigente também
+                # quando um modelo anterior ainda traz nome/largura antigos.
+                nome = doc.paragraphs[i + 1]
+                limpa_runs(nome); add_runs(nome, "ALAN DOUGLAS SILVA", negrito_base=True)
+                for item in doc.paragraphs[i:i + 3]:
+                    item.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    item.paragraph_format.first_line_indent = Pt(0)
+                    item.paragraph_format.page_break_before = False
+                    item.paragraph_format.keep_together = True
+                for inline in p._element.xpath(".//wp:inline"):
+                    imagem = docx.shape.InlineShape(inline)
+                    altura = round(imagem.height * Cm(4.5) / imagem.width)
+                    imagem.width, imagem.height = Cm(4.5), altura
         else:
             p.paragraph_format.page_break_before = True
 

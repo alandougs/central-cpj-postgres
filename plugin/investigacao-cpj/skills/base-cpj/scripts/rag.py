@@ -9,8 +9,9 @@ Uso (CLI):
   rag.py exemplos MODALIDADE [-n 3]  -> relatórios FINAL de casos da mesma modalidade
   rag.py stats
 Cada resultado traz caso, arquivo, página e fls. para citação e conferência no original.
+No terminal o termo casado sai entre » «; colchete no trecho é conteúdo dos autos, não marcador.
 """
-import argparse, json, os, re, sqlite3, sys
+import argparse, json, os, re, sqlite3, sys, threading
 
 def ws_padrao():
     """Workspace CPJ: CPJ_WORKSPACE > 1ª pasta acima deste script com casos/ e modelos/ > cwd com casos/ > erro."""
@@ -45,18 +46,79 @@ def norm(v, tipo=None):
     return v.lower()
 
 
-def buscar(q, caso=None, tipo=None, modalidade=None, n=10, fts=False):
-    """Retorna (lista de dicts, aviso|None)."""
-    db = conectar()
-    termos = ['"' + t.replace('"', "") + '"' for t in re.findall(r"[\w@.\-/]+", q)]
-    if not termos and not fts: return [], None
-    sql = ("SELECT t.caso, t.arquivo, t.tipo, t.pagina, t.fls, t.secao, "
-           "snippet(trechos_fts, 0, '[', ']', ' … ', 24) FROM trechos_fts JOIN trechos t ON t.id = trechos_fts.rowid "
-           "WHERE trechos_fts MATCH ?")
-    filtros = []
+MODOS = ("auto", "lexical", "semantico", "hibrido")
+RRF_K = 60  # constante usual da fusão por posto recíproco; amortece o topo de cada lista
+# Fração mínima de trechos com vetor para o modo `auto` usar a híbrida. Abaixo disso a parte
+# semântica cobriria só um pedaço da base e desordenaria o resultado textual, que cobre tudo.
+COBERTURA_MINIMA = 0.90
+# Cosseno mínimo para um trecho entrar no pool semântico. Medido com o modelo do projeto em
+# frases sintéticas em português: trecho do mesmo assunto da consulta 0,56 a 0,87 (0,69 no par
+# do teste LC01); assunto diferente -0,11 a 0,09; mesmo domínio e outro assunto 0,14 a 0,17.
+# 0,30 fica 0,13 acima do maior irrelevante medido e 0,26 abaixo do menor relevante medido.
+SIMILARIDADE_MINIMA = 0.30
+# Sentinelas do snippet do FTS. Não podem ser colchete: colchete em trecho de autos é
+# determinação das regras 3 e 17 (`[dígito incerto]`, `[PESQUISAR: CNPJ]`) e não é termo casado —
+# quem lê o resultado não tem como distinguir um do outro. Nunca saem de `buscar`: `_desmarcar`
+# troca a sentinela por posição antes de devolver o trecho.
+MARCA_I, MARCA_F = "\x02", "\x03"
+
+
+def _filtros(caso, tipo, modalidade):
+    sql, vals = "", []
     for campo, v in (("t.caso", caso), ("t.tipo", tipo), ("t.modalidade", modalidade)):
-        if v: sql += f" AND {campo} = ?"; filtros.append(v)
-    sql += " ORDER BY bm25(trechos_fts) LIMIT ?"
+        if v: sql += f" AND {campo} = ?"; vals.append(v)
+    return sql, vals
+
+
+def _resumo(texto, limite=240):
+    t = re.sub(r"\s+", " ", texto or "").strip()
+    return t[:limite] + (" …" if len(t) > limite else "")
+
+
+def _desmarcar(s):
+    """(texto sem sentinela, [[inicio, fim], ...]) — o protocolo de marcação da busca.
+
+    O destaque vai em posições, separado do texto, para quem exibe não precisar interpretar o
+    próprio conteúdo: nada no trecho é marcador, então colchete dos autos chega literal e não
+    vira destaque. Sentinela sem par é descartada sem gerar marca.
+
+    As posições contam unidades UTF-16, que é como o navegador fatia a string. Em caractere fora
+    do plano básico (emoji) isso difere do índice de ponto de código do Python, e usar o do Python
+    deslocaria todo destaque seguinte."""
+    texto, marcas, aberto, tam = [], [], None, 0
+    for ch in (s or ""):
+        if ch == MARCA_I:
+            if aberto is None: aberto = tam
+        elif ch == MARCA_F:
+            if aberto is not None and tam > aberto: marcas.append([aberto, tam])
+            aberto = None
+        else:
+            texto.append(ch); tam += 1 if ch <= "￿" else 2
+    return "".join(texto), marcas
+
+
+def _realcar(trecho, marcas, abre="»", fecha="«"):
+    """Reaplica as marcas para leitura no terminal, com delimitador próprio em vez de colchete.
+
+    Corta em unidade UTF-16, a mesma de `_desmarcar`."""
+    u = (trecho or "").encode("utf-16-le")
+    partes, fim = [], 0
+    for i, j in marcas or []:
+        partes += [u[fim * 2:i * 2], abre.encode("utf-16-le"),
+                   u[i * 2:j * 2], fecha.encode("utf-16-le")]
+        fim = j
+    partes.append(u[fim * 2:])
+    return b"".join(partes).decode("utf-16-le")
+
+
+def _lexical(db, q, caso, tipo, modalidade, n, fts):
+    """(ids por bm25, {id: snippet com sentinela}, aviso)."""
+    termos = ['"' + t.replace('"', "") + '"' for t in re.findall(r"[\w@.\-/]+", q)]
+    if not termos and not fts: return [], {}, None
+    extra, filtros = _filtros(caso, tipo, modalidade)
+    sql = ("SELECT trechos_fts.rowid, snippet(trechos_fts, 0, char(2), char(3), ' … ', 24) "
+           "FROM trechos_fts JOIN trechos t ON t.id = trechos_fts.rowid "
+           "WHERE trechos_fts MATCH ?" + extra + " ORDER BY bm25(trechos_fts) LIMIT ?")
 
     def roda(expr):
         try: return db.execute(sql, [expr] + filtros + [n]).fetchall()
@@ -67,8 +129,252 @@ def buscar(q, caso=None, tipo=None, modalidade=None, n=10, fts=False):
     if not res and not fts and len(termos) > 1:
         res = roda(" OR ".join(termos))
         if res: aviso = "Nenhum trecho contém todos os termos; mostrando trechos com parte deles (o OCR pode ter unido/alterado palavras)."
-    db.close()
-    return [dict(zip(("caso", "arquivo", "tipo", "pagina", "fls", "secao", "trecho"), r)) for r in res], aviso
+    return [r[0] for r in res], {r[0]: r[1] for r in res}, aviso
+
+
+# Cache por processo: uma única matriz de vetores e uma única contagem de cobertura, válidas
+# enquanto os arquivos do banco não mudarem. O COUNT de cobertura varre a tabela (~0,5 s na base
+# real) e a leitura dos vetores custa ~1,2 s; sem isso cada requisição da Pesquisa pagaria de novo.
+_CACHE = {"chave": None, "cobertura": None, "ids": None, "mat": None, "sentinela": None}
+_TRAVA = threading.RLock()  # a Central é multi-thread; o cache e a sentinela são compartilhados
+
+
+def _sentinela():
+    """Conexão só-leitura de vida longa, usada apenas para ler `PRAGMA data_version`.
+
+    Precisa ser de vida longa: numa conexão nova o `data_version` não acusa commit de outra
+    conexão (medido: fica no mesmo valor). Numa conexão viva, ele incrementa a cada commit
+    alheio e custa 0,003 ms."""
+    c = _CACHE.get("sentinela")
+    if c is None:
+        try:
+            c = sqlite3.connect("file:" + DB + "?mode=ro", uri=True, check_same_thread=False)
+        except sqlite3.Error:
+            return None
+        _CACHE["sentinela"] = c
+    return c
+
+
+def _chave_base():
+    """Assinatura do estado do banco: (mtime e tamanho do arquivo, `data_version`).
+
+    NÃO usa `-wal`/`-shm`: eles são criados ao abrir a conexão e apagados ao fechar a última, e
+    `buscar` abre e fecha uma por chamada — a chave oscilava entre ausente e presente e descartava
+    o cache em toda consulta. `data_version` cobre o commit que ainda está no WAL, sem checkpoint;
+    o stat do arquivo cobre a troca do banco inteiro (restauração de backup, reindexação)."""
+    try:
+        s = os.stat(DB)
+        arquivo = (s.st_mtime_ns, s.st_size)
+    except OSError:
+        arquivo = None
+    versao = None
+    c = _sentinela()
+    if c is not None:
+        try:
+            versao = c.execute("PRAGMA data_version").fetchone()[0]
+        except sqlite3.Error:
+            try: c.close()
+            except Exception: pass
+            _CACHE["sentinela"] = None
+            return (arquivo, None, os.urandom(8))  # sem sentinela, não arrisca servir matriz velha
+    return (arquivo, versao)
+
+
+def _cache_atual():
+    """Zera o cache se o banco mudou desde a última carga."""
+    with _TRAVA:
+        chave = _chave_base()
+        if _CACHE["chave"] != chave:
+            _CACHE.update(chave=chave, cobertura=None, ids=None, mat=None)
+
+
+def cobertura_vetores(db):
+    """(trechos com vetor, total de trechos). (0, 0) em índice legado, sem a coluna `embedding`.
+
+    Memorizado por processo enquanto o banco não muda: o COUNT de não-nulos não tem índice e
+    varre a tabela inteira."""
+    with _TRAVA:
+        _cache_atual()
+        if _CACHE["cobertura"] is None:
+            try:
+                com_vetor, total = db.execute("SELECT COUNT(embedding), COUNT(*) FROM trechos").fetchone()
+            except sqlite3.OperationalError:
+                return 0, 0
+            _CACHE["cobertura"] = (int(com_vetor or 0), int(total or 0))
+        return _CACHE["cobertura"]
+
+
+def _modulo_embeddings():
+    """Importa `embeddings` inserindo a pasta dos scripts em sys.path no máximo uma vez.
+
+    Rodado como script a pasta já é sys.path[0]; importado pelo app ela entra uma só vez, para a
+    lista não crescer por busca (e esta pasta tem homônimos de módulos do app)."""
+    d = os.path.dirname(os.path.abspath(__file__))
+    if d not in sys.path:
+        sys.path.insert(0, d)
+    import embeddings as EMB
+    return EMB
+
+
+def _empilhar(db, EMB, np, extra, filtros):
+    """(ids, matriz empilhada|None) dos vetores que casam com o filtro SQL recebido.
+
+    Pula linha cujo BLOB esteja corrompido: uma linha ruim não derruba a busca."""
+    ids, vetores = [], []
+    for ident, blob in db.execute(
+            "SELECT t.id, t.embedding FROM trechos t WHERE t.embedding IS NOT NULL" + extra, filtros):
+        try:
+            v = EMB.desempacotar(blob)
+        except (ValueError, TypeError):
+            continue
+        if v.size == EMB.DIM:
+            ids.append(ident); vetores.append(v)
+    return ids, (np.vstack(vetores) if vetores else None)
+
+
+def _matriz(db, EMB, np):
+    """Matriz de TODOS os vetores da base, carregada uma vez por processo (uma por processo, não
+    por consulta). Vale só para consulta SEM filtro: com filtro de caso/tipo/modalidade a leitura
+    continua indo ao SQL com o filtro, para o filtro não sair do banco."""
+    with _TRAVA:  # serializa a carga: dois pedidos simultâneos não montam 74 MB cada
+        _cache_atual()
+        if _CACHE["ids"] is None:
+            _CACHE["ids"], _CACHE["mat"] = _empilhar(db, EMB, np, "", [])
+        return _CACHE["ids"], _CACHE["mat"]
+
+
+def _semantico(db, q, caso, tipo, modalidade, n):
+    """([(id, similaridade)] por cosseno, causa de indisponibilidade|None).
+
+    Causa: `ambiente` (fastembed/numpy ausentes), `modelo` (modelo local ainda não baixado — a
+    consulta não dispara download), `sem_vetores` (nenhum trecho vetorizado no escopo) ou
+    `leitura` (falha ao ler/montar ou consultar os vetores). Descarta candidatos abaixo de SIMILARIDADE_MINIMA."""
+    try:
+        EMB = _modulo_embeddings()
+    except Exception:
+        return [], "ambiente"
+    extra, filtros = _filtros(caso, tipo, modalidade)
+    try:
+        tem_vetor = (bool(db.execute("SELECT 1 FROM trechos t WHERE t.embedding IS NOT NULL" + extra + " LIMIT 1",
+                                     filtros).fetchone())
+                     if extra else cobertura_vetores(db)[0] > 0)
+    except sqlite3.OperationalError:
+        tem_vetor = False
+    if not tem_vetor: return [], "sem_vetores"
+    if not EMB.disponivel(): return [], "ambiente"
+    try:
+        import numpy as np
+    except Exception:
+        return [], "ambiente"
+    em_cache = getattr(EMB, "modelo_em_cache", None)
+    if em_cache is not None and not em_cache(): return [], "modelo"
+    try:
+        ids, mat = _empilhar(db, EMB, np, extra, filtros) if extra else _matriz(db, EMB, np)
+    except Exception:
+        return [], "leitura"  # consulta nunca cai por causa da leitura dos vetores
+    if not ids or mat is None: return [], "sem_vetores"
+    try:
+        alvo = EMB.vetor(q)
+        if alvo is None: return [], None
+        sims = mat @ EMB.desempacotar(alvo)
+    except Exception:
+        return [], "leitura"
+    return [(ids[k], float(sims[k])) for k in np.argsort(-sims)[:n]
+            if float(sims[k]) >= SIMILARIDADE_MINIMA], None
+
+
+def buscar(q, caso=None, tipo=None, modalidade=None, n=10, fts=False, modo="auto"):
+    """Retorna (lista de dicts, aviso|None).
+
+    Modos: `auto` (padrão) usa a híbrida só quando a base tem vetor em pelo menos
+    COBERTURA_MINIMA dos trechos e cai para a textual abaixo disso; `lexical` só FTS;
+    `semantico` só vetores; `hibrido` funde as duas listas por RRF.
+    `fts=True` (expressão FTS crua) impõe a busca textual em QUALQUER modo — se `hibrido` ou
+    `semantico` foi pedido junto, o modo é ignorado e o aviso diz isso.
+    O `aviso` informa ainda: resultado exibido que entrou só por semântica, cobertura parcial de
+    vetores quando o chamador pediu semântica, modo semântico indisponível (ambiente sem
+    fastembed/numpy, modelo local não baixado, base sem vetores ou falha de leitura dos vetores)
+    e o recuo para OR do FTS.
+    """
+    db = conectar()
+    try:
+        modo = (modo or "auto").lower()
+        if modo not in MODOS: raise ValueError(f"Modo inválido: {modo}")
+        pedido, avisos = modo, []
+        if fts:
+            if pedido in ("hibrido", "semantico"):
+                avisos.append(f"A expressão FTS crua impõe busca textual: o modo {pedido} pedido foi ignorado.")
+            modo = "lexical"
+        elif modo != "lexical":  # a cobertura varre a tabela: só é lida onde o modo depende dela
+            com_vetor, total = cobertura_vetores(db)
+            cobertura = com_vetor / total if total else 0.0
+            if modo == "auto":
+                modo = "hibrido" if total and cobertura >= COBERTURA_MINIMA else "lexical"
+            elif 0 < cobertura < COBERTURA_MINIMA:
+                avisos.append(f"A base tem vetor em {cobertura * 100:.0f}% dos trechos; "
+                              "o resultado semântico cobre só essa parte.")
+        candidatos = max(n * 4, 20)
+
+        ids_lex, snippets = [], {}
+        if modo in ("lexical", "hibrido"):
+            ids_lex, snippets, aviso_lex = _lexical(
+                db, q, caso, tipo, modalidade, n if modo == "lexical" else candidatos, fts)
+            if aviso_lex: avisos.append(aviso_lex)
+        sem, causa = _semantico(db, q, caso, tipo, modalidade, candidatos) \
+            if modo in ("semantico", "hibrido") else ([], None)
+
+        if causa:
+            if causa == "ambiente":
+                avisos.append("Busca semântica indisponível neste ambiente: fastembed/numpy não estão "
+                              "instalados. Use --modo lexical.")
+            elif causa == "modelo":
+                avisos.append("Busca semântica indisponível: o modelo local de embedding ainda não foi "
+                              "baixado. A geração é feita por indexar.py --embeddings.")
+            elif causa == "sem_vetores":
+                avisos.append("Busca semântica indisponível: a base não tem vetores gerados neste escopo. "
+                              "Gere-os com indexar.py --embeddings.")
+            elif causa == "leitura":
+                avisos.append("Busca semântica indisponível: falha ao consultar os vetores da base. "
+                              "Use --modo lexical.")
+            if modo == "hibrido":
+                avisos.append("A pesquisa ficou limitada à busca textual; não foi possível conferir "
+                              "correspondências semânticas.")
+
+        if modo == "lexical":
+            ordem = ids_lex[:n]
+        elif modo == "semantico":
+            ordem = [i for i, _ in sem][:n]
+        else:
+            pontos = {}
+            for posto, i in enumerate(ids_lex): pontos[i] = pontos.get(i, 0.0) + 1.0 / (RRF_K + posto + 1)
+            for posto, (i, _) in enumerate(sem): pontos[i] = pontos.get(i, 0.0) + 1.0 / (RRF_K + posto + 1)
+            ordem = [i for i, _ in sorted(pontos.items(), key=lambda kv: -kv[1])][:n]
+            if ordem and not ids_lex:
+                avisos.append("Nenhum trecho contém os termos; resultado por proximidade de sentido. "
+                              "Confira o texto nos autos.")
+            elif any(i in ordem for i, _ in sem if i not in ids_lex):
+                avisos.append("Parte dos resultados exibidos entrou só por proximidade de sentido, sem "
+                              "conter os termos. Confira o texto nos autos.")
+        aviso = " ".join(avisos) or None
+        if not ordem: return [], aviso
+
+        lugares = ",".join("?" * len(ordem))
+        linhas = {r[0]: r for r in db.execute(
+            f"SELECT id, caso, arquivo, tipo, pagina, fls, secao, texto FROM trechos WHERE id IN ({lugares})", ordem)}
+        saida = []
+        for i in ordem:
+            r = linhas.get(i)
+            if not r: continue
+            bruto = snippets.get(i)
+            if bruto:
+                trecho, marcas = _desmarcar(bruto)
+            else:  # entrou só por semântica: excerto cru, sem termo casado para destacar
+                trecho, marcas = _desmarcar(_resumo(r[7]))[0], []
+            saida.append(dict(zip(("caso", "arquivo", "tipo", "pagina", "fls", "secao", "trecho", "marcas"),
+                                  (r[1], r[2], r[3], r[4], r[5], r[6], trecho, marcas))))
+        return saida, aviso
+    finally:
+        db.close()
 
 
 def entidade(valor, tipo=None):
@@ -86,7 +392,7 @@ def cruzar(id_):
     db = conectar()
     res = db.execute("""
       SELECT e.tipo, e.valor, o.caso, group_concat(DISTINCT o.pagina)
-      FROM entidades e JOIN entidades o ON o.valor_norm = e.valor_norm AND o.caso <> e.caso
+      FROM entidades e JOIN entidades o ON o.valor_norm = e.valor_norm AND upper(o.tipo) = upper(e.tipo) AND o.caso <> e.caso
       WHERE e.caso = ? AND length(e.valor_norm) >= 6 AND e.tipo NOT IN ('DATA','FLS','VALOR')
       GROUP BY e.tipo, e.valor_norm, o.caso ORDER BY e.tipo""", (id_,)).fetchall(); db.close()
     return [dict(zip(("tipo", "valor", "outro_caso", "paginas"), r)) for r in res]
@@ -411,6 +717,10 @@ def stats():
            "documentos": db.execute("SELECT COUNT(*) FROM docs").fetchone()[0],
            "entidades": db.execute("SELECT COUNT(*) FROM entidades").fetchone()[0],
            "casos": db.execute("SELECT COUNT(DISTINCT caso) FROM trechos WHERE caso IS NOT NULL").fetchone()[0]}
+    try:
+        out["vetores"] = db.execute("SELECT COUNT(*) FROM trechos WHERE embedding IS NOT NULL").fetchone()[0]
+    except sqlite3.OperationalError:
+        out["vetores"] = 0
     db.close(); return out
 
 
@@ -420,6 +730,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(); sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("buscar"); s.add_argument("q"); s.add_argument("--caso"); s.add_argument("--tipo")
     s.add_argument("--modalidade"); s.add_argument("-n", type=int, default=10); s.add_argument("--fts", action="store_true")
+    s.add_argument("--modo", choices=MODOS, default="auto",
+                   help="auto: híbrida se a base estiver vetorizada (>= 90%% dos trechos); lexical: só FTS; "
+                        "semantico: só vetores. Com --fts a busca é sempre textual")
     s = sub.add_parser("entidade"); s.add_argument("valor"); s.add_argument("--tipo")
     s = sub.add_parser("cruzar"); s.add_argument("id")
     s = sub.add_parser("exemplos"); s.add_argument("modalidade", nargs="?"); s.add_argument("-n", type=int, default=3)
@@ -430,13 +743,14 @@ if __name__ == "__main__":
     a = ap.parse_args()
     try:
         if a.cmd == "buscar":
-            res, aviso = buscar(a.q, a.caso, a.tipo, a.modalidade, a.n, a.fts)
+            res, aviso = buscar(a.q, a.caso, a.tipo, a.modalidade, a.n, a.fts, a.modo)
             if aviso: print(f"({aviso})")
             if not res: print("Nada encontrado.")
             for r in res:
                 loc = f"pág. {r['pagina']}" if r["pagina"] else (r["secao"] or "")
                 loc += f"; fls. {r['fls']}" if r["fls"] else ""
-                print(f"\n■ {r['caso'] or '-'} | {r['tipo']} | {loc}\n  {r['arquivo']}\n  {r['trecho'].strip()}")
+                texto = _realcar(r["trecho"], r["marcas"]).strip()
+                print(f"\n■ {r['caso'] or '-'} | {r['tipo']} | {loc}\n  {r['arquivo']}\n  {texto}")
         elif a.cmd == "entidade":
             res = entidade(a.valor, a.tipo)
             print(f"{len(res)} ocorrência(s) em {len({r['caso'] for r in res})} caso(s)")
@@ -461,5 +775,6 @@ if __name__ == "__main__":
             s = stats()
             for t, n in s["trechos"].items(): print(f"  trechos {t:<12} {n}")
             print(f"  documentos       {s['documentos']}\n  entidades        {s['entidades']}\n  casos no índice  {s['casos']}")
+            print(f"  vetores (híbrida) {s['vetores']}")
     except (FileNotFoundError, ValueError) as e:
         raise SystemExit(f"ERRO: {e}")

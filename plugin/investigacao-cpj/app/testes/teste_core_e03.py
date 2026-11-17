@@ -126,6 +126,8 @@ def gerar_pdf_120_paginas(destino_pdf):
     return len(writer.pages)
 
 
+from teste_extracao_markdown_md01 import estado as estado_md01
+
 class TesteCoreE03(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -208,16 +210,16 @@ class TesteCoreE03(unittest.TestCase):
         pasta_caso = Path(self.s.C.caminho(caso_id))
         pasta_ext = pasta_caso / "01-extracao" / trab["doc"]
         transcricao_p = pasta_ext / "transcricao.md"
-        relatorio_ext_p = pasta_ext / "relatorio_extracao.json"
+        relatorio_ext_p = estado_md01.arquivo(pasta_ext)
 
         self.assertTrue(transcricao_p.exists(), "transcricao.md não gerada.")
-        self.assertTrue(relatorio_ext_p.exists(), "relatorio_extracao.json não gerado.")
+        self.assertTrue(relatorio_ext_p.exists(), "Checkpoint essencial não gerado.")
 
         transcricao_txt = transcricao_p.read_text(encoding="utf-8")
         self.assertIn("## Página 1", transcricao_txt)
         self.assertIn("## Página 120", transcricao_txt)
 
-        relatorio_ext = json.loads(relatorio_ext_p.read_text(encoding="utf-8"))
+        relatorio_ext = estado_md01.ler(pasta_ext, "relatorio_extracao.json")
         self.assertEqual(relatorio_ext["paginas"], 120)
 
         # Tabelas CSV
@@ -226,7 +228,8 @@ class TesteCoreE03(unittest.TestCase):
 
         # Entidades críticas
         entidades_p = pasta_ext / "entidades.csv"
-        self.assertTrue(entidades_p.exists(), "entidades.csv não foi gerado.")
+        self.assertFalse(entidades_p.exists(), "Novo PDF não deve gerar entidades.csv.")
+        self.assertEqual(tabelas_csvs, [], "Novo PDF não deve gerar tabelas CSV.")
 
         # ------------------------------------------------------------------
         # Etapa 3: Minuta fictícia via API

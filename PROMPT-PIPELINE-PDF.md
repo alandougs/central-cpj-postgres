@@ -1,5 +1,7 @@
 # PROMPT — Completar o pipeline de PDF do ASTRA (tarefas PX01–PX07)
 
+> **Registro histórico — não é fonte de regra.** A entrada vigente para qualquer agente é `MEMORIA.md` na raiz, com as fontes canônicas (`AGENTS.md`, `PRD.md`, `docs/ESPINHA-DORSAL.md`, a fila e `calibracao/licoes-aprendidas.md`). Em divergência, prevalece a determinação explícita vigente do operador registrada nessas fontes, não este arquivo.
+
 > Aprovado pelo investigador em 07/10/2026. Vale para qualquer agente (Codex, Claude, Gemini/Antigravity, Copilot).
 > ASTRA é o nome da interface da Central CPJ (`plugin/investigacao-cpj/app/`). Não há outro sistema.
 

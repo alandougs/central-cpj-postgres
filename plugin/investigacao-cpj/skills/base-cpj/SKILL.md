@@ -5,6 +5,8 @@ description: Base de dados local do workspace CPJ - registro de casos (caso.json
 
 # Base CPJ — casos, estatística, RAG e painel
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 Todo o conteúdo do workspace é a base de dados. **Fonte da verdade:** `casos\<ID>\caso.json` (um por caso) + os arquivos Markdown/CSV do caso. Tudo o mais é derivado e pode ser regenerado a qualquer momento.
 
 Scripts em `scripts\` (ao lado deste SKILL.md). Em PowerShell: `$B = "<base da skill>\scripts"`.
@@ -61,7 +63,7 @@ Regras de uso do RAG:
 - Resultado de busca é **ponteiro**, não fonte: abra o arquivo/página indicado e confira antes de afirmar qualquer coisa.
 - Conexão entre casos (mesma chave Pix, conta, CPF, telefone) é **indício de vinculação a verificar**, nunca conclusão; cite os dois casos e páginas.
 - Relatórios de outros casos servem de exemplo de **estilo/estrutura**; nunca transporte fatos de um caso para outro.
-- Busca semântica (embeddings) está prevista na coluna `trechos.embedding`; ativar depois com modelo local (ex.: Ollama), sem mudar o resto.
+- Busca híbrida disponível: `rag.py buscar --modo auto|lexical|semantico|hibrido` (`auto` é o padrão e usa a híbrida quando a base tem vetor na maior parte dos trechos (90%), caindo para a textual abaixo disso); os vetores vêm de `indexar.py --embeddings` (`--reembeddings` regera) com modelo local, sem rede após o primeiro download, e a dependência é opcional — sem ela a busca textual continua inteira (detalhes em `rag/README.md`). Trecho achado só por proximidade de sentido não contém os termos pesquisados e não prova nada: a busca avisa quando isso ocorre e, como em qualquer resultado, confira o arquivo e a página antes de afirmar.
 
 ## 4. Central CPJ e painel
 

@@ -42,3 +42,9 @@ O desenho foi aprovado pelo operador. O pedido desta sessão é **registrar e pu
 Essa execução abrange implementação, testes sintéticos e sincronização da branch de integração. Merge definitivo em `main`, troca da branch padrão e instalação/migração operacional têm uma liberação final específica, após apresentação da revisão testada, backup/restauração e riscos residuais. Se essa liberação já tiver sido dada explicitamente na sessão de execução, não pedir novamente.
 
 Os documentos orientam os agentes; a conformidade real será comprovada pelos testes e pelas verificações do plano. Não declarar o projeto unificado, protegido ou sem perda de dados apenas porque a regra foi registrada.
+
+## Atualização expressa — 27/10/2026
+
+Novos PDFs passam a gerar somente Markdown como extração documental, sem derivados CSV/JSON. Preservar estado e checkpoints essenciais consolidados, originais, rastreabilidade e compatibilidade de leitura legada. Reduzir arquivos técnicos descartáveis dentro do projeto; não apagar dados antigos por extensão. Esta determinação posterior altera o escopo de geração de derivados, preservando os demais contratos.
+
+Memória compartilhada: entrada em `../MEMORIA.md`; determinações de extração enxuta, memória e coordenação em `../AGENTS.md`, regras 21–23. Mantidos um projeto/plano canônico e os consentimentos existentes; preferência de modelos não troca executor ou provedor automaticamente.

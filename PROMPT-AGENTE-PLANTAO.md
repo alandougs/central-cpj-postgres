@@ -1,5 +1,7 @@
 # Prompt — Agente de plantão da Central CPJ
 
+> **Registro histórico — não é fonte de regra.** A entrada vigente para qualquer agente é `MEMORIA.md` na raiz, com as fontes canônicas (`AGENTS.md`, `PRD.md`, `docs/ESPINHA-DORSAL.md`, a fila e `calibracao/licoes-aprendidas.md`). Em divergência, prevalece a determinação explícita vigente do operador registrada nessas fontes, não este arquivo.
+
 Cole o bloco abaixo numa sessão de agente (Claude Code, Codex, Antigravity…) aberta na pasta `C:\CPJ - TRABALHO`.
 Troque `<NOME>` por um nome único da sessão (ex.: `Claude-1`, `Codex-1`) e `<TIPO>` por `claude`, `codex`, `antigravity` ou `outro`.
 

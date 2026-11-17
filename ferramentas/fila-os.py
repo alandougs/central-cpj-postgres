@@ -2,8 +2,11 @@
 """Fila de Ordens de Serviço: um agente por O.S., visível a Claude, Codex, Gemini/Antigravity.
 
 Evita que dois agentes façam o mesmo relatório. O registro fica na própria pasta das O.S.
-(padrão E:\\ORDENS DE SERVIÇO CPJ), que todos os agentes enxergam, e cada pasta de O.S.
-recebe um aviso _STATUS-OS.txt legível por quem só lista diretórios.
+(padrão <workspace>\\ordens-de-servico; alternativa E:\\ORDENS DE SERVIÇO CPJ), que todos os agentes enxergam, e
+cada pasta de O.S. recebe um aviso _STATUS-OS.txt legível por quem só lista diretórios.
+Pasta única (MQ05): os autos ficam só em casos\\<ID>\\00-originais e o relatório só em 03-relatorios; a fila
+enxerga o PDF do caso e a O.S. que só existe como caso (OS-<nº>-<ano>), sem exigir cópia na pasta da O.S.
+MQ06: pedido de dilação de prazo (nome com "pedido" ou "dilação") não é autos nem relatório e não entra na contagem.
 
 python ferramentas/fila-os.py listar                      # O.S., relatórios achados, reservas
 python ferramentas/fila-os.py proxima --agente Codex-1     # assume a próxima O.S. livre e sem relatório
@@ -38,6 +41,8 @@ REGISTRO = "_CONTROLE-OS.json"
 QUADRO = "_CONTROLE-OS.md"
 AVISO = "_STATUS-OS.txt"
 ESTADOS = ("livre", "em_andamento", "concluida", "suspensa")
+# MQ06: mesmo critério de medir_entrega.py — pedido de dilação de prazo não é autos nem relatório.
+NAO_DOCUMENTO = re.compile(r"pedido|dila[cç][aã]o", re.I)
 
 
 def agora():
@@ -83,7 +88,7 @@ def relatorios_na_pasta(pasta):
         rel = p.relative_to(pasta)
         if p.name.startswith("~$") or any(parte.lower() in ("trabalho", "_trabalho", "demo", "saidas") for parte in rel.parts[:-1]):
             continue
-        if re.search(r"relat", p.name, re.I): achados.append(p)
+        if re.search(r"relat", p.name, re.I) and not NAO_DOCUMENTO.search(p.name): achados.append(p)
     return achados
 
 
@@ -94,8 +99,11 @@ def casos_do_numero(num, ano):
             status = "?"
             try: status = json.loads((pasta / "caso.json").read_text(encoding="utf-8")).get("status", "?")
             except Exception: pass
-            docx = sorted((pasta / "03-relatorios").glob("*.docx"), key=lambda p: p.stat().st_mtime)
-            saida.append({"pasta": str(pasta), "status": status, "docx": [str(d) for d in docx]})
+            docx = sorted((p for p in (pasta / "03-relatorios").glob("*.docx") if not NAO_DOCUMENTO.search(p.name)),
+                          key=lambda p: p.stat().st_mtime)
+            # Pasta única (MQ05): os autos ficam em 00-originais do caso; não precisam de cópia na pasta da O.S.
+            pdfs = sorted(str(p) for p in (pasta / "00-originais").glob("*.pdf"))
+            saida.append({"pasta": str(pasta), "status": status, "docx": [str(d) for d in docx], "pdfs": pdfs})
     return saida
 
 
@@ -106,7 +114,7 @@ def inventario():
         chaves = numeros_os(pasta.name)
         if not chaves: continue
         pdfs_pasta = [str(p) for p in pasta.iterdir() if p.suffix.lower() == ".pdf" and "ocred" not in p.name.lower()
-                      and not re.search(r"relat", p.name, re.I)]
+                      and not re.search(r"relat", p.name, re.I) and not NAO_DOCUMENTO.search(p.name)]
         rels_pasta = [str(p) for p in relatorios_na_pasta(pasta)]
         for num, ano in chaves:
             item = itens.setdefault(num, {"os": num, "ano": ano, "pastas": [], "pdfs": [], "relatorios": []})
@@ -118,8 +126,16 @@ def inventario():
             for rel in rels_pasta:
                 if rel not in item["relatorios"]:
                     item["relatorios"].append(rel)
+    # O.S. que só existe como caso (casos\OS-<nº>-<ano>), sem pasta própria em PASTA_OS.
+    for ws in WORKSPACES:
+        for pasta in sorted((ws / "casos").glob("OS-*")):
+            m = re.fullmatch(r"OS-0*(\d{3,5})-(\d{4})", pasta.name)
+            if m and pasta.is_dir() and m.group(1) not in itens:
+                itens[m.group(1)] = {"os": m.group(1), "ano": m.group(2), "pastas": [], "pdfs": [], "relatorios": []}
     for item in itens.values():
         item["casos"] = casos_do_numero(item["os"], item["ano"])
+        for c in item["casos"]:
+            item["pdfs"] += [p for p in c["pdfs"] if p not in item["pdfs"]]
     return itens
 
 

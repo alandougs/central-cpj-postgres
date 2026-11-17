@@ -286,7 +286,8 @@ class RunnerEstrito(unittest.TestCase):
     def test_workflow_provisiona_o_que_as_suites_nao_podem_pular(self):
         texto = WORKFLOW.read_text(encoding="utf-8")
         for exigencia in ("--estrito", "playwright@", "choco install tesseract", "711de9dbb8052067bd42f16b9119967f30bada80d57e2ef24f65d09f531adb04",
-                          "brasao-pcsp.png", "msedge.exe", "requirements-dev.txt", "codex-runtimes/codex-primary-runtime/dependencies/node"):
+                          "brasao-pcsp.png", "msedge.exe", "requirements-dev.txt", "codex-runtimes/codex-primary-runtime/dependencies/node",
+                          "CPJ_EN01_ENGINE", "ferramentas/ci-volume-exfat.ps1", "CPJ_CI_EXFAT_ENABLE", "CPJ_SEC22_EXIGIR_VOLUME_SEM_ACL", "CPJ_SEC22_VOLUME_SEM_ACL_DIR"):
             self.assertIn(exigencia, texto)
 
 

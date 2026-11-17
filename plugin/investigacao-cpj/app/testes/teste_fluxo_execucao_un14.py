@@ -346,5 +346,152 @@ class TesteCheckpointExtracao(Base):
         return out
 
 
+class TesteExtratorLocal(Base):
+    def dono(self):
+        self.assertTrue(callable(getattr(FX, "dono_extracao_local", None)),
+                        "Reserva local precisa identificar host e nascimento do processo, além do PID.")
+        return FX.dono_extracao_local()
+
+    def etapa(self, dono, documento="autos.pdf"):
+        ex = self.F.criar(CASO, "op", documento)
+        e = self.F.vincular_etapa(ex["id"], "extracao", "processamento", documento, documento)
+        self.F.reservar(e["id"], dono, 12 * 3600)
+        return ex, e
+
+    def test_processo_local_morto_libera_apenas_uma_nova_tentativa(self):
+        self.dono()
+        codigo = "import fluxo_execucao as f; import sys; print(f.dono_extracao_local(), flush=True); sys.stdin.read()"
+        p = subprocess.Popen([sys.executable, "-c", codigo], env=dict(os.environ, PYTHONPATH=str(APP)),
+                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        try:
+            dono = p.stdout.readline().strip()
+            ex, e = self.etapa(dono)
+            p.kill(); p.wait(timeout=10)  # somente o processo fictício criado por este teste
+            self.assertEqual(self.F.reconciliar_inicializacao()["retomadas"], 1)
+            self.assertEqual(self.F.reconciliar_inicializacao()["retomadas"], 0)
+            etapas = self.F.obter(ex["id"])["etapas"]
+            self.assertEqual([(x["tentativa"], x["estado"]) for x in etapas], [(1, "falhou"), (2, "na_fila")])
+            nova = etapas[-1]
+            self.assertEqual(nova["anterior_id"], e["id"])
+            self.assertIsNotNone(self.F.reservar(nova["id"], "executor-a"))
+            self.assertIsNone(self.F.reservar(nova["id"], "executor-b"))
+        finally:
+            if p.poll() is None: p.kill(); p.wait(timeout=10)
+            p.stdin.close(); p.stdout.close()
+
+    def test_dono_vivo_desconhecido_outro_host_e_identidade_indeterminada_sao_preservados(self):
+        dono = self.dono()
+        remoto = json.loads(dono.removeprefix("extrator-local:")); remoto["host"] = "outro-host-ficticio"
+        donos = (dono, "extrator-123-456", "extrator-local:" + json.dumps(remoto))
+        for n, valor in enumerate(donos): self.etapa(valor, str(n) + ".pdf")
+        antes = self.sql("SELECT etapa_id,dono,ate FROM fluxos_reservas ORDER BY etapa_id")
+        self.assertEqual(self.F.reconciliar_inicializacao()["retomadas"], 0)
+        with mock.patch.object(FX, "_processo_local", return_value=(None, None)):
+            self.assertEqual(self.F.reconciliar_inicializacao()["retomadas"], 0)
+        self.assertEqual(self.sql("SELECT etapa_id,dono,ate FROM fluxos_reservas ORDER BY etapa_id"), antes)
+
+    def test_despacho_so_identifica_como_local_o_modo_rapido(self):
+        caso = self.ws / "casos" / CASO
+        (caso / "00-originais").mkdir(parents=True)
+        (caso / "caso.json").write_text(json.dumps({"id": CASO, "datas": {}}))
+        script = r"""
+import os,sys,json,sqlite3
+os.environ['CPJ_WORKSPACE']=sys.argv[1]; os.environ['CPJ_SEM_AGENTE_EMBUTIDO']='1'
+sys.path.insert(0,sys.argv[2]); from rotas import comum as k
+vistos={}
+def extrair(trab):
+ with sqlite3.connect(os.path.join(sys.argv[1],'config/plantao.sqlite')) as c:
+  vistos[trab['modo']]=c.execute('SELECT dono FROM fluxos_reservas WHERE etapa_id=?',(trab['etapa_id'],)).fetchone()[0]
+ k.atualizar_trabalho(trab['caso'],trab['doc'],status='concluido')
+k.processar=extrair
+for modo in ('rapido','inteligente','ia_completa'):
+ k.enfileirar('OS-0001-2099',modo,modo+'.pdf',modo=modo,usuario='ficticio',consentimento={'aceito':True})
+ k._processar_coordenado(k.fila.get_nowait())
+print(json.dumps(vistos))
+"""
+        r = subprocess.run([sys.executable,'-X','utf8','-c',script,str(self.ws),str(APP)],
+                           capture_output=True,text=True,encoding='utf-8',timeout=30)
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        vistos=json.loads(r.stdout.strip().splitlines()[-1])
+        self.assertTrue(vistos['rapido'].startswith('extrator-local:'))
+        for modo in ('inteligente','ia_completa'):
+            self.assertFalse(vistos[modo].startswith('extrator-local:'), 'Modo com possível API não recebe retomada antecipada.')
+
+    def test_retomada_nao_altera_checkpoint_de_dono_vivo_incerto_ou_cancelado(self):
+        caso = self.ws / "casos" / CASO
+        (caso / "00-originais").mkdir(parents=True)
+        (caso / "caso.json").write_text(json.dumps({"id": CASO, "datas": {}}))
+        script=r"""
+import os,sys,json
+os.environ['CPJ_WORKSPACE']=sys.argv[1];os.environ['CPJ_SEM_AGENTE_EMBUTIDO']='1'
+sys.path.insert(0,sys.argv[2]);from rotas import comum as k
+from fluxo_execucao import dono_extracao_local
+trabalhos=[];f=k.fluxos()
+for estado in ('em_execucao','aguardando_operador','cancelada'):
+ t={'doc':estado,'arquivo':estado+'.pdf','status':'processando','progresso':47,'enfileirado':'2099-01-01T00:00:00','modo':'rapido'}
+ trabalhos.append(t)
+ e=f.registrar_extracao('OS-0001-2099','ficticio',t['doc'],t['arquivo'],t['enfileirado'])
+ r=f.reservar(e['id'],dono_extracao_local(),43200)
+ if estado!='em_execucao':f.atualizar_reservado(e['id'],r['dono'] if 'dono' in r else dono_extracao_local(),r['versao'],estado)
+k.gravar_proc('OS-0001-2099',{'trabalhos':trabalhos})
+antes=k.ler_proc('OS-0001-2099');k.retomar_pendentes()
+print(json.dumps({'antes':antes,'depois':k.ler_proc('OS-0001-2099'),'fila':k.fila.qsize()}))
+"""
+        r=subprocess.run([sys.executable,'-X','utf8','-c',script,str(self.ws),str(APP)],
+                         capture_output=True,text=True,encoding='utf-8',timeout=30)
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        dados=json.loads(r.stdout.strip().splitlines()[-1])
+        self.assertEqual(dados['depois'],dados['antes'])
+        self.assertEqual(dados['fila'],0)
+
+    def test_retomada_na_fila_preserva_checkpoint_reservado_por_outro_executor(self):
+        caso=self.ws/'casos'/CASO;(caso/'00-originais').mkdir(parents=True)
+        (caso/'caso.json').write_text(json.dumps({'id':CASO,'datas':{}}))
+        script=r"""
+import os,sys,json
+os.environ['CPJ_WORKSPACE']=sys.argv[1];os.environ['CPJ_SEM_AGENTE_EMBUTIDO']='1'
+sys.path.insert(0,sys.argv[2]);from rotas import comum as k
+from fluxo_execucao import dono_extracao_local
+k.gravar_proc('OS-0001-2099',{'trabalhos':[{'doc':'autos','arquivo':'autos.pdf','status':'na_fila','progresso':0,'modo':'rapido','enfileirado':'2099-01-01T00:00:00'}]})
+f=k.fluxos();f.importar_legado();consulta=f.ultima_extracao
+def leitura_concorrente(caso,arquivo):
+ e=consulta(caso,arquivo)
+ assert f.reservar(e['id'],dono_extracao_local(),43200) is not None
+ k.atualizar_trabalho(caso,'autos',status='processando',progresso=47)
+ return e  # fotografia anterior à reserva do outro executor
+f.ultima_extracao=leitura_concorrente;k.fluxos=lambda:f
+chamadas=[];k.processar=lambda t:chamadas.append(t)
+k.retomar_pendentes()
+while not k.fila.empty():k._processar_coordenado(k.fila.get_nowait())
+print(json.dumps({'proc':k.ler_proc('OS-0001-2099'),'chamadas':chamadas}))
+"""
+        r=subprocess.run([sys.executable,'-X','utf8','-c',script,str(self.ws),str(APP)],
+                         capture_output=True,text=True,encoding='utf-8',timeout=30)
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        dados=json.loads(r.stdout.strip().splitlines()[-1]);t=dados['proc']['trabalhos'][0]
+        self.assertEqual((t['status'],t['progresso'],t['enfileirado']),('processando',47,'2099-01-01T00:00:00'))
+        self.assertEqual(dados['chamadas'],[],'Executor concorrente já possui a reserva.')
+
+    def test_morte_local_nao_repete_intencao_externa_nem_outra_etapa(self):
+        dono=self.dono(); ex,e=self.etapa(dono)
+        self.F.registrar_intencao(e['id'],dono,'operacao-incerta-ficticia')
+        outro_ex=self.F.criar(CASO,'op','outra-execucao')
+        outro=self.F.vincular_etapa(outro_ex['id'],'analise','tarefa','analise-ficticia')
+        self.assertIsNotNone(self.F.reservar(outro['id'],dono,43200))
+        with mock.patch.object(FX,'_processo_local',return_value=(False,None)):
+            res=self.F.reconciliar_inicializacao()
+        self.assertEqual((res['incertas'],res['retomadas']),(1,0))
+        etapas=self.F.obter(ex['id'])['etapas']+self.F.obter(outro_ex['id'])['etapas']
+        self.assertEqual({x['etapa']:x['estado'] for x in etapas},
+                         {'extracao':'aguardando_operador','analise':'em_execucao'})
+        self.assertEqual(len(etapas),2,'Nenhuma nova tentativa deve repetir operação incerta.')
+
+    def test_pid_reutilizado_com_nascimento_diferente_nao_prende_reserva_antiga(self):
+        dono = self.dono()
+        self.etapa(dono)
+        with mock.patch.object(FX, "_processo_local", return_value=(True, "outro-nascimento-confirmado")):
+            self.assertEqual(self.F.reconciliar_inicializacao()["retomadas"], 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -1,7 +1,9 @@
 ---
 description: Redige a minuta do Relatório de Investigação no modelo CPJ, revisa contra as fontes e gera o DOCX com timbre e assinatura
-argument-hint: <ID do caso> [observações do investigador: diligências feitas, consultas, foco]
+argument-hint: "<ID do caso> [observações do investigador: diligências feitas, consultas, foco]"
 ---
+
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
 
 Elabore o relatório do caso: $ARGUMENTS
 
@@ -12,6 +14,7 @@ Use a skill `relatorio-ip-fraude`.
 2b. **A O.S. manda (AGENTS.md regra 17):** antes de redigir, identifique a O.S. vigente (geralmente a última) nos documentos do caso, extraia cada solicitação do Delegado para `02-analise\solicitacoes-os.md` e faça a minuta responder a todas. Sem O.S. localizada: pare e avise o operador em CAIXA ALTA. Cumpra todas as solicitações possíveis, escreva sempre de forma humanizada (texto corrido) e, se faltar CNPJ nos autos, obtenha-o por OSINT de empresa (`osint-empresas.md`) e use-o no contexto adequado.
 2a. **Dados faltantes:** se faltar dado muito importante para autoria, materialidade ou circunstâncias, grave `02-analise\dados-faltantes.md` e avise o operador **em CAIXA ALTA** na resposta final (`DADOS FALTANTES — PROVIDENCIAR (OPERADOR)`), conforme `skills\analise-ip-fraude\references\dados-faltantes.md`. Não deduza; no relatório, só ressalva objetiva na Conclusão.
 3. Grave `03-relatorios\minuta-vNN.md` e `rastreabilidade-vNN.md`; `caso.py status <ID> minuta`.
-4. Delegue a revisão ao agente `revisor-de-relatorio` → `revisao-vNN.md`. Corrija erros objetivos na minuta (mesma versão) e liste o que depende de decisão.
+3b. **Gate de entrega:** rode `python "plugin\investigacao-cpj\skills\relatorio-ip-fraude\scripts\conferir_minuta.py" <ID> --modo entrega`. Para cada `BLOQUEIA`, volte à fonte e corrija a minuta em nova versão; nunca apague o dado só para passar, nunca invente referência nem complete dado. Repita até zero `BLOQUEIA`, no máximo 3 rodadas. Todo dado verificável (CPF, CNPJ, Pix, conta, telefone, placa, ID, R$) leva `(Fls. N)` na própria frase ou linha de tabela. Se restar bloqueio, não apresente a minuta como pronta: informe-o ao operador em CAIXA ALTA, com o que falta; liste os `REVISAR` para conferência humana.
+4. Delegue a revisão ao agente `revisor-de-relatorio` → `revisao-vNN.md`. Corrija erros objetivos na minuta (mesma versão), rode o gate de novo (3b) se a minuta mudou e liste o que depende de decisão.
 5. Gere o DOCX (rascunho): `python "plugin\investigacao-cpj\skills\relatorio-ip-fraude\scripts\gerar_docx.py" "<minuta>" --saida "casos\<ID>\03-relatorios\RELATORIO-<ID>-vNN.docx"`.
 6. Apresente: caminho do DOCX, resumo da revisão, campos pendentes, dados críticos não conferidos e, **em CAIXA ALTA, os DADOS FALTANTES para o operador providenciar**. Diga que, após revisar/editar no Word e entregar, basta rodar `/entregar <ID>`.

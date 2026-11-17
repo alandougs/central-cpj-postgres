@@ -55,7 +55,8 @@ class Modulos(AstraFixture, unittest.TestCase):
         self.assertGreater(len(resources.scripts), 1, "Frontend ainda esta no bloco monolitico")
         names = [s.get("src", "").rsplit("/", 1)[-1] for s in resources.scripts]
         self.assertEqual(names, ["fila-progresso.js", "core.js", "sessao.js", "polling.js", "fila-unificada.js", "inicio.js", "recebimento.js", "casos.js", "editor.js", "pesquisa.js", "grafo.js", "estatisticas.js", "sistema.js", "ia-config.js", "llm.js", "fluxograma.js", "vinculos.js", "astra.js", "bootstrap.js", "inteligencia-mapa.js?v=ibge5570"])
-        self.assertEqual(len(resources.styles), 1)
+        self.assertEqual([a["href"] for a in resources.styles],
+                         ["/static/css/central.css", "/static/css/apple-cpj.css?v=ap37"])
         for attrs in resources.scripts + resources.styles:
             url = attrs.get("src") or attrs["href"]
             self.assertTrue(url.startswith("/static/"))

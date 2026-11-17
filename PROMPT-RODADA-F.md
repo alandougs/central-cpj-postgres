@@ -1,5 +1,7 @@
 # Rodada de melhorias F — prompts por agente (28/09/2026)
 
+> **Registro histórico — não é fonte de regra.** A entrada vigente para qualquer agente é `MEMORIA.md` na raiz, com as fontes canônicas (`AGENTS.md`, `PRD.md`, `docs/ESPINHA-DORSAL.md`, a fila e `calibracao/licoes-aprendidas.md`). Em divergência, prevalece a determinação explícita vigente do operador registrada nessas fontes, não este arquivo.
+
 Cole cada bloco em uma sessão nova do agente indicado, aberta em `D:\CPJ - TRABALHO`. As tarefas estão em `TAREFAS-COMPARTILHADAS.md`, seção "Rodada de melhorias F". Os arquivos de cada uma são disjuntos, então os quatro podem rodar juntos.
 
 ## Claude — F01 · Visual e usabilidade da Central

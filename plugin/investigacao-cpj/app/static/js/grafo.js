@@ -82,7 +82,6 @@ function grVisibilidadeMudou(){
   if(!grEstaVisivel()){if(grAnimId!==null)cancelAnimationFrame(grAnimId);grAnimId=null;return}
   if(grSimulando||grDrawDirty)grStartLoop();
 }
-function grReaquecer(){grEnergy=1;grSimulando=true;grTicks=0;grQuietTicks=0;grLayoutEstado="movendo";grPedirDesenho()}
 function grDentro(x,y,pad,b){return x+pad>=b.x0&&x-pad<=b.x1&&y+pad>=b.y0&&y-pad<=b.y1}
 function grMedirRotulo(ctx,texto,fonte){const chave=fonte+"|"+texto;if(!grRotulosMedidas.has(chave)){ctx.font=fonte;grRotulosMedidas.set(chave,ctx.measureText(texto).width)}return grRotulosMedidas.get(chave)}
 
@@ -288,6 +287,7 @@ async function carregarGrafo(){
 }
 
 function grMontarGrafo(){
+  if(grSimulando){grAjustarAoEstabilizar=false;grConcluirLayout("parado")}
   grGuardarVista();grResizeCanvas();
   const chaves=grChavesVista(),vista=grVistas.get(chaves.vista),pos=grPosicoes.get(chaves.dominio)||new Map();
   grVistaChave=chaves.vista;grDominioChave=chaves.dominio;
@@ -313,14 +313,35 @@ function grMontarGrafo(){
   grVisCache=null;grInvalidarEspaco();grHoveredNode=null;grDraggingNode=null;
   grSelectedNode=vista?.selecao?grNodeMap.get(vista.selecao)||null:null;
   if(typeof grSelectedEdge!=="undefined")grSelectedEdge=vista?.aresta?grEdges.find(e=>grChaveAresta(e)===vista.aresta)||null:null;
-  if(vista){grZoom=vista.zoom;grPanX=vista.panX;grPanY=vista.panY}else grResetView();
   const mudou=!vista||vista.topologia!==topologia;
-  grSimulando=mudou||vista?.simulando===true;
-  grTicks=mudou?0:vista.ticks;grQuietTicks=mudou?0:vista.quietTicks;
-  grLayoutEstado=grSimulando?"movendo":vista?.estado||"parado";grEnergy=grSimulando?1:0;
+  if(vista){grZoom=vista.zoom;grPanX=vista.panX;grPanY=vista.panY}
   grAjustarAoEstabilizar=!vista;
+  if(mudou)grAssentarLayout(grNodes.filter(n=>pos.has(n.id)));
+  else{grSimulando=false;grEnergy=0;grAjustarAoEstabilizar=false;grTicks=vista.ticks;grQuietTicks=vista.quietTicks;grLayoutEstado=vista.estado||"parado"}
   grVistas.set(grVistaChave,{...vista,topologia,selecao:vista?.selecao||null,aresta:vista?.aresta||null});
   grDrawDirty=true;grStartLoop();
+}
+
+// GF10: o layout é calculado uma vez e exibido parado. Nós que já tinham posição ficam onde estavam;
+// só os novos são acomodados. Grafo grande é calculado em fatias por quadro, sem desenhar o meio do caminho.
+const GR_FATIA_MS=12;
+let grSoltos=[];
+function grAssentarLayout(presos){
+  grSoltos=presos.filter(n=>!n.fixo);for(const n of grSoltos)n.fixo=true;
+  grTicks=0;grQuietTicks=0;grSimulando=true;grEnergy=0;grLayoutEstado="organizando";
+  grAvancarLayout();
+}
+function grAvancarLayout(){
+  const agora=()=>typeof performance!=="undefined"?performance.now():0,fim=agora()+GR_FATIA_MS;
+  do{const move=grTickPhysics();grTicks++;grQuietTicks=move<.04&&grMovimentoMax<.12&&!grDraggingNode?grQuietTicks+1:0}
+  while(grQuietTicks<GR_QUIET_TICKS&&grTicks<GR_MAX_TICKS&&agora()<fim);
+  if(grQuietTicks>=GR_QUIET_TICKS||grTicks>=GR_MAX_TICKS)grConcluirLayout(grQuietTicks>=GR_QUIET_TICKS?"estavel":"limite");
+}
+function grConcluirLayout(estado){
+  for(const n of grSoltos)n.fixo=false;grSoltos=[];for(const n of grNodes){n.vx=0;n.vy=0}
+  grSimulando=false;grEnergy=0;grLayoutEstado=estado;grInvalidarEspaco();if(grVisCache)grVisCache.estado=null;
+  if(grAjustarAoEstabilizar){grAjustarAoEstabilizar=false;grResetView()}
+  grDrawDirty=true;
 }
 
 function grTickPhysics(){
@@ -356,6 +377,10 @@ function grTickPhysics(){
 function grDesenhar(opcoes){
   const cv=$("#cv-grafo");if(!cv)return;if(!grSize)grResizeCanvas();
   const ctx=cv.getContext("2d"),{width:w,height:h,dpr}=grSize;
+  if(grSimulando){
+    ctx.save();ctx.scale(dpr,dpr);ctx.fillStyle="#080e1a";ctx.fillRect(0,0,w,h);ctx.restore();grDrawDirty=false;
+    const status=$("#gr-status");if(status)status.textContent="Organizando o grafo…";return;
+  }
   const vis=grVisiveis(),projecao=grProjetar(),b={x0:-grPanX/grZoom,y0:-grPanY/grZoom,x1:(w-grPanX)/grZoom,y1:(h-grPanY)/grZoom};
   ctx.save();ctx.scale(dpr,dpr);ctx.fillStyle="#080e1a";ctx.fillRect(0,0,w,h);
   ctx.save();ctx.translate(grPanX,grPanY);ctx.scale(grZoom,grZoom);
@@ -407,14 +432,7 @@ function grStartLoop(){
   if(grAnimId!==null||(!grSimulando&&!grDrawDirty))return;
   function step(){
     grAnimId=null;if(!grEstaVisivel())return;
-    if(grSimulando){
-      const move=grTickPhysics();grTicks++;grQuietTicks=move<.04&&grMovimentoMax<.12&&!grDraggingNode?grQuietTicks+1:0;
-      grDrawDirty=true;
-      if(grQuietTicks>=GR_QUIET_TICKS||grTicks>=GR_MAX_TICKS&&!grDraggingNode){
-        grSimulando=false;grEnergy=0;grLayoutEstado=grQuietTicks>=GR_QUIET_TICKS?"estavel":"limite";
-        if(grAjustarAoEstabilizar){grAjustarAoEstabilizar=false;grResetView()}
-      }
-    }
+    if(grSimulando)grAvancarLayout();
     if(grDrawDirty)grDesenhar();
     if(grSimulando||grDrawDirty)grAnimId=requestAnimationFrame(step);
   }
@@ -708,7 +726,7 @@ function grInitEvents(){
     grAjustarAoEstabilizar=false;grMouseDownPos={x:e.clientX,y:e.clientY};
     const pt=grScreenToWorld(e.clientX,e.clientY),n=grFindNodeAt(pt.x,pt.y);
     if(n?.grGrupo){grInspecionarGrupo(n);return}
-    if(n){grDraggingNode=n;grReaquecer()}else{grIsPanning=true;grStartPan={x:e.clientX-grPanX,y:e.clientY-grPanY}}
+    if(n)grDraggingNode=n;else{grIsPanning=true;grStartPan={x:e.clientX-grPanX,y:e.clientY-grPanY}}
   });
   window.addEventListener("mousemove",e=>{
     if(grDraggingNode){
@@ -732,7 +750,7 @@ function grInitEvents(){
     grDraggingNode=null;grIsPanning=false;grPedirDesenho();
   });
   cv.addEventListener("dblclick",()=>{grAjustarAoEstabilizar=false;grResetView()});
-  ["#gf-caso","#gf-pessoa","#gf-conta","#gf-doc","#gf-tel","#gf-outros"].forEach(id=>{const el=$(id);if(el)el.onchange=()=>{grVisCache=null;grInvalidarEspaco();grReaquecer()}});
+  ["#gf-caso","#gf-pessoa","#gf-conta","#gf-doc","#gf-tel","#gf-outros"].forEach(id=>{const el=$(id);if(el)el.onchange=()=>{grVisCache=null;grInvalidarEspaco();grPedirDesenho()}});
   if($("#b-gr-buscar"))$("#b-gr-buscar").onclick=()=>carregarGrafo();
   if($("#gr-busca"))$("#gr-busca").onkeydown=e=>{if(e.key==="Enter")carregarGrafo()};
   if($("#gr-caso"))$("#gr-caso").onchange=()=>carregarGrafo();

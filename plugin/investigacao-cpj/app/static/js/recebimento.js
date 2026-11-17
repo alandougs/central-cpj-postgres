@@ -74,7 +74,27 @@ async function atualizarFila(){
  const idioma=j.idioma_ocr?`OCR: ${j.idioma_ocr==="por"?"português":j.idioma_ocr}`:"";
  if($("#ocr-lang").textContent!==idioma)$("#ocr-lang").textContent=idioma;
 
- htmlAtualizado($("#fila"),CPJFilaProgresso.html(CPJFilaProgresso.calcular(j.trabalhos),{esc,badge,barraHTML}));aviso.textContent="";return j}
+ filaAtual=j.trabalhos;
+ htmlAtualizado($("#fila"),CPJFilaProgresso.html(CPJFilaProgresso.calcular(j.trabalhos),{esc,badge,barraHTML,podeAgir:pode("trabalho"),ocrEscolhido:t=>ocrEscolhido.get(chaveFila(t))}));aviso.textContent="";return j}
+
+// Ações da fila: cancelar, reprocessar (com o método de OCR escolhido) e remover da fila.
+let filaAtual=[];const ocrEscolhido=new Map(),chaveFila=t=>`${t.caso}/${t.doc}`;
+$("#fila").addEventListener("change",e=>{const s=e.target.closest("[data-fila-ocr]"),t=s&&filaAtual[+s.dataset.filaOcr];if(t)ocrEscolhido.set(chaveFila(t),s.value)});
+$("#fila").addEventListener("click",async e=>{
+ const b=e.target.closest("[data-fila-acao]"),t=b&&filaAtual[+b.dataset.filaIndice];if(!t)return;
+ const acao=b.dataset.filaAcao,base=`/api/casos/${enc(t.caso)}`,nome=t.arquivo||t.doc;
+ if(acao==="cancelar"&&!confirm(`Cancelar o processamento de ${nome}? As páginas já extraídas ficam salvas.`))return;
+ if(acao==="dispensar"&&!confirm(`Remover ${nome} da fila? O registro e os arquivos do caso são preservados.`))return;
+ b.disabled=true;
+ try{
+  if(acao==="cancelar"){await api(`${base}/processamento/cancelar`,{json:{doc:t.doc,enfileirado:t.enfileirado}});toast(`Processamento de ${nome} cancelado.`)}
+  else if(acao==="dispensar"){await api(`${base}/processamento/dispensar`,{json:{doc:t.doc,enfileirado:t.enfileirado,fim:t.fim}});toast(`${nome} removido da fila.`)}
+  else{const ocr=ocrEscolhido.get(chaveFila(t))||"";
+   const r=await processarPDFComAviso(cons=>api(`${base}/reprocessar/${enc(t.doc)}`,{json:{modo:t.modo||"inteligente",...(ocr?{ocr}:{}),...(cons?{consentimento_externo:cons}:{})}}));
+   toast(r.recusado?r.mensagem:`${nome} voltou para a fila${ocr?" com OCR alternativo (RapidOCR)":""}.`);ocrEscolhido.delete(chaveFila(t))}
+  await atualizarFila();
+ }catch(x){toast(x.message);b.disabled=false}
+});
 
 
 

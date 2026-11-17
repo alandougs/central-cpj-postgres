@@ -60,7 +60,7 @@ class TesteProcessarSemOCR(BaseOCR):
     def _processar(self, ocr, pendentes, limitacao_previa=None, plano=()):
         comum.gravar_proc(ID, {"trabalhos": [{"doc": "autos", "arquivo": "autos.pdf", "status": "na_fila", "limitacao": limitacao_previa}]})
 
-        def rodar_falso(cmd, env, log, progresso=None):
+        def rodar_falso(cmd, env, log, progresso=None, chave=None):
             script = os.path.basename(cmd[1])
             if script == "diagnostico.py":
                 return json.dumps({"paginas": 3})

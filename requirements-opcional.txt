@@ -1,2 +1,10 @@
 # Dependencias opcionais (nao exigidas pela Central). Postgres esta congelado e movido para legado/.
 psycopg[binary]>=3.2,<4
+
+# Busca hibrida local do RAG (embeddings ONNX, CPU). Sem ela, rag.py buscar
+# continua funcionando so com FTS5. Baixa o modelo uma vez para rag/modelos/.
+fastembed>=0.4,<1
+
+# Motor alternativo de OCR local (extrair.py --ocr rapidocr; modelos PaddleOCR em ONNX,
+# reconhecimento latino). Baixa os modelos uma vez para a pasta do pacote; nenhum conteudo de caso sai.
+rapidocr>=3.10,<4

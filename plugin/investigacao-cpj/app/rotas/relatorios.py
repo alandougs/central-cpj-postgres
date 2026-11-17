@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import unicodedata
@@ -359,6 +360,11 @@ def _conferir_minuta_gate(id_, minuta_nome):
 @bp_relatorios.post("/api/casos/<id_>/final")
 @requer("trabalho")
 def api_final(id_):
+    with C.trava(id_):
+        return _api_final(id_)
+
+
+def _api_final(id_):
     """Define um DOCX como relatório FINAL (gera também o .md para calibração/RAG) e dá baixa."""
     dados = request.get_json(silent=True) or {}
     nome = os.path.basename(dados.get("docx") or "")
@@ -367,7 +373,9 @@ def api_final(id_):
     if not nome.endswith(".docx") or not os.path.exists(p):
         return jsonify({"erro": "DOCX não encontrado."}), 400
 
-    forcar = bool(dados.get("forcar", False))
+    forcar = dados.get("forcar", False)
+    if type(forcar) is not bool:
+        return jsonify({"erro": "forcar deve ser verdadeiro ou falso."}), 400
     justificativa = str(dados.get("justificativa") or "").strip()
     if forcar and len(justificativa) < 15:
         return jsonify({"erro": "Justificativa obrigatória (mínimo 15 caracteres) para forçar entrega com ressalva."}), 400
@@ -392,6 +400,37 @@ def api_final(id_):
                     break
         else:
             minuta_nome = ultima_minuta(id_)
+
+    try:
+        from tarefas import _confinado
+        _confinado(WS, p)
+        with open(p, "rb") as f:
+            snapshot_docx = f.read()
+        sha_docx = hashlib.sha256(snapshot_docx).hexdigest()
+        caminho_minuta = os.path.join(d, minuta_nome) if minuta_nome else None
+        sha_minuta_inicial = ""
+        if caminho_minuta:
+            _confinado(WS, caminho_minuta)
+            with open(caminho_minuta, "rb") as f:
+                sha_minuta_inicial = hashlib.sha256(f.read()).hexdigest()
+        vinculos = C.carregar(id_).get("vinculos_docx", [])
+        from vinculos_docx import verificar
+        vinculado = isinstance(vinculos, list) and any(isinstance(v, dict) and v.get("minuta") == minuta_nome
+            and v.get("docx") == nome and v.get("sha256_minuta") == sha_minuta_inicial
+            and v.get("sha256_docx") == sha_docx and verificar(WS, v, id_) for v in vinculos)
+    except (OSError, ValueError):
+        return jsonify({"erro": "Não foi possível identificar os arquivos do relatório."}), 400
+
+    def bloquear_artefato(codigo, detalhe):
+        achado = {"nivel": "BLOQUEIA", "codigo": codigo, "linha": 1, "dado": "", "detalhe": detalhe}
+        return jsonify(ok=False, bloqueado=True, bloqueios=1, achados=[achado], conferencia=[achado],
+                       mensagem=detalhe, artefato={"docx": nome, "sha256_docx": sha_docx,
+                                                  "exige_aceite_docx": codigo == "DOCX_SEM_VINCULO"}), 409
+
+    # Um aceite genérico da minuta não comprova a revisão dos bytes editados no Word.
+    aceite_docx = forcar and dados.get("confirmar_docx_sha256") == sha_docx
+    if not vinculado and not aceite_docx:
+        return bloquear_artefato("DOCX_SEM_VINCULO", "O DOCX não corresponde à minuta gerada ou não possui vínculo verificável. Gere o DOCX novamente ou confira este arquivo e confirme sua entrega com ressalva específica.")
 
     if not minuta_nome:
         if not forcar:
@@ -426,8 +465,31 @@ def api_final(id_):
             }), 409
 
     final = os.path.join(d, f"RELATORIO-{id_}-FINAL.docx")
-    if os.path.abspath(p) != os.path.abspath(final):
-        shutil.copyfile(p, final)
+    temporario = None
+    try:
+        # A trava protege escritores CPJ; os hashes detectam edições externas do Word.
+        with open(p, "rb") as f:
+            if hashlib.sha256(f.read()).hexdigest() != sha_docx:
+                raise ValueError("DOCX alterado.")
+        if caminho_minuta:
+            with open(caminho_minuta, "rb") as f:
+                if hashlib.sha256(f.read()).hexdigest() != sha_minuta_inicial or sha_minuta != sha_minuta_inicial:
+                    raise ValueError("Minuta alterada.")
+        _confinado(WS, final)
+        with tempfile.NamedTemporaryFile(mode="wb", dir=d, prefix=".final-", suffix=".tmp", delete=False) as f:
+            temporario = f.name
+            f.write(snapshot_docx)
+            f.flush()
+            os.fsync(f.fileno())
+        # Publica os bytes já identificados, sem reler o DOCX mutável para copiar.
+        os.replace(temporario, final)
+        temporario = None
+    except (OSError, ValueError):
+        return bloquear_artefato("VERSAO_ALTERADA", "Minuta ou DOCX mudou durante a conferência; confira novamente.")
+    finally:
+        if temporario is not None:
+            try: os.unlink(temporario)
+            except OSError: pass
     try:
         texto = RF.extrair_texto(final)
         c = C.carregar(id_)
@@ -438,11 +500,15 @@ def api_final(id_):
     except Exception:
         pass
     c = C.status(id_, "entregue", origem="central", arquivo=os.path.basename(final))
+    def _identificar_baixa(caso_dict):
+        caso_dict["baixa"].update(sha256_docx=sha_docx, sha256_minuta=sha_minuta_inicial,
+                                  docx_vinculado=vinculado)
+        if forcar and justificativa:
+            caso_dict["baixa"]["ressalva"] = justificativa
+            if not vinculado:
+                caso_dict["baixa"]["aceite_docx_sha256"] = sha_docx
+    c = C.atualizar(id_, _identificar_baixa)
     if forcar and justificativa:
-        def _set_ressalva(caso_dict):
-            if "baixa" in caso_dict:
-                caso_dict["baixa"]["ressalva"] = justificativa
-        c = C.atualizar(id_, _set_ressalva)
         auditar("relatorio_final_ressalva", f"{id_}/{nome}: {justificativa}" + (f" [minuta sha256 {sha_minuta[:16]}]" if sha_minuta else ""))
     else:
         auditar("relatorio_final", f"{id_}/{nome}" + (f" [minuta sha256 {sha_minuta[:16]}]" if sha_minuta else ""))

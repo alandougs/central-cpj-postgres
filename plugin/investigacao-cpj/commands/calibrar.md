@@ -3,10 +3,12 @@ description: Calibra o sistema comparando a minuta da IA com a versão final do 
 argument-hint: <ID do caso> | geral
 ---
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 Calibre a partir de: $ARGUMENTS
 
 **Caso específico:**
-1. Compare `03-relatorios\minuta-vNN.md` (última da IA) com `RELATORIO-<ID>-FINAL.md` (versão do investigador) e com `revisao-vNN.md`.
+1. Compare `03-relatorios\minuta-vNN.md` (última da IA) com o **PDF do relatório entregue** (o gabarito: a versão do investigador) e com `revisao-vNN.md`; se não houver PDF, use `RELATORIO-<ID>-FINAL.md`. Rode `python plugin\investigacao-cpj\skills\relatorio-ip-fraude\scripts\medir_entrega.py <ID> --gravar` (grava `03-relatorios\medicao-entrega.json`, só números) e registre o percentual mantido (primeira e última minuta) na coluna de diferenças de `calibracao\historico-calibracao.md`.
 2. Classifique cada diferença: estilo/redação, estrutura, conteúdo acrescentado pelo investigador, conteúdo removido, erro factual da IA, excesso de cautela, termo preferido.
 3. Converta em **lições genéricas e acionáveis**, sem nomes, números, contas ou fatos do caso (ex.: "Na Conclusão, não usar 'restou comprovado'; usar 'foram reunidos elementos indicativos'").
 4. Mostre as lições propostas e **peça aprovação**. Aprovadas → acrescente em `calibracao\licoes-aprendidas.md` (seção adequada, com data e ID do caso de origem) e registre em `calibracao\historico-calibracao.md` (data, caso, nº de diferenças por categoria, lições aprovadas/rejeitadas).

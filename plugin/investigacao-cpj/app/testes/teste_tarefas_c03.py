@@ -42,7 +42,7 @@ class TestTarefasC03(unittest.TestCase):
 
         tid = self.tarefas.nova("importar", "Teste", "user")
         with self.assertRaisesRegex(ValueError, "Pacote com caminho não permitido|Caminho inseguro"):
-            self.tarefas.importar(tid, str(zip_path))
+            self.tarefas.importar(tid, str(zip_path), permitir_legado=True)
 
     def test_importar_cancelamento(self):
         # Cria pacote grande ficticio
@@ -57,7 +57,7 @@ class TestTarefasC03(unittest.TestCase):
 
         tid = self.tarefas.nova("importar", "Teste", "user")
         self.tarefas.cancelar(tid)
-        self.assertIsNone(self.tarefas.importar(tid, str(zip_path)))
+        self.assertIsNone(self.tarefas.importar(tid, str(zip_path), permitir_legado=True))
         self.assertEqual(self.tarefas.obter(tid)["status"], "cancelada")
         self.assertFalse(zip_path.exists())
 

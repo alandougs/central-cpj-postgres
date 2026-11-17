@@ -4,6 +4,7 @@
  const numero=v=>Number.isFinite(Number(v))&&v!==null&&v!==""?Number(v):null;
  const segundos=(a,b)=>{const x=Date.parse(a),y=typeof b==="number"?b:Date.parse(b);return Number.isFinite(x)&&Number.isFinite(y)&&y>=x?(y-x)/1000:null};
  const extensao=t=>String(t.arquivo||"").toLowerCase().match(/\.[a-z0-9]+$/)?.[0]||"";
+ const pendenciaLocal=t=>t.status==="concluido"&&/transcrição visual pendente|OCR indisponível/i.test(String(t.limitacao||""));
  const mediana=a=>{a=[...a].sort((x,y)=>x-y);return a.length%2?a[(a.length-1)/2]:(a[a.length/2-1]+a[a.length/2])/2};
  const faixa=n=>n>0&&Number.isFinite(n)?{min:Math.max(1,n*.5),max:Math.max(30,n*2)}:null;
  const somar=(a,b)=>a&&b?{min:a.min+b.min,max:a.max+b.max}:null;
@@ -29,11 +30,11 @@
   function calcular(trabalhos,agora=Date.now()){
    const ts=Array.isArray(trabalhos)?trabalhos:[],chaves=new Set();
    const historico=ts.filter(t=>t.status==="concluido"&&segundos(t.inicio,t.fim)>0);
-   let ativos=0,aguardando=0,erros=0,semEstimativa=0,acumulado={min:0,max:0};
+   let ativos=0,aguardando=0,erros=0,cancelados=0,semEstimativa=0,acumulado={min:0,max:0};
    // O worker de extração é sequencial; mantém a ordem devolvida pela API.
    const itens=ts.map(t=>{
     const rodando=t.status==="processando",esperando=t.status==="na_fila",pendente=rodando||esperando;
-    if(rodando)ativos++;if(esperando)aguardando++;if(t.status==="erro")erros++;
+    if(rodando)ativos++;if(esperando)aguardando++;if(t.status==="erro")erros++;if(t.status==="cancelado")cancelados++;
     const chave=JSON.stringify([t.caso,t.doc,t.arquivo,t.inicio]),sinal=JSON.stringify([t.status,t.etapa,t.progresso,t.pagina_atual]);chaves.add(chave);
     const anterior=observados.get(chave),mudanca=anterior?.sinal===sinal?anterior.quando:agora;
     observados.set(chave,{sinal,quando:mudanca});
@@ -62,7 +63,7 @@
      posicao:esperando?aguardando:null,semAvanco:rodando?Math.max(0,(agora-mudanca)/1000):0};
    });
    for(const chave of observados.keys())if(!chaves.has(chave))observados.delete(chave);
-   return {itens,ativos,aguardando,erros,semEstimativa,total:ativos+aguardando?acumulado:null,agora};
+   return {itens,ativos,aguardando,erros,cancelados,semEstimativa,total:ativos+aguardando?acumulado:null,agora};
   }
   return {calcular,html};
  }
@@ -76,16 +77,28 @@
   const h=n=>new Date(agora+n*1000).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
   const a=h(f.min),b=h(f.max);return a===b?a:`${a}–${b}`;
  }
+ // Ações conforme a situação: ativo cancela; falha/cancelamento encerrado reprocessa ou sai da fila (registro preservado).
+ const ACOES={processando:[["cancelar","Cancelar processamento"]],na_fila:[["cancelar","Cancelar processamento"]],
+  erro:[["reprocessar","Reprocessar"],["dispensar","Remover da fila"]],cancelado:[["reprocessar","Reprocessar"],["dispensar","Remover da fila"]]};
+ const MOTORES=[["","OCR padrão (Tesseract)"],["rapidocr","OCR alternativo (RapidOCR)"]];
+ function acoesHTML(t,n,{esc,podeAgir,ocrEscolhido}){
+  const lista=podeAgir?ACOES[t.status]||[]:[];if(!lista.length)return "";
+  const nome=esc(t.arquivo||t.doc||""),escolhido=ocrEscolhido?ocrEscolhido(t)||"":"";
+  return `<div class="l1" style="justify-content:flex-start;gap:8px;margin-top:8px;flex-wrap:wrap">${lista.map(([a,rotulo])=>
+   (a==="reprocessar"&&extensao(t)===".pdf"?`<select class="sm" data-fila-ocr="${n}" aria-label="Método de OCR ao reprocessar ${nome}">${MOTORES.map(([v,r])=>`<option value="${v}"${v===escolhido?" selected":""}>${r}</option>`).join("")}</select>`:"")+
+   `<button type="button" class="btn sm" data-fila-acao="${a}" data-fila-indice="${n}" aria-label="${rotulo}: ${nome}">${rotulo}</button>`).join("")}</div>`;
+ }
  function decorridoTexto(n){return n<60?`${Math.floor(n)} s`:tempo(Math.floor(n/60)*60)}
- function html(v,{esc,badge,barraHTML}){
+ function html(v,opcoes){
+  const {esc,badge,barraHTML}=opcoes;
   if(!v.itens.length)return '<div class="vazio">Nada na fila</div>';
   const total=v.total?`Restante da fila: aproximadamente ${intervalo(v.total)} · término entre ${horario(v.total,v.agora)}`:
    v.ativos+v.aguardando?`Previsão total em cálculo · ${v.semEstimativa} arquivo(s) ainda sem estimativa confiável`:
-   v.erros?"Fila sem processamento ativo; confira os arquivos com erro.":v.itens.every(i=>i.trabalho.status==="concluido")?"Fila concluída":"Nenhum arquivo em processamento.";
-  const resumo=`<div data-fila-resumo style="padding:12px;border:1px solid var(--line);border-radius:10px;margin:10px 0"><b>${v.ativos} em processamento · ${v.aguardando} aguardando${v.erros?` · ${v.erros} com erro`:""}</b><div style="margin-top:6px" data-fila-total>${esc(total)}</div><div class="muted" style="margin-top:6px">Previsões aproximadas, atualizadas conforme o histórico e o ritmo observado. OCR e tabelas podem variar de duração.</div></div>`;
-  return resumo+v.itens.map(i=>{
-   const t=i.trabalho,run=t.status==="processando",fila=t.status==="na_fila",p=Math.max(0,Math.min(100,numero(t.progresso)||0));
-   const atividade=run?`${i.etapaNumero?`Etapa ${i.etapaNumero} de ${i.etapasTotal} · `:""}${i.atividade}`:fila?`Aguardando sua vez · posição ${i.posicao}`:t.status==="erro"?`Processamento interrompido · ${t.etapa||"etapa não informada"}`:t.status==="concluido"?"Processamento concluído":String(t.etapa||t.status||"");
+   v.erros?"Fila sem processamento ativo; confira os arquivos com erro.":v.itens.every(i=>i.trabalho.status==="concluido")?v.itens.some(i=>pendenciaLocal(i.trabalho))?"Processamento local encerrado; há pendências.":"Fila concluída":"Nenhum arquivo em processamento.";
+  const resumo=`<div data-fila-resumo style="padding:12px;border:1px solid var(--line);border-radius:10px;margin:10px 0"><b>${v.ativos} em processamento · ${v.aguardando} aguardando${v.erros?` · ${v.erros} com erro`:""}${v.cancelados?` · ${v.cancelados} cancelado${v.cancelados>1?"s":""}`:""}</b><div style="margin-top:6px" data-fila-total>${esc(total)}</div><div class="muted" style="margin-top:6px">Previsões aproximadas, atualizadas conforme o histórico e o ritmo observado. OCR e tabelas podem variar de duração.</div></div>`;
+  return resumo+v.itens.map((i,n)=>{
+   const t=i.trabalho,run=t.status==="processando",fila=t.status==="na_fila",pendente=pendenciaLocal(t),p=Math.max(0,Math.min(100,numero(t.progresso)||0));
+   const atividade=run?`${i.etapaNumero?`Etapa ${i.etapaNumero} de ${i.etapasTotal} · `:""}${i.atividade}`:fila?`Aguardando sua vez · posição ${i.posicao}`:t.status==="erro"?`Processamento interrompido · ${t.etapa||"etapa não informada"}`:pendente?"Processamento local concluído · transcrição pendente":t.status==="concluido"?"Processamento concluído":t.status==="cancelado"?"Processamento cancelado":String(t.etapa||t.status||"");
    let detalhe=run?i.descricao:fila?"Este arquivo começará quando os anteriores terminarem.":t.limitacao||"";
    if(i.pagina&&run)detalhe+=` Página ${i.pagina.atual} de ${i.pagina.total}.`;
    if(t.status==="concluido"&&numero(t.paginas)>0)detalhe+=` ${Number(t.paginas)} páginas processadas.`;
@@ -93,7 +106,7 @@
     fila?(i.restante?`Duração aproximada: ${intervalo(i.restante)}${i.iniciaEm?` · início em ${intervalo(i.iniciaEm)} · término previsto: ${horario(i.terminaEm,v.agora)}`:" · aguardando a previsão dos arquivos anteriores para calcular início e término."}`:"Previsão em cálculo; aguardando tempo medido para este tipo de arquivo."):"";
    const decorrido=i.decorrido===null?"":`${run?"Em processamento há":"Duração"}: ${decorridoTexto(i.decorrido)}`;
    const sinal=run&&i.semAvanco>=60?`<div class="muted">Última mudança de progresso observada há ${tempo(i.semAvanco)}; aguardando novo avanço desta etapa.</div>`:"";
-   return `<div class="job" data-fila-item><div class="l1"><div><b>${esc(t.caso||"")}</b> · ${esc(t.arquivo||"")}</div>${badge(t.status)}</div><div style="margin-top:6px" data-fila-atividade><b>${esc(atividade)}</b></div><div class="muted">${esc(detalhe)}</div>${run||fila?barraHTML(p):""}<div class="muted">${esc(decorrido)}${run?` · Progresso: ${p}%`:""}</div>${estimativa?`<div style="margin-top:4px" data-fila-estimativa>${esc(estimativa)}</div>`:""}${i.base&&i.restante?`<div class="muted">Base da previsão: ${esc(i.base)}.</div>`:""}${sinal}${t.erro?`<div style="color:var(--crit)">${esc(t.erro)}</div>`:""}</div>`;
+   return `<div class="job" data-fila-item><div class="l1"><div><b>${esc(t.caso||"")}</b> · ${esc(t.arquivo||"")}</div>${pendente?'<span class="badge b-wait"><i aria-hidden="true"></i>pendências</span>':badge(t.status)}</div><div style="margin-top:6px" data-fila-atividade><b>${esc(atividade)}</b></div><div class="muted">${esc(detalhe)}</div>${run||fila?barraHTML(p):""}<div class="muted">${esc(decorrido)}${run?` · Progresso: ${p}%`:""}</div>${estimativa?`<div style="margin-top:4px" data-fila-estimativa>${esc(estimativa)}</div>`:""}${i.base&&i.restante?`<div class="muted">Base da previsão: ${esc(i.base)}.</div>`:""}${sinal}${t.erro?`<div style="color:var(--crit)">${esc(t.erro)}</div>`:""}${acoesHTML(t,n,opcoes)}</div>`;
   }).join("");
  }
  const api={criar,...criar()};root.CPJFilaProgresso=api;

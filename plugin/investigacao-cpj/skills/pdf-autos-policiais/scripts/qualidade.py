@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Avaliação de qualidade local por página (PX03).
-Grava qualidade.json na pasta de extração.
+Atualiza qualidade no checkpoint essencial; mantém leitura do legado.
 """
 import argparse
 import json
 import os
 import re
+import estado_extracao as estado
 
 # Limiares nomeados
 MIN_CARACTERES_UTEIS = 50
@@ -114,28 +115,15 @@ def main():
     ap.add_argument("--pdf")
     a = ap.parse_args()
     
-    chk_dir = os.path.join(a.pasta, ".checkpoint")
-    rel_file = os.path.join(a.pasta, "relatorio_extracao.json")
-    
-    pendentes = []
-    conferir = []
-    if os.path.exists(rel_file):
-        with open(rel_file, "r", encoding="utf-8") as f:
-            rel = json.load(f)
-            pendentes = rel.get("pendentes_transcricao_visual", [])
-            conferir = rel.get("conferir_visualmente", [])
-            
-    paginas = []
-    if os.path.exists(chk_dir):
-        for f in os.listdir(chk_dir):
-            if f.endswith(".json") and f.startswith("p"):
-                try:
-                    num = int(f[1:5])
-                    paginas.append((num, os.path.join(chk_dir, f)))
-                except:
-                    pass
-    paginas.sort()
-    
+    rel = estado.ler(a.pasta, "relatorio_extracao.json")
+    pendentes = rel.get("pendentes_transcricao_visual", [])
+    conferir = rel.get("conferir_visualmente", [])
+    numeros = range(1, rel.get("paginas", 0) + 1)
+    if not estado.arquivo(a.pasta).exists():
+        from pathlib import Path
+        numeros = sorted(int(p.stem[1:]) for p in (Path(a.pasta) / ".checkpoint").glob("p*.json") if p.stem[1:].isdigit())
+    paginas = [(n, estado.ler(a.pasta, f".checkpoint/p{n:04d}.json")) for n in numeros]
+
     pdf_doc = None
     pdfplumb = None
     if a.pdf and os.path.exists(a.pdf):
@@ -152,9 +140,7 @@ def main():
             
     resultado = {}
     
-    for num, p_file in paginas:
-        with open(p_file, "r", encoding="utf-8") as f:
-            chk = json.load(f)
+    for num, chk in paginas:
             
         reg = chk.get("reg", {})
         texto = reg.get("texto", "")
@@ -170,7 +156,7 @@ def main():
             w, h = pag.get_size()
             maior = 0.0
             for obj in pag.get_objects(filter=[pdfium.raw.FPDF_PAGEOBJ_IMAGE], max_depth=2):
-                l, b, r, t = obj.get_pos()
+                l, b, r, t = (getattr(obj, "get_bounds", None) or obj.get_pos)()
                 maior = max(maior, abs((r - l) * (t - b)) / (max(1, w * h)))
             if maior >= MIN_FRACAO_IMAGEM:
                 tem_imagem = True
@@ -203,9 +189,13 @@ def main():
     if pdfplumb:
         pdfplumb.close()
         
-    out_file = os.path.join(a.pasta, "qualidade.json")
-    with open(out_file, "w", encoding="utf-8") as f:
-        json.dump(resultado, f, ensure_ascii=False, indent=2)
+    if pdf_doc:
+        pdf_doc.close()
+    if estado.arquivo(a.pasta).exists():
+        estado.atualizar(a.pasta, "qualidade", resultado)
+    else:
+        with open(os.path.join(a.pasta, "qualidade.json"), "w", encoding="utf-8") as f:
+            json.dump(resultado, f, ensure_ascii=False, indent=2)
 
 if __name__ == "__main__":
     main()

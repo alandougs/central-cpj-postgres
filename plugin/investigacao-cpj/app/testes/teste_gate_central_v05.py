@@ -22,6 +22,8 @@ class GateCentralV05(unittest.TestCase):
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory(prefix="cpj-gate-v05-", ignore_cleanup_errors=True)
         cls.ws = Path(cls.temp.name)
+        from fixtures_docx import criar_modelo
+        criar_modelo(cls.ws / "modelos")
         cls.env = os.environ.get("CPJ_WORKSPACE")
         os.environ["CPJ_WORKSPACE"] = str(cls.ws)
         modelo = cls.ws / "casos" / "_MODELO-CASO"
@@ -51,7 +53,7 @@ class GateCentralV05(unittest.TestCase):
             os.environ["CPJ_WORKSPACE"] = cls.env
 
     def novo_caso(self, minuta):
-        import docx
+        from tarefas import gerar_docx
         self.__class__.n = getattr(self.__class__, "n", 0) + 1
         id_ = self.s.C.novo(f"{910 + self.n}/2099", extras={"criado_por": "inv_v05"})["id"]
         p = Path(self.s.C.caminho(id_))
@@ -60,9 +62,7 @@ class GateCentralV05(unittest.TestCase):
         (ext / "transcricao.md").write_text(TRANSCRICAO, encoding="utf-8")
         (ext / "relatorio_extracao.json").write_text(json.dumps(RELATORIO_EXTRACAO), encoding="utf-8")
         (p / "03-relatorios" / "minuta-v01.md").write_text(minuta, encoding="utf-8")
-        d = docx.Document()
-        d.add_paragraph("Relatório fictício para o teste do gate de entrega.")
-        d.save(str(p / "03-relatorios" / f"RELATORIO-{id_}-v01.docx"))
+        gerar_docx(str(self.ws), id_, "minuta-v01.md")
         return id_, p
 
     def final(self, id_, **corpo):

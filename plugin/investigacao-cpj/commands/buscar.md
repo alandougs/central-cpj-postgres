@@ -3,6 +3,8 @@ description: Pesquisa na base RAG local (transcrições, análises, relatórios,
 argument-hint: <texto ou valor> [--caso ID] [--tipo relatorio|transcricao|analise]
 ---
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 Pesquise na base: $ARGUMENTS
 
 Scripts: `plugin\investigacao-cpj\skills\base-cpj\scripts\`.

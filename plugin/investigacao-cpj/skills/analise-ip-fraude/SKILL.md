@@ -5,6 +5,8 @@ description: Analisa inquérito policial de fraude/estelionato a partir da trans
 
 # Análise de IP de fraude e estelionato
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 Transforma a transcrição dos autos em material analítico rastreável que sustenta o relatório de investigação. **Nada entra na análise sem localizador** (`pág. N do PDF`, e `fls. X` quando legível).
 
 Base de comportamento: skill `analise-documental` (inventário → achados com localizador → contradições → pendências) e o system prompt do agente `analista-documental`. Esta skill especializa esse método para fraude/estelionato.

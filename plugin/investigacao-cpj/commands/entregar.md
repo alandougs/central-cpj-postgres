@@ -3,6 +3,8 @@ description: Registra a entrega do relatório (versão final), atualiza produç�
 argument-hint: <ID do caso> [data AAAA-MM-DD] [arquivo DOCX final]
 ---
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 Registre a entrega do caso: $ARGUMENTS
 
 A baixa também acontece sem este comando: arquivo com `FINAL` no nome em `03-relatorios\` (automática no `indexar.py`) ou botão *Dar baixa* na Central. Se `caso.json` já tiver `baixa`, não duplique: apenas confira e siga para o passo 4.

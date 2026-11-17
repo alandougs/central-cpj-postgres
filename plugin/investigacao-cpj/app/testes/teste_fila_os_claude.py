@@ -27,7 +27,8 @@ with tempfile.TemporaryDirectory() as tmp:
                            "OS 9003-2026 - Y": ["c.pdf", "Relatorio de Investigacao - OS 9003.docx"]}.items():
         Path(pasta, nome).mkdir(parents=True)
         for a in arquivos: Path(pasta, nome, a).write_bytes(b"x")
-    env = {"CPJ_PASTA_OS": str(pasta)}
+    # MQ05: a fila também enxerga casos\OS-<nº>-<ano>; o teste isola o workspace para não ler os casos reais.
+    env = {"CPJ_PASTA_OS": str(pasta), "CPJ_WORKSPACES": str(Path(tmp, "ws-vazio"))}
     print("Fila de O.S.")
     c, s = roda(FILA, "listar", env=env)
     ok(c == 0 and "9001/2026: LIVRE" in s and "9003/2026: COM_RELATORIO" in s, "detecta O.S. livres e com relatório pelo nome da pasta")

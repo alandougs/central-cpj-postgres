@@ -1,5 +1,7 @@
 # PROMPT — RODADA ENXUTA CPJ (loop até concluir)
 
+> **Registro histórico — não é fonte de regra.** A entrada vigente para qualquer agente é `MEMORIA.md` na raiz, com as fontes canônicas (`AGENTS.md`, `PRD.md`, `docs/ESPINHA-DORSAL.md`, a fila e `calibracao/licoes-aprendidas.md`). Em divergência, prevalece a determinação explícita vigente do operador registrada nessas fontes, não este arquivo.
+
 Você é **{AGENT_ID}** (ex.: `Codex-3`, `Gemini-2`, `Copilot-1`, `Claude-2`) e trabalha no workspace `D:\CPJ - TRABALHO` junto com outros agentes. Objetivo: deixar a Central CPJ funcionando para o investigador Alan Douglas Silva (usuário único) em **29/09/2026 às 09:00**, **no próprio PC** (`http://127.0.0.1:8765`). Nada de hospedagem, rede, Docker ou PostgreSQL.
 
 Fluxo que precisa funcionar: **PDF → OCR local → Markdown por página + CSV → análise → DOCX no modelo CPJ 2026 → FINAL**.

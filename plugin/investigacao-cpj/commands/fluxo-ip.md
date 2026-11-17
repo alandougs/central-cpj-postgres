@@ -3,6 +3,8 @@ description: Executa o pipeline completo do IP - caso, processamento, análise, 
 argument-hint: <ID do caso> [caminho do PDF/MD] [observações]
 ---
 
+> **Antes de executar:** leia `MEMORIA.md` na raiz do workspace — entrada comum de todos os agentes — e as fontes vivas ali indicadas, em especial `AGENTS.md` (regras obrigatórias e sigilo) e `calibracao/licoes-aprendidas.md`. As regras vigentes prevalecem sobre este procedimento.
+
 Execute o pipeline completo para: $ARGUMENTS
 
 Sequência (pare e peça confirmação nos pontos ⏸):
@@ -10,8 +12,8 @@ Sequência (pare e peça confirmação nos pontos ⏸):
 1. `/novo-caso` (se o caso não existir) e cópia do arquivo para `00-originais`.
 2. `/processar-ip` → ⏸ mostre o diagnóstico e o custo de transcrição visual, se houver muitas páginas sem OCR.
 3. `/analisar-ip` → ⏸ mostre o resumo (modalidade, caminho do dinheiro, lacunas) e pergunte se há diligências próprias (consultas, oitivas) a incluir e os dados do cabeçalho (O.S., delegado).
-4. `/relatorio-ip` → entregue a minuta, a revisão e o DOCX.
-5. Copie o DOCX para a pasta da O.S. em `E:\ORDENS DE SERVIÇO CPJ` como `Relatorio de Investigacao - OS <nº>-<AAAA>.docx` e rode `fila-os.py concluir <nº> --agente <nome> --docx "<caminho>"` (se parar antes, `liberar ... --motivo`).
+4. `/relatorio-ip` → gate `conferir_minuta.py --modo entrega` (zero `BLOQUEIA`), revisão e DOCX.
+5. Rode `fila-os.py concluir <nº> --agente <nome> --docx "<caminho do DOCX em casos\<ID>\03-relatorios>"`. **Pasta única:** não copie o DOCX nem os autos para a pasta da O.S.; o relatório fica só em `03-relatorios` (se parar antes, `liberar ... --motivo`).
 6. Lembre: após revisar no Word e entregar, `/entregar <ID>` e `/calibrar <ID>`.
 
 > **Esteira Completa 1-Clique (Central CPJ):** Na ficha do caso na Central, o botão **⚡ Esteira Completa 1-Clique** (ou endpoint `/api/casos/<id>/esteira`) dispara automaticamente as etapas 2 a 5 sequenciadas em background (OCR $\rightarrow$ RAG $\rightarrow$ Analista Documental $\rightarrow$ Analista Financeiro $\rightarrow$ Redação DOCX $\rightarrow$ Revisor Gauntlet) com checkpoints de retomada e barra de progresso.

@@ -37,7 +37,8 @@ const statePath=path.join(ws,'estado.json');
      const j=await get('/api/casos/'+state.caso);
      const raw=JSON.stringify(j.processamento);
      assert.ok(!raw.includes('"status":"erro"'),raw);
-     if(j.arquivos.some(a=>a.caminho.endsWith('/entidades.csv'))&&raw.includes('"status":"concluido"')){done=true;break}
+     const trabalhos=j.processamento?.trabalhos||[];
+     if(trabalhos.length&&trabalhos.every(t=>t.status==='concluido')&&j.arquivos.some(a=>a.caminho.endsWith('/transcricao.md'))){done=true;break}
      await page.waitForTimeout(500);
    }
    assert.ok(done,'Extração real não terminou');
